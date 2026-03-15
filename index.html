@@ -1535,35 +1535,45 @@ async function refreshPeaModal() {
     return;
   }
 
-  st.textContent = 'Récupération des cours...';
+  const retryBtn = `<button onclick="refreshPeaModal()" style="background:var(--surface2);border:none;color:var(--text);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px;margin-left:8px">↻ Rafraîchir</button>`;
 
-  // Write GOOGLEFINANCE formulas if we have OAuth (first-time or refresh)
-  if (accessToken) await preFetchPeaPrices();
-
-  // Poll for evaluated values (GOOGLEFINANCE needs time to evaluate)
-  let prices = null;
-  const needed = Math.ceil(holdings.length * 0.7);
-  for (let attempt = 0; attempt < 5; attempt++) {
-    await new Promise(r => setTimeout(r, attempt === 0 ? 2000 : 3000));
-    const vals = await readPeaPricesFromSheet(holdings.length);
-    if (vals) {
-      prices = vals;
-      if (vals.filter(v => v !== null).length >= needed) break;
-    }
-    if (attempt < 4) st.textContent = `Chargement des cours... (${attempt + 2}/5)`;
-  }
-
-  if (!prices || prices.every(p => p === null)) {
-    const hint = accessToken ? 'Les formules sont en cours d\'évaluation.' : 'Connectez-vous à Google une fois pour activer les cours automatiques.';
-    st.innerHTML = `${hint} <button onclick="refreshPeaModal()" style="background:var(--accent);border:none;color:#fff;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px">Réessayer</button>`;
+  if (!accessToken) {
+    st.innerHTML = `Connectez-vous à Google (Config) pour activer les cours automatiques. <button onclick="refreshPeaModal()" style="background:var(--accent);border:none;color:#fff;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px">Réessayer</button>`;
     renderPeaTable(listEl, holdings, Array(holdings.length).fill(null));
     return;
   }
 
-  renderPeaTable(listEl, holdings, prices);
+  st.textContent = 'Envoi des formules Google Finance...';
+  await preFetchPeaPrices();
+
+  // Poll — show partial results as soon as any price arrives, up to ~30s
+  let prices = null;
+  let displayed = false;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const vals = await readPeaPricesFromSheet(holdings.length);
+    if (vals) {
+      prices = vals;
+      const found = vals.filter(v => v !== null).length;
+      if (found > 0) {
+        renderPeaTable(listEl, holdings, prices);
+        displayed = true;
+        if (found >= holdings.length) break;
+        st.textContent = `Cours reçus : ${found}/${holdings.length}...`;
+        continue;
+      }
+    }
+    st.textContent = `En attente de Google Finance... (${attempt + 1}/10)`;
+  }
+
+  if (!displayed) {
+    st.innerHTML = `Google Finance n'a pas répondu. Réessayez dans quelques secondes. <button onclick="refreshPeaModal()" style="background:var(--accent);border:none;color:#fff;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px">Réessayer</button>`;
+    renderPeaTable(listEl, holdings, Array(holdings.length).fill(null));
+    return;
+  }
+
   const anyMissing = prices.some(p => p === null);
-  const retryBtn = `<button onclick="refreshPeaModal()" style="background:var(--surface2);border:none;color:var(--text);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px;margin-left:8px">↻ Rafraîchir</button>`;
-  st.innerHTML = (anyMissing ? 'Certains cours manquants.' : `Mis à jour · ${new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`) + retryBtn;
+  st.innerHTML = (anyMissing ? `Certains cours manquants.` : `Mis à jour · ${new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`) + retryBtn;
 }
 
 function renderPeaTable(listEl, holdings, prices) {
