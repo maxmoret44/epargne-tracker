@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Épargne Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --accent: #3b82f6;
+      --accent2: #8b5cf6;
+      --green: #10b981;
+      --red: #ef4444;
+      --orange: #f59e0b;
+      --pink: #ec4899;
+      --cyan: #06b6d4;
+      --grey: #94a3b8;
+      --text: #f1f5f9;
+      --text2: #94a3b8;
+      --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* NAV */
+    .nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      display: flex;
+      border-top: 1px solid var(--surface2);
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .nav button {
+      flex: 1; background: none; border: none; color: var(--text2);
+      padding: 12px 0; font-size: 11px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      transition: color 0.2s;
+    }
+    .nav button.active { color: var(--accent); }
+    .nav button svg { width: 22px; height: 22px; }
+
+    /* PAGES */
+    .page { display: none; padding: 16px 16px 80px; max-width: 900px; margin: 0 auto; }
+    .page.active { display: block; }
+
+    /* HEADER */
+    .header {
+      text-align: center; padding: 20px 0 12px;
+    }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .header .total {
+      font-size: 36px; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin: 8px 0;
+    }
+    .header .sub { color: var(--text2); font-size: 13px; }
+    .header .gain { font-size: 14px; font-weight: 600; margin-top: 4px; }
+    .header .gain.pos { color: var(--green); }
+    .header .gain.neg { color: var(--red); }
+
+    /* CARDS */
+    .cards { display: grid; gap: 10px; margin: 16px 0; }
+    .split-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .card .label { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+    .card .value { font-size: 20px; font-weight: 700; }
+    .card .value.small { font-size: 16px; }
+
+    .account-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .account-card .left { display: flex; align-items: center; gap: 10px; }
+    .account-card .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .account-card .name { font-size: 13px; font-weight: 500; }
+    .account-card .amount { font-size: 15px; font-weight: 600; }
+
+    /* CHART */
+    .chart-container {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .chart-container h3 { font-size: 14px; color: var(--text2); margin-bottom: 12px; }
+    .chart-container canvas { width: 100% !important; }
+
+    /* FORM */
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text2);
+      margin-bottom: 6px; font-weight: 500;
+    }
+    .form-group label svg {
+      width: 16px; height: 16px; flex-shrink: 0;
+      opacity: 0.7;
+    }
+    .form-group input {
+      width: 100%; padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--surface2);
+      border-radius: var(--radius);
+      color: var(--text); font-size: 15px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus {
+      outline: none; border-color: var(--accent);
+    }
+
+    .cristina-toggle {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border-radius: var(--radius);
+      padding: 12px 14px; margin-bottom: 16px; cursor: pointer;
+      border: 1px solid var(--surface2);
+    }
+    .cristina-toggle input[type="checkbox"] {
+      width: 18px; height: 18px; accent-color: var(--accent);
+    }
+    .cristina-toggle span { font-size: 13px; color: var(--text2); }
+    .cristina-toggle .val { color: var(--text); font-weight: 600; margin-left: auto; }
+
+    .btn {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; border-radius: var(--radius);
+      color: white; font-size: 15px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      transition: opacity 0.2s;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: var(--surface);
+      border: 1px solid var(--surface2);
+      margin-top: 10px;
+    }
+
+    /* STATUS */
+    .status {
+      text-align: center; padding: 10px;
+      border-radius: var(--radius); margin-top: 12px;
+      font-size: 13px; display: none;
+    }
+    .status.success { display: block; background: #064e3b; color: var(--green); }
+    .status.error { display: block; background: #7f1d1d; color: var(--red); }
+
+    /* HISTORY TABLE */
+    .history-table {
+      width: 100%; overflow-x: auto;
+      background: var(--surface);
+      border-radius: var(--radius);
+      margin-top: 16px;
+    }
+    .history-table table {
+      width: 100%; border-collapse: collapse;
+      font-size: 12px; white-space: nowrap;
+    }
+    .history-table th {
+      background: var(--surface2); padding: 10px 8px;
+      text-align: right; font-weight: 600; color: var(--text2);
+      position: sticky; top: 0;
+    }
+    .history-table th:first-child { text-align: left; }
+    .history-table td {
+      padding: 8px; text-align: right;
+      border-bottom: 1px solid var(--surface2);
+    }
+    .history-table td:first-child { text-align: left; color: var(--text2); }
+    .history-table td:last-child { color: var(--accent); font-weight: 600; }
+
+    /* SETTINGS */
+    .setting-item {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 14px 16px; margin-bottom: 10px;
+    }
+    .setting-item label { font-size: 13px; color: var(--text2); display: block; margin-bottom: 6px; }
+    .setting-item input {
+      width: 100%; padding: 10px 12px;
+      background: var(--bg); border: 1px solid var(--surface2);
+      border-radius: 8px; color: var(--text); font-size: 14px;
+      font-family: inherit;
+    }
+    .setting-item input:focus { outline: none; border-color: var(--accent); }
+
+    .sync-status {
+      text-align: center; padding: 12px;
+      color: var(--text2); font-size: 12px;
+    }
+
+    /* LOADING */
+    .loading {
+      display: flex; justify-content: center; align-items: center;
+      padding: 40px; color: var(--text2);
+    }
+    .spinner {
+      width: 24px; height: 24px;
+      border: 3px solid var(--surface2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* INJECTION TOGGLE */
+    .injection-section {
+      margin: 16px 0;
+    }
+    .injection-toggle {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border-radius: var(--radius);
+      padding: 12px 14px; cursor: pointer;
+      border: 1px solid var(--surface2);
+      margin-bottom: 12px;
+    }
+    .injection-toggle input[type="checkbox"] {
+      width: 18px; height: 18px; accent-color: var(--orange);
+    }
+    .injection-toggle span { font-size: 13px; color: var(--text2); }
+    .injection-fields {
+      display: none;
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px;
+      border: 1px solid var(--orange);
+      margin-bottom: 16px;
+    }
+    .injection-fields.visible { display: block; }
+    .injection-fields .form-group { margin-bottom: 10px; }
+    .injection-fields .form-group:last-child { margin-bottom: 0; }
+    .injection-fields .form-group label { font-size: 12px; }
+    .injection-fields .form-group input {
+      padding: 8px 12px; font-size: 13px;
+      background: var(--bg);
+    }
+
+    /* RESPONSIVE DESKTOP */
+    @media (min-width: 768px) {
+      .nav {
+        position: fixed; top: 0; bottom: auto; left: 0; right: 0;
+        border-top: none; border-bottom: 1px solid var(--surface2);
+        padding-bottom: 0;
+      }
+      .nav button { flex-direction: row; gap: 8px; font-size: 13px; padding: 14px 0; }
+      .page { padding: 80px 24px 24px; max-width: 960px; }
+      .cards { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+      .header .total { font-size: 48px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <button class="active" data-page="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Dashboard
+    </button>
+    <button data-page="add">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Ajouter
+    </button>
+    <button data-page="history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Historique
+    </button>
+    <button data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Config
+    </button>
+  </nav>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="page active">
+    <div class="header">
+      <h1>Total Epargne</h1>
+      <div class="total" id="totalEpargne">--</div>
+      <div class="sub">Derniere mise a jour : <span id="lastUpdate">--</span></div>
+    </div>
+
+    <div class="split-cards">
+      <div class="card">
+        <div class="label">Max</div>
+        <div class="value" id="totalMax">--</div>
+        <div class="gain pos" id="gainTotal" style="font-size:12px;margin-top:4px"></div>
+      </div>
+      <div class="card">
+        <div class="label">Cristina</div>
+        <div class="value" id="totalCristina">--</div>
+      </div>
+    </div>
+
+    <div class="cards" id="accountCards"></div>
+
+    <div class="chart-container">
+      <h3>Progression de l'epargne</h3>
+      <canvas id="chartArea" height="200"></canvas>
+    </div>
+
+    <div class="chart-container">
+      <h3>Repartition actuelle</h3>
+      <canvas id="chartDonut" height="200"></canvas>
+    </div>
+
+    <div class="loading" id="dashLoading">
+      <div class="spinner"></div> Chargement...
+    </div>
+  </div>
+
+  <!-- ADD FORM -->
+  <div id="add" class="page">
+    <div class="header">
+      <h1>Mise a jour de l'epargne</h1>
+    </div>
+
+    <div class="form-group">
+      <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Date</label>
+      <input type="date" id="fDate">
+    </div>
+
+    <div class="form-group">
+      <label><svg viewBox="0 0 24 24" fill="none" stroke="#c2185b" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>BoursoVie</label>
+      <input type="number" id="fBoursovie" step="0.01" placeholder="0.00">
+    </div>
+
+    <div class="form-group">
+      <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2"><path d="M12 1v4M12 19v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M1 12h4M19 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="4"/></svg>TR CTO (BTC)</label>
+      <input type="number" id="fCto" step="0.01" placeholder="0.00">
+    </div>
+
+    <div class="form-group">
+      <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>TR PEA</label>
+      <input type="number" id="fPea" step="0.01" placeholder="0.00">
+    </div>
+
+    <div class="form-group">
+      <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>CE Livret A (2,4%)</label>
+      <input type="number" id="fLivret" step="0.01" placeholder="0.00">
+    </div>
+
+    <div class="form-group">
+      <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--grey)" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>TR Cash (2,25%)</label>
+      <input type="number" id="fCash" step="0.01" placeholder="0.00">
+    </div>
+
+    <hr style="border-color: var(--surface2); margin: 20px 0;">
+
+    <div class="form-group">
+      <label><svg viewBox="0 0 24 24" fill="none" stroke="#f48fb1" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>Cristina (total)</label>
+      <input type="number" id="fCristina" step="0.01" placeholder="0.00">
+    </div>
+
+    <label class="cristina-toggle" id="cristinaToggle">
+      <input type="checkbox" id="cristinaSame">
+      <span>Reprendre la derniere valeur Cristina</span>
+      <span class="val" id="cristinaLastVal">--</span>
+    </label>
+
+    <hr style="border-color: var(--surface2); margin: 20px 0;">
+
+    <div class="injection-section">
+      <label class="injection-toggle">
+        <input type="checkbox" id="injectionToggle">
+        <span>J'ai injecte de l'argent</span>
+      </label>
+      <div class="injection-fields" id="injectionFields">
+        <div class="form-group">
+          <label><svg viewBox="0 0 24 24" fill="none" stroke="#c2185b" stroke-width="2" style="width:14px;height:14px"><path d="M12 2L2 7l10 5 10-5-10-5z"/></svg>Injection BoursoVie</label>
+          <input type="number" id="injBoursovie" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" style="width:14px;height:14px"><circle cx="12" cy="12" r="4"/></svg>Injection TR CTO</label>
+          <input type="number" id="injCto" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="width:14px;height:14px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Injection TR PEA</label>
+          <input type="number" id="injPea" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" style="width:14px;height:14px"><rect x="2" y="5" width="20" height="14" rx="2"/></svg>Injection CE Livret A</label>
+          <input type="number" id="injLivret" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--grey)" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="1" x2="12" y2="23"/></svg>Injection TR Cash</label>
+          <input type="number" id="injCash" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+    </div>
+
+    <button class="btn" id="btnSubmit" onclick="submitForm()">Ajouter</button>
+
+    <div class="status" id="formStatus"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div id="history" class="page">
+    <div class="header">
+      <h1>Historique</h1>
+    </div>
+    <div class="history-table" id="historyTable">
+      <div class="loading" id="histLoading">
+        <div class="spinner"></div> Chargement...
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="settings" class="page">
+    <div class="header">
+      <h1>Configuration</h1>
+    </div>
+
+    <div class="setting-item">
+      <label>Sheet Source (historique, lecture seule)</label>
+      <input type="text" id="cfgSourceId" placeholder="ID du Google Sheet source">
+    </div>
+
+    <div class="setting-item">
+      <label>Sheet Cible (nouvelles donnees)</label>
+      <input type="text" id="cfgTargetId" placeholder="ID du Google Sheet cible">
+    </div>
+
+    <div class="setting-item">
+      <label>API Key Google</label>
+      <input type="text" id="cfgApiKey" placeholder="Votre API Key">
+    </div>
+
+    <div class="setting-item">
+      <label>Client ID OAuth2</label>
+      <input type="text" id="cfgClientId" placeholder="Votre Client ID OAuth2">
+    </div>
+
+    <div class="setting-item">
+      <label>Onglet source</label>
+      <input type="text" id="cfgSourceTab" value="Base épargne" placeholder="Base épargne">
+    </div>
+
+    <div class="setting-item">
+      <label>Onglet cible</label>
+      <input type="text" id="cfgTargetTab" value="Feuille 1" placeholder="Feuille 1">
+    </div>
+
+    <button class="btn" onclick="saveConfig()">Sauvegarder</button>
+    <button class="btn btn-secondary" onclick="connectGoogle()">Connecter Google</button>
+
+    <div class="sync-status" id="syncStatus"></div>
+
+    <div class="setting-item" style="margin-top: 20px;">
+      <label>Statut de connexion</label>
+      <div id="connectionStatus" style="padding: 8px 0; font-size: 14px; color: var(--text2);">Non connecte</div>
+    </div>
+  </div>
+
+<script>
+// ============== CONFIG ==============
+const CONFIG_KEY = 'epargne_config';
+const DATA_KEY = 'epargne_data';
+
+// Google OAuth2 config
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+let tokenClient;
+let gapiInited = false;
+let gisInited = false;
+let accessToken = sessionStorage.getItem('epargne_access_token');
+
+function getConfig() {
+  const raw = localStorage.getItem(CONFIG_KEY);
+  return raw ? JSON.parse(raw) : {
+    sourceId: '1keQ0Bs49vsMwsneOEJ1RFgJwcGlNgs82yUIeVbVhcjU',
+    targetId: '1CCKFA_14_e5ioCTuTRe1tIZtffGwm_YcYtUeEZbHwRU',
+    apiKey: '',
+    clientId: '',
+    sourceTab: 'Base épargne',
+    targetTab: 'Feuille 1'
+  };
+}
+
+function saveConfig() {
+  const cfg = {
+    sourceId: document.getElementById('cfgSourceId').value.trim(),
+    targetId: document.getElementById('cfgTargetId').value.trim(),
+    apiKey: document.getElementById('cfgApiKey').value.trim(),
+    clientId: document.getElementById('cfgClientId').value.trim(),
+    sourceTab: document.getElementById('cfgSourceTab').value.trim() || 'Base épargne',
+    targetTab: document.getElementById('cfgTargetTab').value.trim() || 'Feuille 1',
+  };
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+  if (cfg.clientId) localStorage.setItem('epargne_client_id', cfg.clientId);
+  document.getElementById('syncStatus').textContent = 'Configuration sauvegardee !';
+  loadData();
+}
+
+function loadConfig() {
+  const cfg = getConfig();
+  document.getElementById('cfgSourceId').value = cfg.sourceId;
+  document.getElementById('cfgTargetId').value = cfg.targetId;
+  document.getElementById('cfgApiKey').value = cfg.apiKey;
+  document.getElementById('cfgClientId').value = cfg.clientId;
+  document.getElementById('cfgSourceTab').value = cfg.sourceTab;
+  document.getElementById('cfgTargetTab').value = cfg.targetTab;
+}
+
+// ============== GOOGLE SHEETS API ==============
+async function sheetsRead(sheetId, range) {
+  const cfg = getConfig();
+  if (!sheetId) return null;
+  if (!cfg.apiKey && !accessToken) return null;
+
+  let url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`;
+  const headers = {};
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  } else {
+    url += `&key=${cfg.apiKey}`;
+  }
+
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const body = await res.text();
+    console.error(`Sheets API ${res.status}:`, body);
+    if (res.status === 401 || (res.status === 403 && accessToken)) {
+      accessToken = null;
+      sessionStorage.removeItem('epargne_access_token');
+    }
+    throw new Error(`Sheets API error: ${res.status}`);
+  }
+  return (await res.json()).values || [];
+}
+
+async function sheetsAppend(range, values) {
+  const cfg = getConfig();
+  if (!cfg.targetId) throw new Error('Sheet cible manquant');
+  if (!accessToken) throw new Error('Non connecte a Google');
+
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.targetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ values })
+  });
+  if (!res.ok) throw new Error(`Append error: ${res.status}`);
+  return res.json();
+}
+
+async function sheetsUpdate(sheetId, range, values) {
+  if (!sheetId) throw new Error('Sheet ID manquant');
+  if (!accessToken) throw new Error('Non connecte a Google');
+
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ values })
+  });
+  if (!res.ok) throw new Error(`Update error: ${res.status}`);
+  return res.json();
+}
+
+// ============== GOOGLE AUTH (OAuth2 with GIS) ==============
+function connectGoogle() {
+  const cfg = getConfig();
+  if (!cfg.apiKey) {
+    alert('Veuillez d\'abord configurer l\'API Key dans les parametres.');
+    return;
+  }
+
+  const clientId = cfg.clientId || localStorage.getItem('epargne_client_id');
+  if (!clientId) {
+    alert('Veuillez d\'abord configurer le Client ID OAuth2 dans les parametres.');
+    return;
+  }
+
+  if (typeof google === 'undefined' || !google.accounts) {
+    alert('Chargement de Google Identity Services... Veuillez reessayer.');
+    loadGIS();
+    return;
+  }
+
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: SCOPES,
+    callback: (resp) => {
+      if (resp.error) {
+        console.error('Auth error:', resp);
+        document.getElementById('connectionStatus').textContent = 'Erreur: ' + resp.error;
+        return;
+      }
+      accessToken = resp.access_token;
+      sessionStorage.setItem('epargne_access_token', accessToken);
+      document.getElementById('connectionStatus').textContent = 'Connecte !';
+      document.getElementById('connectionStatus').style.color = 'var(--green)';
+      loadData();
+    }
+  });
+
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+function loadGIS() {
+  if (document.getElementById('gis-script')) return;
+  const s = document.createElement('script');
+  s.id = 'gis-script';
+  s.src = 'https://accounts.google.com/gsi/client';
+  s.onload = () => { gisInited = true; };
+  document.head.appendChild(s);
+}
+
+// ============== DATA ==============
+let allData = [];
+let cristinaData = []; // Historical Cristina values from source V9:V + target H column
+let investedAmounts = {}; // From source sheet C2:C6
+let totalInjections = {}; // Sum of all injections from target sheet
+
+async function loadData() {
+  const cfg = getConfig();
+  if (!cfg.apiKey && !accessToken) {
+    document.getElementById('dashLoading').innerHTML = '<span style="color:var(--text2)">Allez dans Config > Connecter Google</span>';
+    return;
+  }
+  if (!cfg.sourceId && !cfg.targetId) {
+    document.getElementById('dashLoading').innerHTML = '<span style="color:var(--text2)">Configurez au moins un Sheet ID dans Config</span>';
+    return;
+  }
+
+  try {
+    const promises = [];
+
+    // Source: historical data rows (A9:G), Cristina (V9:V), Invested (C2:C6)
+    if (cfg.sourceId) {
+      promises.push(sheetsRead(cfg.sourceId, `'${cfg.sourceTab}'!A9:G`));
+      promises.push(sheetsRead(cfg.sourceId, `'${cfg.sourceTab}'!V9:V`));
+      promises.push(sheetsRead(cfg.sourceId, `'${cfg.sourceTab}'!C2:C6`));
+    } else {
+      promises.push(Promise.resolve([]));
+      promises.push(Promise.resolve([]));
+      promises.push(Promise.resolve([]));
+    }
+
+    // Target: new entries (A2:M = Date,Bourso,CTO,PEA,Livret,Cash,Total,Cristina,InjBourso,InjCTO,InjPEA,InjLivret,InjCash)
+    if (cfg.targetId) {
+      promises.push(sheetsRead(cfg.targetId, `'${cfg.targetTab}'!A2:M`));
+    } else {
+      promises.push(Promise.resolve([]));
+    }
+
+    const [sourceRows, sourceCristinaRaw, investedRaw, targetRows] = await Promise.all(promises);
+
+    // Process source data
+    const srcData = (sourceRows || []).filter(r => r[0]);
+
+    // Cristina historical values from V9:V
+    const srcCristina = (sourceCristinaRaw || []).map(r => parseFloat(r[0]) || 0);
+    // Pad to match srcData length
+    while (srcCristina.length < srcData.length) srcCristina.push(srcCristina.length > 0 ? srcCristina[srcCristina.length - 1] : 0);
+
+    // Invested amounts from C2:C6 (order: TR Cash, CE Livret, TR PEA, TR CTO, BoursoVie)
+    const inv = (investedRaw || []).map(r => parseFloat(r[0]) || 0);
+    investedAmounts = {
+      cash: inv[0] || 0,
+      livret: inv[1] || 0,
+      pea: inv[2] || 0,
+      cto: inv[3] || 0,
+      boursovie: inv[4] || 0,
+    };
+
+    // Process target data
+    const tgtFiltered = (targetRows || []).filter(r => r[0]);
+    const tgtData = tgtFiltered.map(r => [r[0], r[1], r[2], r[3], r[4], r[5], r[6]]);
+    const tgtCristina = tgtFiltered.map(r => parseFloat(r[7]) || 0);
+
+    // Sum injections from target (columns I:M = indices 8-12)
+    totalInjections = { boursovie: 0, cto: 0, pea: 0, livret: 0, cash: 0 };
+    tgtFiltered.forEach(r => {
+      totalInjections.boursovie += parseFloat(r[8]) || 0;
+      totalInjections.cto += parseFloat(r[9]) || 0;
+      totalInjections.pea += parseFloat(r[10]) || 0;
+      totalInjections.livret += parseFloat(r[11]) || 0;
+      totalInjections.cash += parseFloat(r[12]) || 0;
+    });
+
+    // Merge: source first, then target
+    allData = [...srcData, ...tgtData];
+    cristinaData = [...srcCristina, ...tgtCristina];
+    while (cristinaData.length < allData.length) cristinaData.push(cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0);
+
+    // Cache locally
+    localStorage.setItem(DATA_KEY, JSON.stringify({
+      allData, cristinaData, investedAmounts, totalInjections, ts: Date.now()
+    }));
+
+    renderDashboard();
+    renderHistory();
+    prefillForm();
+  } catch (e) {
+    console.error('Load error:', e);
+    const cached = localStorage.getItem(DATA_KEY);
+    if (cached) {
+      const d = JSON.parse(cached);
+      allData = d.allData || [];
+      cristinaData = d.cristinaData || [];
+      investedAmounts = d.investedAmounts || {};
+      totalInjections = d.totalInjections || {};
+      renderDashboard();
+      renderHistory();
+      prefillForm();
+    } else {
+      const msg = e.message.includes('403') || e.message.includes('401')
+        ? 'Session expiree. Allez dans Config > Connecter Google'
+        : e.message;
+      document.getElementById('dashLoading').innerHTML = `<span style="color:var(--red)">Erreur: ${msg}</span>`;
+    }
+  }
+}
+
+// ============== RENDER DASHBOARD ==============
+const ACCOUNTS = [
+  { key: 'boursovie', name: 'BoursoVie', idx: 1, color: '#c2185b' },
+  { key: 'cto', name: 'TR CTO (BTC)', idx: 2, color: '#f59e0b' },
+  { key: 'pea', name: 'TR PEA', idx: 3, color: '#3b82f6' },
+  { key: 'livret', name: 'CE Livret A', idx: 4, color: '#ef4444' },
+  { key: 'cash', name: 'TR Cash', idx: 5, color: '#94a3b8' },
+];
+
+function fmt(n) {
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n || 0);
+}
+
+function renderDashboard() {
+  if (!allData.length) return;
+  const dashLoad = document.getElementById('dashLoading');
+  if (dashLoad) dashLoad.style.display = 'none';
+
+  const last = allData[allData.length - 1];
+  const totalMax = parseFloat(last[6]) || 0;
+  const cristinaLast = cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0;
+  const totalEpargne = totalMax + cristinaLast;
+
+  document.getElementById('totalEpargne').textContent = fmt(totalEpargne);
+  document.getElementById('totalMax').textContent = fmt(totalMax);
+  document.getElementById('totalCristina').textContent = fmt(cristinaLast);
+
+  // Performance based on invested amounts
+  // Total invested = base invested + injections
+  // TR Cash: invested always = current value (no gain counted)
+  const currentCash = parseFloat(last[5]) || 0;
+  const totalInvested =
+    (investedAmounts.boursovie || 0) + (totalInjections.boursovie || 0) +
+    (investedAmounts.cto || 0) + (totalInjections.cto || 0) +
+    (investedAmounts.pea || 0) + (totalInjections.pea || 0) +
+    (investedAmounts.livret || 0) + (totalInjections.livret || 0) +
+    currentCash; // TR Cash invested = current value
+
+  if (totalInvested > 0) {
+    const gain = totalMax - totalInvested;
+    const pct = ((gain / totalInvested) * 100).toFixed(2);
+    const el = document.getElementById('gainTotal');
+    el.textContent = `${gain >= 0 ? '+' : ''}${fmt(gain)} (${gain >= 0 ? '+' : ''}${pct}%) vs investi`;
+    el.className = `gain ${gain >= 0 ? 'pos' : 'neg'}`;
+  }
+
+  // Date
+  const dateStr = last[0];
+  document.getElementById('lastUpdate').textContent = typeof dateStr === 'string' ? dateStr : new Date(dateStr).toLocaleDateString('fr-FR');
+
+  // Account cards with invested info
+  const cardsHtml = ACCOUNTS.map(a => {
+    const val = parseFloat(last[a.idx]) || 0;
+    const inv = (investedAmounts[a.key] || 0) + (totalInjections[a.key] || 0);
+    const accountGain = a.key === 'cash' ? 0 : val - inv;
+    const accountPct = (inv > 0 && a.key !== 'cash') ? ((accountGain / inv) * 100).toFixed(1) : null;
+    return `<div class="account-card">
+      <div class="left">
+        <div class="dot" style="background:${a.color}"></div>
+        <span class="name">${a.name}</span>
+      </div>
+      <div style="text-align:right">
+        <span class="amount">${fmt(val)}</span>
+        ${accountPct !== null ? `<div style="font-size:11px;color:${accountGain >= 0 ? 'var(--green)' : 'var(--red)'}">${accountGain >= 0 ? '+' : ''}${accountPct}%</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('accountCards').innerHTML = cardsHtml;
+
+  renderCharts();
+}
+
+// ============== CHARTS ==============
+let chartArea = null;
+let chartDonut = null;
+
+function renderCharts() {
+  if (!allData.length) return;
+
+  const labels = allData.map(r => {
+    const d = r[0];
+    if (typeof d === 'string' && d.includes('/')) return d;
+    try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }); }
+    catch { return d; }
+  });
+
+  // Area chart
+  const datasets = ACCOUNTS.map(a => ({
+    label: a.name,
+    data: allData.map(r => parseFloat(r[a.idx]) || 0),
+    backgroundColor: a.color + '80',
+    borderColor: a.color,
+    borderWidth: 1.5,
+    fill: true,
+    pointRadius: 0,
+    tension: 0.3,
+  }));
+
+  // Add Cristina to area chart
+  if (cristinaData.length > 0) {
+    datasets.push({
+      label: 'Cristina',
+      data: cristinaData.map(v => parseFloat(v) || 0),
+      backgroundColor: '#f48fb180',
+      borderColor: '#f48fb1',
+      borderWidth: 1.5,
+      fill: true,
+      pointRadius: 0,
+      tension: 0.3,
+    });
+  }
+
+  if (chartArea) chartArea.destroy();
+  chartArea = new Chart(document.getElementById('chartArea'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12, padding: 8, font: { size: 11 } } },
+        tooltip: {
+          callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.raw)}` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } }, grid: { display: false } },
+        y: {
+          stacked: true,
+          ticks: { color: '#64748b', callback: v => fmt(v), font: { size: 10 } },
+          grid: { color: '#1e293b' }
+        }
+      }
+    }
+  });
+
+  // Donut
+  const last = allData[allData.length - 1];
+  const donutValues = ACCOUNTS.map(a => parseFloat(last[a.idx]) || 0);
+  const donutColors = ACCOUNTS.map(a => a.color);
+  const donutLabels = ACCOUNTS.map(a => a.name);
+
+  const cristinaLast2 = cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0;
+  if (cristinaLast2 > 0) {
+    donutValues.push(cristinaLast2);
+    donutColors.push('#f48fb1');
+    donutLabels.push('Cristina');
+  }
+
+  if (chartDonut) chartDonut.destroy();
+  chartDonut = new Chart(document.getElementById('chartDonut'), {
+    type: 'doughnut',
+    data: {
+      labels: donutLabels,
+      datasets: [{ data: donutValues, backgroundColor: donutColors, borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      cutout: '65%',
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12, padding: 8, font: { size: 11 } } },
+        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${fmt(ctx.raw)}` } }
+      }
+    }
+  });
+}
+
+// ============== FORM ==============
+function prefillForm() {
+  document.getElementById('fDate').valueAsDate = new Date();
+
+  const lastCristina = cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0;
+  if (lastCristina > 0) {
+    document.getElementById('cristinaLastVal').textContent = fmt(lastCristina);
+  }
+}
+
+document.getElementById('cristinaSame').addEventListener('change', function() {
+  const input = document.getElementById('fCristina');
+  const lastCris = cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0;
+  if (this.checked && lastCris > 0) {
+    input.value = lastCris;
+    input.disabled = true;
+  } else {
+    input.disabled = false;
+  }
+});
+
+// Injection toggle
+document.getElementById('injectionToggle').addEventListener('change', function() {
+  document.getElementById('injectionFields').classList.toggle('visible', this.checked);
+});
+
+async function submitForm() {
+  const status = document.getElementById('formStatus');
+  const btn = document.getElementById('btnSubmit');
+  status.className = 'status';
+  status.textContent = '';
+
+  const date = document.getElementById('fDate').value;
+  if (!date) { status.className = 'status error'; status.textContent = 'Veuillez saisir une date.'; return; }
+
+  const donnees = {
+    date,
+    boursovie: parseFloat(document.getElementById('fBoursovie').value) || 0,
+    cto: parseFloat(document.getElementById('fCto').value) || 0,
+    pea: parseFloat(document.getElementById('fPea').value) || 0,
+    livret: parseFloat(document.getElementById('fLivret').value) || 0,
+    cash: parseFloat(document.getElementById('fCash').value) || 0,
+    cristina: parseFloat(document.getElementById('fCristina').value) || 0
+  };
+
+  // Injections (optional)
+  const injections = {
+    boursovie: parseFloat(document.getElementById('injBoursovie').value) || 0,
+    cto: parseFloat(document.getElementById('injCto').value) || 0,
+    pea: parseFloat(document.getElementById('injPea').value) || 0,
+    livret: parseFloat(document.getElementById('injLivret').value) || 0,
+    cash: parseFloat(document.getElementById('injCash').value) || 0,
+  };
+
+  const total = donnees.boursovie + donnees.cto + donnees.pea + donnees.livret + donnees.cash;
+  const cfg = getConfig();
+
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours...';
+
+  try {
+    if (!accessToken) throw new Error('Non connecte. Allez dans Config > Connecter Google.');
+
+    // Row: Date|Bourso|CTO|PEA|Livret|Cash|Total|Cristina|InjBourso|InjCTO|InjPEA|InjLivret|InjCash
+    const newRow = [
+      date, donnees.boursovie, donnees.cto, donnees.pea, donnees.livret, donnees.cash, total, donnees.cristina,
+      injections.boursovie || '', injections.cto || '', injections.pea || '', injections.livret || '', injections.cash || ''
+    ];
+
+    await sheetsAppend(`'${cfg.targetTab}'!A:M`, [newRow]);
+
+    status.className = 'status success';
+    status.textContent = `Donnees ajoutees ! Total Max: ${fmt(total)}`;
+
+    // Reset form
+    ['fBoursovie', 'fCto', 'fPea', 'fLivret', 'fCash', 'fCristina', 'injBoursovie', 'injCto', 'injPea', 'injLivret', 'injCash'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('cristinaSame').checked = false;
+    document.getElementById('fCristina').disabled = false;
+    document.getElementById('injectionToggle').checked = false;
+    document.getElementById('injectionFields').classList.remove('visible');
+
+    await loadData();
+  } catch (e) {
+    status.className = 'status error';
+    status.textContent = 'Erreur: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Ajouter';
+  }
+}
+
+// ============== HISTORY ==============
+function renderHistory() {
+  if (!allData.length) return;
+  const histLoad = document.getElementById('histLoading');
+  if (histLoad) histLoad.style.display = 'none';
+
+  const rows = allData.slice(-50).reverse();
+
+  let html = '<table><thead><tr>';
+  html += '<th>Date</th>';
+  ACCOUNTS.forEach(a => html += `<th>${a.name}</th>`);
+  html += '<th>Total</th>';
+  if (cristinaData.length > 0) html += '<th>Cristina</th>';
+  html += '</tr></thead><tbody>';
+
+  rows.forEach((r, i) => {
+    const realIdx = allData.length - 1 - i;
+    const d = r[0];
+    const dateStr = typeof d === 'string' ? d : new Date(d).toLocaleDateString('fr-FR');
+    html += `<tr><td>${dateStr}</td>`;
+    ACCOUNTS.forEach(a => html += `<td>${fmt(parseFloat(r[a.idx]) || 0)}</td>`);
+    html += `<td>${fmt(parseFloat(r[6]) || 0)}</td>`;
+    if (cristinaData.length > 0) {
+      html += `<td>${fmt(cristinaData[realIdx] || 0)}</td>`;
+    }
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('historyTable').innerHTML = html;
+}
+
+// ============== NAVIGATION ==============
+document.querySelectorAll('.nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.page).classList.add('active');
+  });
+});
+
+// ============== INIT ==============
+window.addEventListener('load', () => {
+  loadConfig();
+  loadGIS();
+  prefillForm();
+
+  if (accessToken) {
+    document.getElementById('connectionStatus').textContent = 'Connecte (session)';
+    document.getElementById('connectionStatus').style.color = 'var(--green)';
+  }
+
+  const cached = localStorage.getItem(DATA_KEY);
+  if (cached) {
+    const d = JSON.parse(cached);
+    allData = d.allData || [];
+    cristinaData = d.cristinaData || [];
+    investedAmounts = d.investedAmounts || {};
+    totalInjections = d.totalInjections || {};
+    if (allData.length) {
+      renderDashboard();
+      renderHistory();
+    }
+  }
+
+  loadData();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+});
+</script>
+
+</body>
+</html>

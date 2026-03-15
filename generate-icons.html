@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head><title>Generate Icons</title></head>
+<body>
+<canvas id="c192" width="192" height="192"></canvas>
+<canvas id="c512" width="512" height="512"></canvas>
+<script>
+function drawIcon(canvas) {
+  const ctx = canvas.getContext('2d');
+  const s = canvas.width;
+  // Background
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, s, s, s * 0.2);
+  ctx.fill();
+  // Euro sign
+  ctx.fillStyle = '#3b82f6';
+  ctx.font = `bold ${s * 0.55}px Inter, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('€', s / 2, s / 2);
+  // Trend arrow
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = s * 0.04;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(s * 0.2, s * 0.78);
+  ctx.lineTo(s * 0.5, s * 0.62);
+  ctx.lineTo(s * 0.8, s * 0.45);
+  ctx.stroke();
+}
+drawIcon(document.getElementById('c192'));
+drawIcon(document.getElementById('c512'));
+
+// Download links
+['c192', 'c512'].forEach(id => {
+  const c = document.getElementById(id);
+  const a = document.createElement('a');
+  a.download = `icon-${c.width}.png`;
+  a.href = c.toDataURL('image/png');
+  a.textContent = `Download ${c.width}px`;
+  a.style.margin = '10px';
+  document.body.appendChild(a);
+});
+</script>
+</body>
+</html>
