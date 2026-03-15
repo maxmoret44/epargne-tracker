@@ -48,6 +48,9 @@
       z-index: 100;
       padding-bottom: env(safe-area-inset-bottom);
     }
+    .nav-inner {
+      display: flex; width: 100%;
+    }
     .nav button {
       flex: 1; background: none; border: none; color: var(--text2);
       padding: 12px 0; font-size: 11px; cursor: pointer;
@@ -56,15 +59,14 @@
     }
     .nav button.active { color: var(--accent); }
     .nav button svg { width: 22px; height: 22px; }
+    .nav-label { transition: opacity 0.2s; }
 
     /* PAGES */
     .page { display: none; padding: 16px 16px 80px; max-width: 900px; margin: 0 auto; }
     .page.active { display: block; }
 
     /* HEADER */
-    .header {
-      text-align: center; padding: 20px 0 12px;
-    }
+    .header { text-align: center; padding: 20px 0 12px; }
     .header h1 { font-size: 18px; font-weight: 600; }
     .header .total {
       font-size: 36px; font-weight: 700;
@@ -73,7 +75,7 @@
       margin: 8px 0;
     }
     .header .sub { color: var(--text2); font-size: 13px; }
-    .header .gain { font-size: 14px; font-weight: 600; margin-top: 4px; }
+    .gain { font-size: 14px; font-weight: 600; margin-top: 4px; }
     .gain.pos { color: var(--green); }
     .gain.neg { color: var(--red); }
 
@@ -87,14 +89,17 @@
     }
     .card .label { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
     .card .value { font-size: 20px; font-weight: 700; }
-    .card .value.small { font-size: 16px; }
 
     .account-card {
       background: var(--surface);
       border-radius: var(--radius);
       padding: 12px 16px;
       display: flex; justify-content: space-between; align-items: center;
+      transition: border 0.2s;
+      border: 1px solid transparent;
     }
+    .account-card.clickable { cursor: pointer; }
+    .account-card.clickable:hover { border-color: var(--accent); }
     .account-card .left { display: flex; align-items: center; gap: 10px; }
     .account-card .dot { width: 10px; height: 10px; border-radius: 50%; }
     .account-card .name { font-size: 13px; font-weight: 500; }
@@ -106,14 +111,70 @@
       border-radius: var(--radius);
       padding: 16px;
       margin: 16px 0;
+      position: relative;
     }
-    .chart-container .chart-title {
+    .chart-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .chart-title {
       display: flex; align-items: center; gap: 8px;
-      font-size: 14px; color: var(--text2); margin-bottom: 12px;
+      font-size: 14px; color: var(--text2);
       font-weight: 600;
     }
-    .chart-container .chart-title svg { width: 18px; height: 18px; opacity: 0.7; }
+    .chart-title svg { width: 18px; height: 18px; opacity: 0.7; }
+    .chart-visible-total {
+      font-size: 13px; font-weight: 700; color: var(--text);
+    }
+    .chart-expand-btn {
+      background: none; border: none; color: var(--text2); cursor: pointer;
+      padding: 4px; border-radius: 6px; transition: color 0.2s;
+      display: flex; align-items: center;
+    }
+    .chart-expand-btn:hover { color: var(--text); }
+    .chart-expand-btn svg { width: 18px; height: 18px; }
     .chart-container canvas { width: 100% !important; }
+
+    /* CHART LEGEND (checkboxes) */
+    .chart-legend {
+      display: flex; flex-wrap: wrap; gap: 6px 14px;
+      margin-top: 14px;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 6px;
+      cursor: pointer; font-size: 12px; color: var(--text2);
+      user-select: none;
+    }
+    .legend-item input[type="checkbox"] {
+      width: 14px; height: 14px; cursor: pointer;
+      accent-color: var(--accent);
+      flex-shrink: 0;
+    }
+    .legend-swatch {
+      width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;
+    }
+
+    /* CHART FULLSCREEN OVERLAY */
+    .chart-fs-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: var(--bg);
+      display: none; flex-direction: column;
+      padding: 16px 16px env(safe-area-inset-bottom);
+    }
+    .chart-fs-overlay.visible { display: flex; }
+    .chart-fs-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .chart-fs-close {
+      background: var(--surface2); border: none; color: var(--text);
+      width: 32px; height: 32px; border-radius: 50%;
+      font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .chart-fs-content {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .chart-fs-content canvas { flex: 1; max-height: calc(100vh - 160px); }
 
     /* FORM */
     .form-group { margin-bottom: 16px; }
@@ -122,10 +183,7 @@
       font-size: 13px; color: var(--text2);
       margin-bottom: 6px; font-weight: 500;
     }
-    .form-group label svg {
-      width: 16px; height: 16px; flex-shrink: 0;
-      opacity: 0.7;
-    }
+    .form-group label svg { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.7; }
     .form-group input {
       width: 100%; padding: 12px 14px;
       background: var(--surface);
@@ -135,9 +193,7 @@
       font-family: inherit;
       transition: border-color 0.2s;
     }
-    .form-group input:focus {
-      outline: none; border-color: var(--accent);
-    }
+    .form-group input:focus { outline: none; border-color: var(--accent); }
 
     .cristina-toggle {
       display: flex; align-items: center; gap: 10px;
@@ -145,9 +201,7 @@
       padding: 12px 14px; margin-bottom: 16px; cursor: pointer;
       border: 1px solid var(--surface2);
     }
-    .cristina-toggle input[type="checkbox"] {
-      width: 18px; height: 18px; accent-color: var(--accent);
-    }
+    .cristina-toggle input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
     .cristina-toggle span { font-size: 13px; color: var(--text2); }
     .cristina-toggle .val { color: var(--text); font-weight: 600; margin-left: auto; }
 
@@ -161,10 +215,13 @@
     }
     .btn:active { opacity: 0.8; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
     .btn-secondary {
       background: var(--surface);
       border: 1px solid var(--surface2);
+      margin-top: 10px;
+    }
+    .btn-warning {
+      background: linear-gradient(135deg, #92400e, #78350f);
       margin-top: 10px;
     }
 
@@ -176,6 +233,7 @@
     }
     .status.success { display: block; background: #064e3b; color: var(--green); }
     .status.error { display: block; background: #7f1d1d; color: var(--red); }
+    .status.info { display: block; background: var(--surface2); color: var(--text2); }
 
     /* HISTORY TABLE */
     .history-table {
@@ -184,20 +242,14 @@
       border-radius: var(--radius);
       margin-top: 16px;
     }
-    .history-table table {
-      width: 100%; border-collapse: collapse;
-      font-size: 12px; white-space: nowrap;
-    }
+    .history-table table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
     .history-table th {
       background: var(--surface2); padding: 10px 8px;
       text-align: right; font-weight: 600; color: var(--text2);
       position: sticky; top: 0;
     }
     .history-table th:first-child { text-align: left; }
-    .history-table td {
-      padding: 8px; text-align: right;
-      border-bottom: 1px solid var(--surface2);
-    }
+    .history-table td { padding: 8px; text-align: right; border-bottom: 1px solid var(--surface2); }
     .history-table td:first-child { text-align: left; color: var(--text2); }
     .history-table td:last-child { color: var(--accent); font-weight: 600; }
 
@@ -214,17 +266,11 @@
       font-family: inherit;
     }
     .setting-item input:focus { outline: none; border-color: var(--accent); }
-
-    .sync-status {
-      text-align: center; padding: 12px;
-      color: var(--text2); font-size: 12px;
-    }
+    .setting-item p { font-size: 12px; color: var(--text2); margin-bottom: 8px; line-height: 1.5; }
+    .sync-status { text-align: center; padding: 12px; color: var(--text2); font-size: 12px; }
 
     /* LOADING */
-    .loading {
-      display: flex; justify-content: center; align-items: center;
-      padding: 40px; color: var(--text2);
-    }
+    .loading { display: flex; justify-content: center; align-items: center; padding: 40px; color: var(--text2); }
     .spinner {
       width: 24px; height: 24px;
       border: 3px solid var(--surface2);
@@ -236,9 +282,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* INJECTION TOGGLE */
-    .injection-section {
-      margin: 16px 0;
-    }
+    .injection-section { margin: 16px 0; }
     .injection-toggle {
       display: flex; align-items: center; gap: 10px;
       background: var(--surface); border-radius: var(--radius);
@@ -246,9 +290,7 @@
       border: 1px solid var(--surface2);
       margin-bottom: 12px;
     }
-    .injection-toggle input[type="checkbox"] {
-      width: 18px; height: 18px; accent-color: var(--orange);
-    }
+    .injection-toggle input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--orange); }
     .injection-toggle span { font-size: 13px; color: var(--text2); }
     .injection-fields {
       display: none;
@@ -262,10 +304,62 @@
     .injection-fields .form-group { margin-bottom: 10px; }
     .injection-fields .form-group:last-child { margin-bottom: 0; }
     .injection-fields .form-group label { font-size: 12px; }
-    .injection-fields .form-group input {
-      padding: 8px 12px; font-size: 13px;
-      background: var(--bg);
+    .injection-fields .form-group input { padding: 8px 12px; font-size: 13px; background: var(--bg); }
+
+    /* PEA MODAL */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 150;
+      display: none; align-items: flex-end; justify-content: center;
     }
+    .modal-overlay.visible { display: flex; }
+    .modal-box {
+      background: var(--surface);
+      border-radius: var(--radius) var(--radius) 0 0;
+      width: 100%; max-width: 600px;
+      padding: 20px;
+      max-height: 85vh; overflow-y: auto;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      font-weight: 600; font-size: 15px; margin-bottom: 16px;
+    }
+    .modal-close-btn {
+      background: var(--surface2); border: none; color: var(--text);
+      width: 28px; height: 28px; border-radius: 50%;
+      font-size: 16px; cursor: pointer; line-height: 1;
+    }
+    .pea-holding-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--surface2);
+      font-size: 13px;
+    }
+    .pea-holding-row:last-child { border-bottom: none; }
+    .modal-add-row {
+      display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap;
+    }
+    .modal-add-row input {
+      background: var(--bg); border: 1px solid var(--surface2);
+      border-radius: 8px; color: var(--text); padding: 8px 10px;
+      font-size: 13px; font-family: inherit; flex: 1; min-width: 80px;
+    }
+    .modal-add-row input:focus { outline: none; border-color: var(--accent); }
+    .modal-add-btn {
+      background: var(--accent); border: none; border-radius: 8px;
+      color: white; padding: 8px 16px; cursor: pointer; font-size: 15px; font-weight: 600;
+    }
+    .pea-remove-btn {
+      background: none; border: none; color: var(--red);
+      cursor: pointer; font-size: 18px; padding: 0 4px; line-height: 1;
+    }
+    .pea-total-line {
+      text-align: right; margin-top: 14px;
+      font-size: 16px; font-weight: 700; color: var(--text);
+    }
+    .pea-fetch-status { font-size: 11px; color: var(--text2); margin-top: 6px; text-align: center; }
 
     /* RESPONSIVE DESKTOP */
     @media (min-width: 768px) {
@@ -274,10 +368,15 @@
         border-top: none; border-bottom: 1px solid var(--surface2);
         padding-bottom: 0;
       }
-      .nav button { flex-direction: row; gap: 8px; font-size: 13px; padding: 14px 0; }
+      .nav-inner { max-width: 960px; margin: 0 auto; }
+      .nav button { flex-direction: row; gap: 8px; padding: 14px 0; }
+      .nav-label { opacity: 0; max-width: 0; overflow: hidden; white-space: nowrap; }
+      .nav button:hover .nav-label,
+      .nav button.active .nav-label { opacity: 1; max-width: 120px; font-size: 13px; }
       .page { padding: 80px 24px 24px; max-width: 960px; }
       .cards { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
       .header .total { font-size: 48px; }
+      .modal-box { border-radius: var(--radius); margin-bottom: 40px; }
     }
   </style>
 </head>
@@ -285,37 +384,39 @@
 
   <!-- NAV -->
   <nav class="nav">
-    <button class="active" data-page="dashboard">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      Dashboard
-    </button>
-    <button data-page="add">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-      Ajouter
-    </button>
-    <button data-page="history">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      Historique
-    </button>
-    <button data-page="settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-      Config
-    </button>
+    <div class="nav-inner">
+      <button class="active" data-page="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span class="nav-label">Dashboard</span>
+      </button>
+      <button data-page="add">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <span class="nav-label">Mettre à jour</span>
+      </button>
+      <button data-page="history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span class="nav-label">Historique</span>
+      </button>
+      <button data-page="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <span class="nav-label">Config</span>
+      </button>
+    </div>
   </nav>
 
   <!-- DASHBOARD -->
   <div id="dashboard" class="page active">
     <div class="header">
-      <h1>Total Epargne</h1>
+      <h1>Total Épargne</h1>
       <div class="total" id="totalEpargne">--</div>
-      <div class="sub">Derniere mise a jour : <span id="lastUpdate">--</span></div>
+      <div class="sub">Dernière mise à jour : <span id="lastUpdate">--</span></div>
     </div>
 
     <div class="split-cards">
       <div class="card">
         <div class="label">Max</div>
         <div class="value" id="totalMax">--</div>
-        <div class="gain pos" id="gainTotal" style="font-size:12px;margin-top:4px"></div>
+        <div class="gain" id="gainTotal" style="font-size:12px;margin-top:4px"></div>
       </div>
       <div class="card">
         <div class="label">Cristina</div>
@@ -325,20 +426,37 @@
 
     <div class="cards" id="accountCards"></div>
 
-    <div class="chart-container">
-      <div class="chart-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Progression de l'epargne
+    <!-- Area Chart -->
+    <div class="chart-container" id="containerArea">
+      <div class="chart-header">
+        <div class="chart-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Progression
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="chart-visible-total" id="areaTotalLabel"></span>
+          <button class="chart-expand-btn" onclick="expandChart('area')" title="Plein écran">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          </button>
+        </div>
       </div>
       <canvas id="chartArea" height="200"></canvas>
+      <div class="chart-legend" id="legendArea"></div>
     </div>
 
-    <div class="chart-container">
-      <div class="chart-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 2v10l7 7"/></svg>
-        Repartition actuelle
+    <!-- Donut Chart -->
+    <div class="chart-container" id="containerDonut">
+      <div class="chart-header">
+        <div class="chart-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+          Répartition actuelle
+        </div>
+        <button class="chart-expand-btn" onclick="expandChart('donut')" title="Plein écran">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        </button>
       </div>
-      <canvas id="chartDonut" height="200"></canvas>
+      <canvas id="chartDonut" height="220"></canvas>
+      <div class="chart-legend" id="legendDonut"></div>
     </div>
 
     <div class="loading" id="dashLoading">
@@ -346,10 +464,23 @@
     </div>
   </div>
 
+  <!-- FULLSCREEN CHART OVERLAY -->
+  <div id="chartFullscreen" class="chart-fs-overlay">
+    <div class="chart-fs-header">
+      <div class="chart-title" id="fsTitleLabel"></div>
+      <button class="chart-fs-close" onclick="closeFullscreen()">✕</button>
+    </div>
+    <div class="chart-fs-content">
+      <canvas id="chartFs" style="width:100%;height:100%"></canvas>
+      <div class="chart-legend" id="legendFs" style="margin-top:14px"></div>
+    </div>
+    <div style="text-align:right;font-size:13px;font-weight:700;color:var(--text);margin-top:8px" id="fsTotalLabel"></div>
+  </div>
+
   <!-- ADD FORM -->
   <div id="add" class="page">
     <div class="header">
-      <h1>Mise a jour de l'epargne</h1>
+      <h1>Mise à jour de l'épargne</h1>
     </div>
 
     <div class="form-group">
@@ -373,12 +504,12 @@
     </div>
 
     <div class="form-group">
-      <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>CE Livret A (2,4%)</label>
+      <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>CE Livret A</label>
       <input type="number" id="fLivret" step="0.01" placeholder="0.00">
     </div>
 
     <div class="form-group">
-      <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--grey)" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>TR Cash (2,25%)</label>
+      <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--grey)" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>TR Cash</label>
       <input type="number" id="fCash" step="0.01" placeholder="0.00">
     </div>
 
@@ -391,7 +522,7 @@
 
     <label class="cristina-toggle" id="cristinaToggle">
       <input type="checkbox" id="cristinaSame">
-      <span>Reprendre la derniere valeur Cristina</span>
+      <span>Reprendre la dernière valeur Cristina</span>
       <span class="val" id="cristinaLastVal">--</span>
     </label>
 
@@ -400,7 +531,7 @@
     <div class="injection-section">
       <label class="injection-toggle">
         <input type="checkbox" id="injectionToggle">
-        <span>J'ai injecte de l'argent</span>
+        <span>J'ai injecté de l'argent</span>
       </label>
       <div class="injection-fields" id="injectionFields">
         <div class="form-group">
@@ -419,23 +550,16 @@
           <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" style="width:14px;height:14px"><rect x="2" y="5" width="20" height="14" rx="2"/></svg>Injection CE Livret A</label>
           <input type="number" id="injLivret" step="0.01" placeholder="0.00">
         </div>
-        <div class="form-group">
-          <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--grey)" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="1" x2="12" y2="23"/></svg>Injection TR Cash</label>
-          <input type="number" id="injCash" step="0.01" placeholder="0.00">
-        </div>
       </div>
     </div>
 
-    <button class="btn" id="btnSubmit" onclick="submitForm()">Ajouter</button>
-
+    <button class="btn" id="btnSubmit" onclick="submitForm()">Mettre à jour</button>
     <div class="status" id="formStatus"></div>
   </div>
 
   <!-- HISTORY -->
   <div id="history" class="page">
-    <div class="header">
-      <h1>Historique</h1>
-    </div>
+    <div class="header"><h1>Historique</h1></div>
     <div class="history-table" id="historyTable">
       <div class="loading" id="histLoading">
         <div class="spinner"></div> Chargement...
@@ -445,35 +569,28 @@
 
   <!-- SETTINGS -->
   <div id="settings" class="page">
-    <div class="header">
-      <h1>Configuration</h1>
-    </div>
+    <div class="header"><h1>Configuration</h1></div>
 
     <div class="setting-item">
       <label>Sheet Source (historique, lecture seule)</label>
       <input type="text" id="cfgSourceId" placeholder="ID du Google Sheet source">
     </div>
-
     <div class="setting-item">
-      <label>Sheet Cible (nouvelles donnees)</label>
+      <label>Sheet Cible (nouvelles données)</label>
       <input type="text" id="cfgTargetId" placeholder="ID du Google Sheet cible">
     </div>
-
     <div class="setting-item">
       <label>API Key Google</label>
       <input type="text" id="cfgApiKey" placeholder="Votre API Key">
     </div>
-
     <div class="setting-item">
       <label>Client ID OAuth2</label>
       <input type="text" id="cfgClientId" placeholder="Votre Client ID OAuth2">
     </div>
-
     <div class="setting-item">
       <label>Onglet source</label>
       <input type="text" id="cfgSourceTab" value="Base épargne" placeholder="Base épargne">
     </div>
-
     <div class="setting-item">
       <label>Onglet cible</label>
       <input type="text" id="cfgTargetTab" value="Feuille 1" placeholder="Feuille 1">
@@ -486,7 +603,37 @@
 
     <div class="setting-item" style="margin-top: 20px;">
       <label>Statut de connexion</label>
-      <div id="connectionStatus" style="padding: 8px 0; font-size: 14px; color: var(--text2);">Non connecte</div>
+      <div id="connectionStatus" style="padding: 8px 0; font-size: 14px; color: var(--text2);">Non connecté</div>
+    </div>
+
+    <hr style="border-color: var(--surface2); margin: 20px 0;">
+
+    <div class="setting-item">
+      <label>Migration source → cible</label>
+      <p>Copie toutes les données historiques du sheet source vers le sheet cible. À faire une seule fois. Les données existantes dans la cible seront écrasées à partir de la ligne 2.</p>
+      <button class="btn btn-warning" onclick="migrateData()" id="btnMigrate">Migrer source → cible</button>
+      <div class="status" id="migrateStatus"></div>
+    </div>
+  </div>
+
+  <!-- PEA MODAL -->
+  <div id="peaModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>TR PEA — Portefeuille</span>
+        <button class="modal-close-btn" onclick="closePeaModal()">✕</button>
+      </div>
+      <div id="peaHoldingsList"></div>
+      <hr style="border-color:var(--surface2);margin:14px 0">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Ajouter un titre :</div>
+      <div class="modal-add-row">
+        <input id="peaHoldingName" placeholder="Nom (ex: MSCI World)" style="flex:2;min-width:120px">
+        <input id="peaHoldingTicker" placeholder="Ticker (ex: CW8.PA)" style="flex:1;min-width:90px">
+        <input id="peaHoldingQty" type="number" placeholder="Qté" style="flex:0 0 70px">
+        <button class="modal-add-btn" onclick="addPeaHolding()">+</button>
+      </div>
+      <div class="pea-total-line" id="peaTotalLine"></div>
+      <div class="pea-fetch-status" id="peaFetchStatus"></div>
     </div>
   </div>
 
@@ -494,11 +641,9 @@
 // ============== CONFIG ==============
 const CONFIG_KEY = 'epargne_config';
 const DATA_KEY = 'epargne_data';
-
-// Google OAuth2 config
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+
 let tokenClient;
-let gapiInited = false;
 let gisInited = false;
 let accessToken = sessionStorage.getItem('epargne_access_token');
 
@@ -525,7 +670,7 @@ function saveConfig() {
   };
   localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
   if (cfg.clientId) localStorage.setItem('epargne_client_id', cfg.clientId);
-  document.getElementById('syncStatus').textContent = 'Configuration sauvegardee !';
+  document.getElementById('syncStatus').textContent = 'Configuration sauvegardée !';
   loadData();
 }
 
@@ -570,15 +715,12 @@ async function sheetsRead(sheetId, range) {
 async function sheetsAppend(range, values) {
   const cfg = getConfig();
   if (!cfg.targetId) throw new Error('Sheet cible manquant');
-  if (!accessToken) throw new Error('Non connecte a Google');
+  if (!accessToken) throw new Error('Non connecté à Google');
 
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.targetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values })
   });
   if (!res.ok) throw new Error(`Append error: ${res.status}`);
@@ -587,37 +729,35 @@ async function sheetsAppend(range, values) {
 
 async function sheetsUpdate(sheetId, range, values) {
   if (!sheetId) throw new Error('Sheet ID manquant');
-  if (!accessToken) throw new Error('Non connecte a Google');
+  if (!accessToken) throw new Error('Non connecté à Google');
 
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
   const res = await fetch(url, {
     method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values })
   });
   if (!res.ok) throw new Error(`Update error: ${res.status}`);
   return res.json();
 }
 
-// ============== GOOGLE AUTH (OAuth2 with GIS) ==============
+// ============== GOOGLE AUTH ==============
+function updateConnectionStatus(connected, label) {
+  const el = document.getElementById('connectionStatus');
+  el.textContent = label || (connected ? 'Connecté !' : 'Non connecté');
+  el.style.color = connected ? 'var(--green)' : 'var(--text2)';
+}
+
 function connectGoogle() {
   const cfg = getConfig();
-  if (!cfg.apiKey) {
-    alert('Veuillez d\'abord configurer l\'API Key dans les parametres.');
-    return;
-  }
-
   const clientId = cfg.clientId || localStorage.getItem('epargne_client_id');
   if (!clientId) {
-    alert('Veuillez d\'abord configurer le Client ID OAuth2 dans les parametres.');
+    alert('Veuillez d\'abord configurer le Client ID OAuth2 dans les paramètres.');
     return;
   }
 
   if (typeof google === 'undefined' || !google.accounts) {
-    alert('Chargement de Google Identity Services... Veuillez reessayer.');
+    alert('Chargement de Google Identity Services... Veuillez réessayer.');
     loadGIS();
     return;
   }
@@ -628,13 +768,12 @@ function connectGoogle() {
     callback: (resp) => {
       if (resp.error) {
         console.error('Auth error:', resp);
-        document.getElementById('connectionStatus').textContent = 'Erreur: ' + resp.error;
+        updateConnectionStatus(false, 'Erreur: ' + resp.error);
         return;
       }
       accessToken = resp.access_token;
       sessionStorage.setItem('epargne_access_token', accessToken);
-      document.getElementById('connectionStatus').textContent = 'Connecte !';
-      document.getElementById('connectionStatus').style.color = 'var(--green)';
+      updateConnectionStatus(true);
       loadData();
     }
   });
@@ -642,20 +781,47 @@ function connectGoogle() {
   tokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
+function trySilentAuth(clientId) {
+  try {
+    const tc = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: SCOPES,
+      callback: (resp) => {
+        if (resp.error) return;
+        accessToken = resp.access_token;
+        sessionStorage.setItem('epargne_access_token', accessToken);
+        updateConnectionStatus(true, 'Connecté (auto)');
+        loadData();
+      },
+      error_callback: () => {}
+    });
+    tc.requestAccessToken({ prompt: '' });
+  } catch(e) {
+    console.log('Silent auth unavailable:', e);
+  }
+}
+
 function loadGIS() {
   if (document.getElementById('gis-script')) return;
   const s = document.createElement('script');
   s.id = 'gis-script';
   s.src = 'https://accounts.google.com/gsi/client';
-  s.onload = () => { gisInited = true; };
+  s.onload = () => {
+    gisInited = true;
+    if (!accessToken) {
+      const cfg = getConfig();
+      const clientId = cfg.clientId || localStorage.getItem('epargne_client_id');
+      if (clientId) trySilentAuth(clientId);
+    }
+  };
   document.head.appendChild(s);
 }
 
 // ============== DATA ==============
 let allData = [];
-let cristinaData = []; // Historical Cristina values from source V9:V + target H column
-let investedAmounts = {}; // From source sheet C2:C6
-let totalInjections = {}; // Sum of all injections from target sheet
+let cristinaData = [];
+let investedAmounts = {};
+let totalInjections = {};
 
 async function loadData() {
   const cfg = getConfig();
@@ -671,7 +837,6 @@ async function loadData() {
   try {
     const promises = [];
 
-    // Source: historical data rows (A9:G), Cristina (V9:V), Invested (C2:C6)
     if (cfg.sourceId) {
       promises.push(sheetsRead(cfg.sourceId, `'${cfg.sourceTab}'!A9:G`));
       promises.push(sheetsRead(cfg.sourceId, `'${cfg.sourceTab}'!V9:V`));
@@ -682,7 +847,6 @@ async function loadData() {
       promises.push(Promise.resolve([]));
     }
 
-    // Target: new entries (A2:M = Date,Bourso,CTO,PEA,Livret,Cash,Total,Cristina,InjBourso,InjCTO,InjPEA,InjLivret,InjCash)
     if (cfg.targetId) {
       promises.push(sheetsRead(cfg.targetId, `'${cfg.targetTab}'!A2:M`));
     } else {
@@ -691,53 +855,42 @@ async function loadData() {
 
     const [sourceRows, sourceCristinaRaw, investedRaw, targetRows] = await Promise.all(promises);
 
-    // Process source data
     const srcData = (sourceRows || []).filter(r => r[0]);
-
-    // Cristina historical values from V9:V
     const srcCristina = (sourceCristinaRaw || []).map(r => parseFloat(r[0]) || 0);
-    // Pad to match srcData length
     while (srcCristina.length < srcData.length) srcCristina.push(srcCristina.length > 0 ? srcCristina[srcCristina.length - 1] : 0);
 
-    // Invested amounts from C2:C6 (order: TR Cash, CE Livret, TR PEA, TR CTO, BoursoVie)
     const inv = (investedRaw || []).map(r => parseFloat(r[0]) || 0);
     investedAmounts = {
-      cash: inv[0] || 0,
-      livret: inv[1] || 0,
-      pea: inv[2] || 0,
-      cto: inv[3] || 0,
+      cash:      inv[0] || 0,
+      livret:    inv[1] || 0,
+      pea:       inv[2] || 0,
+      cto:       inv[3] || 0,
       boursovie: inv[4] || 0,
     };
 
-    // Process target data
     const tgtFiltered = (targetRows || []).filter(r => r[0]);
     const tgtData = tgtFiltered.map(r => [r[0], r[1], r[2], r[3], r[4], r[5], r[6]]);
     const tgtCristina = tgtFiltered.map(r => parseFloat(r[7]) || 0);
 
-    // Sum injections from target (columns I:M = indices 8-12)
     totalInjections = { boursovie: 0, cto: 0, pea: 0, livret: 0, cash: 0 };
     tgtFiltered.forEach(r => {
-      totalInjections.boursovie += parseFloat(r[8]) || 0;
-      totalInjections.cto += parseFloat(r[9]) || 0;
-      totalInjections.pea += parseFloat(r[10]) || 0;
-      totalInjections.livret += parseFloat(r[11]) || 0;
-      totalInjections.cash += parseFloat(r[12]) || 0;
+      totalInjections.boursovie += parseFloat(r[8])  || 0;
+      totalInjections.cto       += parseFloat(r[9])  || 0;
+      totalInjections.pea       += parseFloat(r[10]) || 0;
+      totalInjections.livret    += parseFloat(r[11]) || 0;
+      totalInjections.cash      += parseFloat(r[12]) || 0;
     });
 
-    // Merge: source first, then target
     allData = [...srcData, ...tgtData];
     cristinaData = [...srcCristina, ...tgtCristina];
     while (cristinaData.length < allData.length) cristinaData.push(cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0);
 
-    // Cache locally
-    localStorage.setItem(DATA_KEY, JSON.stringify({
-      allData, cristinaData, investedAmounts, totalInjections, ts: Date.now()
-    }));
+    localStorage.setItem(DATA_KEY, JSON.stringify({ allData, cristinaData, investedAmounts, totalInjections, ts: Date.now() }));
 
     renderDashboard();
     renderHistory();
     prefillForm();
-  } catch (e) {
+  } catch(e) {
     console.error('Load error:', e);
     const cached = localStorage.getItem(DATA_KEY);
     if (cached) {
@@ -751,7 +904,7 @@ async function loadData() {
       prefillForm();
     } else {
       const msg = e.message.includes('403') || e.message.includes('401')
-        ? 'Session expiree. Allez dans Config > Connecter Google'
+        ? 'Session expirée. Allez dans Config > Connecter Google'
         : e.message;
       document.getElementById('dashLoading').innerHTML = `<span style="color:var(--red)">Erreur: ${msg}</span>`;
     }
@@ -760,11 +913,11 @@ async function loadData() {
 
 // ============== RENDER DASHBOARD ==============
 const ACCOUNTS = [
-  { key: 'boursovie', name: 'BoursoVie', idx: 1, color: '#c2185b' },
-  { key: 'cto', name: 'TR CTO (BTC)', idx: 2, color: '#f59e0b' },
-  { key: 'pea', name: 'TR PEA', idx: 3, color: '#3b82f6' },
-  { key: 'livret', name: 'CE Livret A', idx: 4, color: '#ef4444' },
-  { key: 'cash', name: 'TR Cash', idx: 5, color: '#94a3b8' },
+  { key: 'boursovie', name: 'BoursoVie',    idx: 1, color: '#c2185b' },
+  { key: 'cto',       name: 'TR CTO (BTC)', idx: 2, color: '#f59e0b' },
+  { key: 'pea',       name: 'TR PEA',       idx: 3, color: '#3b82f6' },
+  { key: 'livret',    name: 'CE Livret A',  idx: 4, color: '#ef4444' },
+  { key: 'cash',      name: 'TR Cash',      idx: 5, color: '#94a3b8' },
 ];
 
 function fmt(n) {
@@ -785,39 +938,38 @@ function renderDashboard() {
   document.getElementById('totalMax').textContent = fmt(totalMax);
   document.getElementById('totalCristina').textContent = fmt(cristinaLast);
 
-  // Performance based on invested amounts
-  // Total invested = base invested + injections
-  // TR Cash: invested always = current value (no gain counted)
+  // Performance: TR Cash not counted (invested = current value)
   const currentCash = parseFloat(last[5]) || 0;
   const totalInvested =
     (investedAmounts.boursovie || 0) + (totalInjections.boursovie || 0) +
-    (investedAmounts.cto || 0) + (totalInjections.cto || 0) +
-    (investedAmounts.pea || 0) + (totalInjections.pea || 0) +
-    (investedAmounts.livret || 0) + (totalInjections.livret || 0) +
-    currentCash; // TR Cash invested = current value
+    (investedAmounts.cto       || 0) + (totalInjections.cto       || 0) +
+    (investedAmounts.pea       || 0) + (totalInjections.pea       || 0) +
+    (investedAmounts.livret    || 0) + (totalInjections.livret    || 0) +
+    currentCash;
 
   if (totalInvested > 0) {
     const gain = totalMax - totalInvested;
     const pct = ((gain / totalInvested) * 100).toFixed(2);
     const el = document.getElementById('gainTotal');
-    el.textContent = `${gain >= 0 ? '+' : ''}${fmt(gain)} (${gain >= 0 ? '+' : ''}${pct}%) vs investi`;
+    el.textContent = `${gain >= 0 ? '+' : ''}${fmt(gain)} (${gain >= 0 ? '+' : ''}${pct}%)`;
     el.className = `gain ${gain >= 0 ? 'pos' : 'neg'}`;
   }
 
-  // Date
   const dateStr = last[0];
   document.getElementById('lastUpdate').textContent = typeof dateStr === 'string' ? dateStr : new Date(dateStr).toLocaleDateString('fr-FR');
 
-  // Account cards with invested info
+  // Account cards
   const cardsHtml = ACCOUNTS.map(a => {
     const val = parseFloat(last[a.idx]) || 0;
     const inv = (investedAmounts[a.key] || 0) + (totalInjections[a.key] || 0);
     const accountGain = a.key === 'cash' ? 0 : val - inv;
     const accountPct = (inv > 0 && a.key !== 'cash') ? ((accountGain / inv) * 100).toFixed(1) : null;
-    return `<div class="account-card">
+    const isClickable = a.key === 'pea';
+    return `<div class="account-card${isClickable ? ' clickable' : ''}" ${isClickable ? 'onclick="openPeaModal()"' : ''}>
       <div class="left">
         <div class="dot" style="background:${a.color}"></div>
         <span class="name">${a.name}</span>
+        ${isClickable ? '<svg viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2" style="width:14px;height:14px;opacity:0.5"><polyline points="9 18 15 12 9 6"/></svg>' : ''}
       </div>
       <div style="text-align:right">
         <span class="amount">${fmt(val)}</span>
@@ -833,62 +985,111 @@ function renderDashboard() {
 // ============== CHARTS ==============
 let chartArea = null;
 let chartDonut = null;
+let chartFs = null;
+let fsMode = null; // 'area' or 'donut'
 
-function renderCharts() {
-  if (!allData.length) return;
-
-  const labels = allData.map(r => {
-    const d = r[0];
-    if (typeof d === 'string' && d.includes('/')) return d;
-    try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }); }
-    catch { return d; }
-  });
-
-  // Area chart
-  const datasets = ACCOUNTS.map(a => ({
-    label: a.name,
-    data: allData.map(r => parseFloat(r[a.idx]) || 0),
-    backgroundColor: a.color + '80',
-    borderColor: a.color,
-    borderWidth: 1.5,
-    fill: true,
-    pointRadius: 0,
-    tension: 0.3,
-  }));
-
-  // Add Cristina to area chart
-  if (cristinaData.length > 0) {
-    datasets.push({
-      label: 'Cristina',
-      data: cristinaData.map(v => parseFloat(v) || 0),
-      backgroundColor: '#f48fb180',
-      borderColor: '#f48fb1',
-      borderWidth: 1.5,
-      fill: true,
-      pointRadius: 0,
-      tension: 0.3,
+// Donut center text plugin
+const donutCenterPlugin = {
+  id: 'donutCenter',
+  afterDraw(chart) {
+    if (chart.config.type !== 'doughnut') return;
+    const { ctx, chartArea: ca } = chart;
+    const meta = chart.getDatasetMeta(0);
+    let total = 0;
+    chart.data.datasets[0].data.forEach((v, i) => {
+      if (meta.data[i] && !meta.data[i].hidden) total += parseFloat(v) || 0;
     });
+    const cx = (ca.left + ca.right) / 2;
+    const cy = (ca.top + ca.bottom) / 2;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#f1f5f9';
+    ctx.font = '700 14px Inter, system-ui, sans-serif';
+    ctx.fillText(fmt(total), cx, cy);
+    ctx.restore();
   }
+};
+Chart.register(donutCenterPlugin);
 
-  if (chartArea) chartArea.destroy();
-  chartArea = new Chart(document.getElementById('chartArea'), {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
+function buildAreaLegend(chart, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  chart.data.datasets.forEach((ds, i) => {
+    const color = Array.isArray(ds.borderColor) ? ds.borderColor[0] : ds.borderColor;
+    const item = document.createElement('label');
+    item.className = 'legend-item';
+    item.innerHTML = `<input type="checkbox" checked>
+      <span class="legend-swatch" style="background:${color}"></span>
+      <span>${ds.label}</span>`;
+    const cb = item.querySelector('input');
+    cb.style.accentColor = color;
+    cb.addEventListener('change', e => {
+      chart.setDatasetVisibility(i, e.target.checked);
+      chart.update();
+      updateAreaTotal(chart, containerId === 'legendFs' ? 'fsTotalLabel' : 'areaTotalLabel');
+    });
+    container.appendChild(item);
+  });
+  updateAreaTotal(chart, containerId === 'legendFs' ? 'fsTotalLabel' : 'areaTotalLabel');
+}
+
+function buildDonutLegend(chart, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  const meta = chart.getDatasetMeta(0);
+  chart.data.labels.forEach((label, i) => {
+    const color = chart.data.datasets[0].backgroundColor[i];
+    const item = document.createElement('label');
+    item.className = 'legend-item';
+    item.innerHTML = `<input type="checkbox" checked>
+      <span class="legend-swatch" style="background:${color}"></span>
+      <span>${label}</span>`;
+    const cb = item.querySelector('input');
+    cb.style.accentColor = color;
+    cb.addEventListener('change', e => {
+      chart.toggleDataVisibility(i);
+      chart.update();
+    });
+    container.appendChild(item);
+  });
+}
+
+function updateAreaTotal(chart, labelId) {
+  const labelEl = document.getElementById(labelId);
+  if (!labelEl) return;
+  if (!allData.length) return;
+  const lastIdx = allData.length - 1;
+  let total = 0;
+  chart.data.datasets.forEach((ds, i) => {
+    if (chart.isDatasetVisible(i)) total += ds.data[lastIdx] || 0;
+  });
+  labelEl.textContent = fmt(total);
+}
+
+function getChartOptions(type) {
+  const tooltipDefaults = {
+    backgroundColor: '#1e293b',
+    titleColor: '#f1f5f9',
+    bodyColor: '#94a3b8',
+    borderColor: '#334155',
+    borderWidth: 1,
+    cornerRadius: 8,
+    padding: 10,
+    titleFont: { family: 'Inter', weight: '600' },
+    bodyFont: { family: 'Inter' },
+  };
+
+  if (type === 'line') {
+    return {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { display: true, position: 'bottom', labels: { color: '#94a3b8', boxWidth: 10, padding: 12, font: { size: 11, family: 'Inter' }, usePointStyle: true, pointStyle: 'circle' } },
+        legend: { display: false },
         tooltip: {
-          backgroundColor: '#1e293b',
-          titleColor: '#f1f5f9',
-          bodyColor: '#94a3b8',
-          borderColor: '#334155',
-          borderWidth: 1,
-          cornerRadius: 8,
-          padding: 10,
-          titleFont: { family: 'Inter', weight: '600' },
-          bodyFont: { family: 'Inter' },
+          ...tooltipDefaults,
           callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` }
         }
       },
@@ -900,18 +1101,72 @@ function renderCharts() {
           grid: { color: '#1e293b' }
         }
       }
+    };
+  }
+
+  return {
+    responsive: type !== 'doughnut' || undefined,
+    cutout: '65%',
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...tooltipDefaults,
+        callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}` }
+      }
     }
+  };
+}
+
+function renderCharts() {
+  if (!allData.length) return;
+
+  const labels = allData.map(r => {
+    const d = r[0];
+    if (typeof d === 'string' && d.includes('/')) return d;
+    try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }); }
+    catch { return d; }
   });
+
+  const datasets = ACCOUNTS.map(a => ({
+    label: a.name,
+    data: allData.map(r => parseFloat(r[a.idx]) || 0),
+    backgroundColor: a.color + '55',
+    borderColor: a.color,
+    borderWidth: 2,
+    fill: true,
+    pointRadius: 0,
+    tension: 0.4,
+  }));
+
+  if (cristinaData.length > 0) {
+    datasets.push({
+      label: 'Cristina',
+      data: cristinaData.map(v => parseFloat(v) || 0),
+      backgroundColor: '#f48fb133',
+      borderColor: '#f48fb1',
+      borderWidth: 2,
+      fill: true,
+      pointRadius: 0,
+      tension: 0.4,
+    });
+  }
+
+  if (chartArea) chartArea.destroy();
+  chartArea = new Chart(document.getElementById('chartArea'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: getChartOptions('line')
+  });
+  buildAreaLegend(chartArea, 'legendArea');
 
   // Donut
   const last = allData[allData.length - 1];
   const donutValues = ACCOUNTS.map(a => parseFloat(last[a.idx]) || 0);
   const donutColors = ACCOUNTS.map(a => a.color);
   const donutLabels = ACCOUNTS.map(a => a.name);
-
-  const cristinaLast2 = cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0;
-  if (cristinaLast2 > 0) {
-    donutValues.push(cristinaLast2);
+  const cristinaLast = cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0;
+  if (cristinaLast > 0) {
+    donutValues.push(cristinaLast);
     donutColors.push('#f48fb1');
     donutLabels.push('Cristina');
   }
@@ -923,36 +1178,100 @@ function renderCharts() {
       labels: donutLabels,
       datasets: [{ data: donutValues, backgroundColor: donutColors, borderWidth: 0 }]
     },
-    options: {
-      responsive: true,
-      cutout: '65%',
-      plugins: {
-        legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 10, padding: 12, font: { size: 11, family: 'Inter' }, usePointStyle: true, pointStyle: 'circle' } },
-        tooltip: {
-          backgroundColor: '#1e293b',
-          titleColor: '#f1f5f9',
-          bodyColor: '#94a3b8',
-          borderColor: '#334155',
-          borderWidth: 1,
-          cornerRadius: 8,
-          padding: 10,
-          titleFont: { family: 'Inter', weight: '600' },
-          bodyFont: { family: 'Inter' },
-          callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}` }
-        }
-      }
-    }
+    options: getChartOptions('doughnut')
   });
+  buildDonutLegend(chartDonut, 'legendDonut');
+}
+
+// ============== FULLSCREEN CHART ==============
+function expandChart(mode) {
+  fsMode = mode;
+  const overlay = document.getElementById('chartFullscreen');
+  const titleEl = document.getElementById('fsTitleLabel');
+  const fsCanvas = document.getElementById('chartFs');
+  const legendFs = document.getElementById('legendFs');
+  const fsTotalLabel = document.getElementById('fsTotalLabel');
+
+  overlay.classList.add('visible');
+  legendFs.innerHTML = '';
+  fsTotalLabel.textContent = '';
+
+  if (chartFs) { chartFs.destroy(); chartFs = null; }
+
+  if (mode === 'area') {
+    titleEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;opacity:0.7"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Progression';
+    if (!allData.length) return;
+    const labels = allData.map(r => {
+      const d = r[0];
+      if (typeof d === 'string' && d.includes('/')) return d;
+      try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }); }
+      catch { return d; }
+    });
+    const datasets = ACCOUNTS.map(a => ({
+      label: a.name,
+      data: allData.map(r => parseFloat(r[a.idx]) || 0),
+      backgroundColor: a.color + '55',
+      borderColor: a.color,
+      borderWidth: 2,
+      fill: true,
+      pointRadius: 0,
+      tension: 0.4,
+    }));
+    if (cristinaData.length > 0) {
+      datasets.push({
+        label: 'Cristina',
+        data: cristinaData.map(v => parseFloat(v) || 0),
+        backgroundColor: '#f48fb133',
+        borderColor: '#f48fb1',
+        borderWidth: 2,
+        fill: true,
+        pointRadius: 0,
+        tension: 0.4,
+      });
+    }
+    chartFs = new Chart(fsCanvas, {
+      type: 'line',
+      data: { labels, datasets },
+      options: getChartOptions('line')
+    });
+    buildAreaLegend(chartFs, 'legendFs');
+
+  } else {
+    titleEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;opacity:0.7"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Répartition actuelle';
+    if (!allData.length) return;
+    const last = allData[allData.length - 1];
+    const donutValues = ACCOUNTS.map(a => parseFloat(last[a.idx]) || 0);
+    const donutColors = ACCOUNTS.map(a => a.color);
+    const donutLabels = ACCOUNTS.map(a => a.name);
+    const cristinaLast = cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0;
+    if (cristinaLast > 0) {
+      donutValues.push(cristinaLast);
+      donutColors.push('#f48fb1');
+      donutLabels.push('Cristina');
+    }
+    chartFs = new Chart(fsCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: donutLabels,
+        datasets: [{ data: donutValues, backgroundColor: donutColors, borderWidth: 0 }]
+      },
+      options: getChartOptions('doughnut')
+    });
+    buildDonutLegend(chartFs, 'legendFs');
+  }
+}
+
+function closeFullscreen() {
+  document.getElementById('chartFullscreen').classList.remove('visible');
+  if (chartFs) { chartFs.destroy(); chartFs = null; }
+  fsMode = null;
 }
 
 // ============== FORM ==============
 function prefillForm() {
   document.getElementById('fDate').valueAsDate = new Date();
-
   const lastCristina = cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0;
-  if (lastCristina > 0) {
-    document.getElementById('cristinaLastVal').textContent = fmt(lastCristina);
-  }
+  if (lastCristina > 0) document.getElementById('cristinaLastVal').textContent = fmt(lastCristina);
 }
 
 document.getElementById('cristinaSame').addEventListener('change', function() {
@@ -966,7 +1285,6 @@ document.getElementById('cristinaSame').addEventListener('change', function() {
   }
 });
 
-// Injection toggle
 document.getElementById('injectionToggle').addEventListener('change', function() {
   document.getElementById('injectionFields').classList.toggle('visible', this.checked);
 });
@@ -981,22 +1299,19 @@ async function submitForm() {
   if (!date) { status.className = 'status error'; status.textContent = 'Veuillez saisir une date.'; return; }
 
   const donnees = {
-    date,
     boursovie: parseFloat(document.getElementById('fBoursovie').value) || 0,
-    cto: parseFloat(document.getElementById('fCto').value) || 0,
-    pea: parseFloat(document.getElementById('fPea').value) || 0,
-    livret: parseFloat(document.getElementById('fLivret').value) || 0,
-    cash: parseFloat(document.getElementById('fCash').value) || 0,
-    cristina: parseFloat(document.getElementById('fCristina').value) || 0
+    cto:       parseFloat(document.getElementById('fCto').value)       || 0,
+    pea:       parseFloat(document.getElementById('fPea').value)       || 0,
+    livret:    parseFloat(document.getElementById('fLivret').value)    || 0,
+    cash:      parseFloat(document.getElementById('fCash').value)      || 0,
+    cristina:  parseFloat(document.getElementById('fCristina').value)  || 0,
   };
 
-  // Injections (optional)
   const injections = {
     boursovie: parseFloat(document.getElementById('injBoursovie').value) || 0,
-    cto: parseFloat(document.getElementById('injCto').value) || 0,
-    pea: parseFloat(document.getElementById('injPea').value) || 0,
-    livret: parseFloat(document.getElementById('injLivret').value) || 0,
-    cash: parseFloat(document.getElementById('injCash').value) || 0,
+    cto:       parseFloat(document.getElementById('injCto').value)       || 0,
+    pea:       parseFloat(document.getElementById('injPea').value)       || 0,
+    livret:    parseFloat(document.getElementById('injLivret').value)    || 0,
   };
 
   const total = donnees.boursovie + donnees.cto + donnees.pea + donnees.livret + donnees.cash;
@@ -1006,33 +1321,36 @@ async function submitForm() {
   btn.textContent = 'Envoi en cours...';
 
   try {
-    if (!accessToken) throw new Error('Non connecte. Allez dans Config > Connecter Google.');
+    if (!accessToken) throw new Error('Non connecté. Allez dans Config > Connecter Google.');
 
-    // Row: Date|Bourso|CTO|PEA|Livret|Cash|Total|Cristina|InjBourso|InjCTO|InjPEA|InjLivret|InjCash
+    // Columns: Date|Bourso|CTO|PEA|Livret|Cash|Total|Cristina|InjBourso|InjCTO|InjPEA|InjLivret|InjCash(empty)
     const newRow = [
-      date, donnees.boursovie, donnees.cto, donnees.pea, donnees.livret, donnees.cash, total, donnees.cristina,
-      injections.boursovie || '', injections.cto || '', injections.pea || '', injections.livret || '', injections.cash || ''
+      date,
+      donnees.boursovie, donnees.cto, donnees.pea, donnees.livret, donnees.cash,
+      total, donnees.cristina,
+      injections.boursovie || '', injections.cto || '', injections.pea || '', injections.livret || '', ''
     ];
 
     await sheetsAppend(`'${cfg.targetTab}'!A:M`, [newRow]);
 
     status.className = 'status success';
-    status.textContent = `Donnees ajoutees ! Total Max: ${fmt(total)}`;
+    status.textContent = `Données ajoutées ! Total Max: ${fmt(total)}`;
 
-    // Reset form
-    ['fBoursovie', 'fCto', 'fPea', 'fLivret', 'fCash', 'fCristina', 'injBoursovie', 'injCto', 'injPea', 'injLivret', 'injCash'].forEach(id => document.getElementById(id).value = '');
+    ['fBoursovie','fCto','fPea','fLivret','fCash','fCristina','injBoursovie','injCto','injPea','injLivret'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
     document.getElementById('cristinaSame').checked = false;
     document.getElementById('fCristina').disabled = false;
     document.getElementById('injectionToggle').checked = false;
     document.getElementById('injectionFields').classList.remove('visible');
 
     await loadData();
-  } catch (e) {
+  } catch(e) {
     status.className = 'status error';
     status.textContent = 'Erreur: ' + e.message;
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Ajouter';
+    btn.textContent = 'Mettre à jour';
   }
 }
 
@@ -1043,9 +1361,7 @@ function renderHistory() {
   if (histLoad) histLoad.style.display = 'none';
 
   const rows = allData.slice(-50).reverse();
-
-  let html = '<table><thead><tr>';
-  html += '<th>Date</th>';
+  let html = '<table><thead><tr><th>Date</th>';
   ACCOUNTS.forEach(a => html += `<th>${a.name}</th>`);
   html += '<th>Total</th>';
   if (cristinaData.length > 0) html += '<th>Cristina</th>';
@@ -1058,15 +1374,167 @@ function renderHistory() {
     html += `<tr><td>${dateStr}</td>`;
     ACCOUNTS.forEach(a => html += `<td>${fmt(parseFloat(r[a.idx]) || 0)}</td>`);
     html += `<td>${fmt(parseFloat(r[6]) || 0)}</td>`;
-    if (cristinaData.length > 0) {
-      html += `<td>${fmt(cristinaData[realIdx] || 0)}</td>`;
-    }
+    if (cristinaData.length > 0) html += `<td>${fmt(cristinaData[realIdx] || 0)}</td>`;
     html += '</tr>';
   });
 
   html += '</tbody></table>';
   document.getElementById('historyTable').innerHTML = html;
 }
+
+// ============== MIGRATION ==============
+async function migrateData() {
+  const cfg = getConfig();
+  if (!accessToken) { alert('Connectez-vous d\'abord à Google (Config > Connecter Google).'); return; }
+  if (!cfg.sourceId || !cfg.targetId) { alert('Configurez les deux Sheet IDs.'); return; }
+  if (!confirm('Attention : cette opération va écrire les données source dans la feuille cible à partir de la ligne 2. Continuer ?')) return;
+
+  const btn = document.getElementById('btnMigrate');
+  const st = document.getElementById('migrateStatus');
+  btn.disabled = true;
+  st.className = 'status info'; st.textContent = 'Lecture du sheet source...';
+
+  try {
+    const [srcRows, cristinaRows] = await Promise.all([
+      sheetsRead(cfg.sourceId, `'${cfg.sourceTab}'!A9:G`),
+      sheetsRead(cfg.sourceId, `'${cfg.sourceTab}'!V9:V`)
+    ]);
+
+    const rows = (srcRows || []).filter(r => r[0]);
+    const cristina = (cristinaRows || []).map(r => parseFloat(r[0]) || '');
+
+    if (rows.length === 0) {
+      st.className = 'status error'; st.textContent = 'Aucune donnée trouvée dans le sheet source.';
+      return;
+    }
+
+    st.textContent = `${rows.length} lignes trouvées. Écriture en cours...`;
+
+    const values = rows.map((r, i) => [
+      r[0] || '',
+      r[1] || '', r[2] || '', r[3] || '', r[4] || '', r[5] || '',
+      r[6] || '',
+      cristina[i] || '',
+      '', '', '', '', ''
+    ]);
+
+    await sheetsUpdate(cfg.targetId, `'${cfg.targetTab}'!A2:M${rows.length + 1}`, values);
+
+    st.className = 'status success';
+    st.textContent = `Migration terminée ! ${rows.length} lignes copiées.`;
+    await loadData();
+  } catch(e) {
+    st.className = 'status error';
+    st.textContent = 'Erreur: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ============== PEA PORTFOLIO ==============
+function getPeaHoldings() {
+  return JSON.parse(localStorage.getItem('epargne_pea_holdings') || '[]');
+}
+function savePeaHoldings(h) {
+  localStorage.setItem('epargne_pea_holdings', JSON.stringify(h));
+}
+
+async function openPeaModal() {
+  document.getElementById('peaModal').classList.add('visible');
+  await refreshPeaModal();
+}
+
+function closePeaModal() {
+  document.getElementById('peaModal').classList.remove('visible');
+}
+
+function addPeaHolding() {
+  const name   = document.getElementById('peaHoldingName').value.trim();
+  const ticker = document.getElementById('peaHoldingTicker').value.trim().toUpperCase();
+  const qty    = parseFloat(document.getElementById('peaHoldingQty').value) || 0;
+  if (!name || !ticker || qty <= 0) return;
+  const holdings = getPeaHoldings();
+  holdings.push({ name, ticker, qty });
+  savePeaHoldings(holdings);
+  document.getElementById('peaHoldingName').value = '';
+  document.getElementById('peaHoldingTicker').value = '';
+  document.getElementById('peaHoldingQty').value = '';
+  refreshPeaModal();
+}
+
+function removePeaHolding(i) {
+  const holdings = getPeaHoldings();
+  holdings.splice(i, 1);
+  savePeaHoldings(holdings);
+  refreshPeaModal();
+}
+
+async function fetchPrice(ticker) {
+  const direct = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
+  const proxy  = `https://corsproxy.io/?${encodeURIComponent(direct)}`;
+  for (const url of [direct, proxy]) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+      if (price) return price;
+    } catch {}
+  }
+  return null;
+}
+
+async function refreshPeaModal() {
+  const holdings = getPeaHoldings();
+  const st = document.getElementById('peaFetchStatus');
+  const listEl = document.getElementById('peaHoldingsList');
+
+  if (holdings.length === 0) {
+    listEl.innerHTML = '<p style="color:var(--text2);font-size:13px;padding:8px 0">Aucun titre. Ajoutez-en ci-dessous.</p>';
+    document.getElementById('peaTotalLine').textContent = '';
+    st.textContent = '';
+    return;
+  }
+
+  st.textContent = 'Récupération des cours...';
+
+  const prices = await Promise.all(holdings.map(h => fetchPrice(h.ticker)));
+
+  let html = '';
+  let total = 0;
+  let anyMissing = false;
+
+  holdings.forEach((h, i) => {
+    const price = prices[i];
+    const val = price !== null ? price * h.qty : null;
+    if (val !== null) total += val;
+    else anyMissing = true;
+
+    html += `<div class="pea-holding-row">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>
+      <span style="flex:1;font-weight:500">${h.name}
+        <small style="color:var(--text2);font-weight:400"> ${h.ticker}</small>
+      </span>
+      <span style="color:var(--text2);font-size:11px;white-space:nowrap">${h.qty} parts</span>
+      <span style="font-weight:600;min-width:80px;text-align:right;white-space:nowrap">
+        ${val !== null ? fmt(val) : '<span style="color:var(--text2)">—</span>'}
+        ${price !== null ? `<div style="font-size:10px;color:var(--text2)">${price.toFixed(2)} €</div>` : ''}
+      </span>
+      <button class="pea-remove-btn" onclick="removePeaHolding(${i})" title="Supprimer">×</button>
+    </div>`;
+  });
+
+  listEl.innerHTML = html;
+  document.getElementById('peaTotalLine').textContent = `Total PEA: ${fmt(total)}`;
+  st.textContent = anyMissing
+    ? 'Certains cours indisponibles (ticker invalide ou CORS bloqué).'
+    : `Cours mis à jour.`;
+}
+
+// Close PEA modal on overlay click
+document.getElementById('peaModal').addEventListener('click', function(e) {
+  if (e.target === this) closePeaModal();
+});
 
 // ============== NAVIGATION ==============
 document.querySelectorAll('.nav button').forEach(btn => {
@@ -1084,10 +1552,7 @@ window.addEventListener('load', () => {
   loadGIS();
   prefillForm();
 
-  if (accessToken) {
-    document.getElementById('connectionStatus').textContent = 'Connecte (session)';
-    document.getElementById('connectionStatus').style.color = 'var(--green)';
-  }
+  if (accessToken) updateConnectionStatus(true, 'Connecté (session)');
 
   const cached = localStorage.getItem(DATA_KEY);
   if (cached) {
@@ -1096,10 +1561,7 @@ window.addEventListener('load', () => {
     cristinaData = d.cristinaData || [];
     investedAmounts = d.investedAmounts || {};
     totalInjections = d.totalInjections || {};
-    if (allData.length) {
-      renderDashboard();
-      renderHistory();
-    }
+    if (allData.length) { renderDashboard(); renderHistory(); }
   }
 
   loadData();
