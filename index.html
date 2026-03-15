@@ -72,8 +72,8 @@
     }
     .header .sub { color: var(--text2); font-size: 13px; }
     .header .gain { font-size: 14px; font-weight: 600; margin-top: 4px; }
-    .header .gain.pos { color: var(--green); }
-    .header .gain.neg { color: var(--red); }
+    .gain.pos { color: var(--green); }
+    .gain.neg { color: var(--red); }
 
     /* CARDS */
     .cards { display: grid; gap: 10px; margin: 16px 0; }
@@ -105,7 +105,12 @@
       padding: 16px;
       margin: 16px 0;
     }
-    .chart-container h3 { font-size: 14px; color: var(--text2); margin-bottom: 12px; }
+    .chart-container .chart-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 14px; color: var(--text2); margin-bottom: 12px;
+      font-weight: 600;
+    }
+    .chart-container .chart-title svg { width: 18px; height: 18px; opacity: 0.7; }
     .chart-container canvas { width: 100% !important; }
 
     /* FORM */
@@ -299,6 +304,7 @@
   <!-- DASHBOARD -->
   <div id="dashboard" class="page active">
     <div class="header">
+      <img src="logo.png" alt="Épargne" style="width:56px;height:56px;margin:0 auto 8px;display:block;border-radius:12px;">
       <h1>Total Epargne</h1>
       <div class="total" id="totalEpargne">--</div>
       <div class="sub">Derniere mise a jour : <span id="lastUpdate">--</span></div>
@@ -319,12 +325,18 @@
     <div class="cards" id="accountCards"></div>
 
     <div class="chart-container">
-      <h3>Progression de l'epargne</h3>
+      <div class="chart-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Progression de l'epargne
+      </div>
       <canvas id="chartArea" height="200"></canvas>
     </div>
 
     <div class="chart-container">
-      <h3>Repartition actuelle</h3>
+      <div class="chart-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 2v10l7 7"/></svg>
+        Repartition actuelle
+      </div>
       <canvas id="chartDonut" height="200"></canvas>
     </div>
 
@@ -865,9 +877,18 @@ function renderCharts() {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { display: true, position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12, padding: 8, font: { size: 11 } } },
+        legend: { display: true, position: 'bottom', labels: { color: '#94a3b8', boxWidth: 10, padding: 12, font: { size: 11, family: 'Inter' }, usePointStyle: true, pointStyle: 'circle' } },
         tooltip: {
-          callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.raw)}` }
+          backgroundColor: '#1e293b',
+          titleColor: '#f1f5f9',
+          bodyColor: '#94a3b8',
+          borderColor: '#334155',
+          borderWidth: 1,
+          cornerRadius: 8,
+          padding: 10,
+          titleFont: { family: 'Inter', weight: '600' },
+          bodyFont: { family: 'Inter' },
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` }
         }
       },
       scales: {
@@ -905,8 +926,19 @@ function renderCharts() {
       responsive: true,
       cutout: '65%',
       plugins: {
-        legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12, padding: 8, font: { size: 11 } } },
-        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${fmt(ctx.raw)}` } }
+        legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 10, padding: 12, font: { size: 11, family: 'Inter' }, usePointStyle: true, pointStyle: 'circle' } },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          titleColor: '#f1f5f9',
+          bodyColor: '#94a3b8',
+          borderColor: '#334155',
+          borderWidth: 1,
+          cornerRadius: 8,
+          padding: 10,
+          titleFont: { family: 'Inter', weight: '600' },
+          bodyFont: { family: 'Inter' },
+          callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}` }
+        }
       }
     }
   });
