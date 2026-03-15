@@ -152,6 +152,9 @@
       .legend-item { font-size: 13px; gap: 8px; padding: 5px 0; }
       .chart-container { margin-top: 20px; }
       #chartArea { max-height: 170px; }
+      .chart-title-text { display: none; }
+      .chart-fs-content canvas { flex: none !important; height: auto !important; }
+      .chart-fs-content { overflow-y: auto; }
     }
     .legend-item input[type="checkbox"] {
       width: 14px; height: 14px; cursor: pointer;
@@ -445,7 +448,7 @@
       <div class="chart-header">
         <div class="chart-title">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          Progression
+          <span class="chart-title-text">Progression</span>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
           <span class="chart-visible-total" id="areaTotalLabel"></span>
@@ -625,7 +628,7 @@
         <span>TR PEA — Portefeuille</span>
         <button class="modal-close-btn" onclick="closePeaModal()">✕</button>
       </div>
-      <div id="peaHoldingsList"></div>
+      <div id="peaHoldingsList" style="max-height:50vh;overflow-y:auto"></div>
       <hr style="border-color:var(--surface2);margin:14px 0">
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Ajouter un titre :</div>
       <div class="modal-add-row">
@@ -1487,7 +1490,7 @@ function removePeaHolding(i) {
 }
 
 function toGFTicker(yahooTicker) {
-  if (yahooTicker.endsWith('.PA')) return 'EURONEXT:' + yahooTicker.slice(0, -3);
+  if (yahooTicker.endsWith('.PA')) return 'EPA:' + yahooTicker.slice(0, -3);
   if (yahooTicker.endsWith('.LS')) return 'ELI:' + yahooTicker.slice(0, -3);
   return yahooTicker;
 }
