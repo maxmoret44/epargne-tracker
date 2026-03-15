@@ -2,7 +2,7 @@
   "name": "Épargne Tracker",
   "short_name": "Épargne",
   "description": "Suivi d'épargne personnel avec sync Google Sheets",
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
