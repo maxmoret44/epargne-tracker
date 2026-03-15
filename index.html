@@ -124,7 +124,7 @@
     }
     .chart-title svg { width: 18px; height: 18px; opacity: 0.7; }
     .chart-visible-total {
-      font-size: 13px; font-weight: 700; color: var(--text);
+      font-size: 16px; font-weight: 700; color: var(--green);
     }
     .chart-expand-btn {
       background: none; border: none; color: var(--text2); cursor: pointer;
@@ -954,6 +954,9 @@ function renderDashboard() {
     const el = document.getElementById('gainTotal');
     el.textContent = `${gain >= 0 ? '+' : ''}${fmt(gain)} (${gain >= 0 ? '+' : ''}${pct}%)`;
     el.className = `gain ${gain >= 0 ? 'pos' : 'neg'}`;
+    // Pass gain color to donut canvas for center text
+    const donutCanvas = document.getElementById('chartDonut');
+    if (donutCanvas) donutCanvas.dataset.gainColor = gain >= 0 ? '#10b981' : '#ef4444';
   }
 
   const dateStr = last[0];
@@ -995,18 +998,19 @@ const donutCenterPlugin = {
   afterDraw(chart) {
     if (chart.config.type !== 'doughnut') return;
     const { ctx, chartArea: ca } = chart;
-    const meta = chart.getDatasetMeta(0);
     let total = 0;
     chart.data.datasets[0].data.forEach((v, i) => {
-      if (meta.data[i] && !meta.data[i].hidden) total += parseFloat(v) || 0;
+      if (chart.getDataVisibility(i)) total += parseFloat(v) || 0;
     });
     const cx = (ca.left + ca.right) / 2;
     const cy = (ca.top + ca.bottom) / 2;
+    // Color: compare visible total vs invested total for visible accounts
+    const color = chart.canvas.dataset.gainColor || '#10b981';
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#f1f5f9';
-    ctx.font = '700 14px Inter, system-ui, sans-serif';
+    ctx.fillStyle = color;
+    ctx.font = '700 18px Inter, system-ui, sans-serif';
     ctx.fillText(fmt(total), cx, cy);
     ctx.restore();
   }
@@ -1070,11 +1074,16 @@ function updateAreaTotal(chart, labelId) {
   if (!labelEl) return;
   if (!allData.length) return;
   const lastIdx = allData.length - 1;
-  let total = 0;
+  const prevIdx = lastIdx > 0 ? lastIdx - 1 : 0;
+  let total = 0, prevTotal = 0;
   chart.data.datasets.forEach((ds, i) => {
-    if (chart.isDatasetVisible(i)) total += ds.data[lastIdx] || 0;
+    if (chart.isDatasetVisible(i)) {
+      total     += ds.data[lastIdx] || 0;
+      prevTotal += ds.data[prevIdx] || 0;
+    }
   });
   labelEl.textContent = fmt(total);
+  labelEl.style.color = total >= prevTotal ? 'var(--green)' : 'var(--red)';
 }
 
 function getChartOptions(type) {
@@ -1499,17 +1508,42 @@ function removePeaHolding(i) {
   refreshPeaModal();
 }
 
-async function fetchPrice(ticker) {
-  const direct = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
-  const proxy  = `https://corsproxy.io/?${encodeURIComponent(direct)}`;
-  for (const url of [direct, proxy]) {
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-      if (!res.ok) continue;
-      const data = await res.json();
-      const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-      if (price) return price;
-    } catch {}
+async function fetchPricesViaGoogleSheets(tickers) {
+  // Uses GOOGLEFINANCE formulas in a scratch column of the target sheet
+  const cfg = getConfig();
+  if (!cfg.targetId || !accessToken) return null;
+  try {
+    const scratchRange = `'${cfg.targetTab}'!Z1:Z${tickers.length}`;
+    const formulas = tickers.map(t => [`=GOOGLEFINANCE("${t}","price")`]);
+    await sheetsUpdate(cfg.targetId, scratchRange, formulas);
+    // Give Sheets time to evaluate GOOGLEFINANCE formulas
+    await new Promise(r => setTimeout(r, 2500));
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.targetId}/values/${encodeURIComponent(scratchRange)}?valueRenderOption=UNFORMATTED_VALUE`;
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data.values || []).map(r => parseFloat(r[0]) || null);
+  } catch(e) {
+    console.warn('Google Sheets price fetch failed:', e.message);
+    return null;
+  }
+}
+
+async function fetchPriceYahoo(ticker) {
+  const urls = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`,
+  ];
+  for (const base of urls) {
+    for (const url of [base, `https://corsproxy.io/?${encodeURIComponent(base)}`]) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const data = await res.json();
+        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (price) return price;
+      } catch {}
+    }
   }
   return null;
 }
@@ -1526,9 +1560,16 @@ async function refreshPeaModal() {
     return;
   }
 
-  st.textContent = 'Récupération des cours temps réel...';
+  st.textContent = 'Récupération des cours via Google Finance...';
 
-  const prices = await Promise.all(holdings.map(h => fetchPrice(h.ticker)));
+  // Primary: Google Finance via Sheets API (requires OAuth)
+  // Fallback: Yahoo Finance
+  let prices = await fetchPricesViaGoogleSheets(holdings.map(h => h.ticker));
+  const usedGoogleFinance = prices && prices.some(p => p !== null);
+  if (!usedGoogleFinance) {
+    st.textContent = 'Google Finance indisponible, essai Yahoo Finance...';
+    prices = await Promise.all(holdings.map(h => fetchPriceYahoo(h.ticker)));
+  }
 
   // Table header
   let html = `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px 12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--surface2);font-size:11px;color:var(--text2);font-weight:600">
@@ -1579,9 +1620,10 @@ async function refreshPeaModal() {
      &nbsp; ${fmt(total)}
      &nbsp; <span style="font-size:13px;color:${totalGainColor}">${totalGain >= 0 ? '+' : ''}${fmt(totalGain)}</span>`;
 
+  const source = usedGoogleFinance ? 'Google Finance' : 'Yahoo Finance';
   st.textContent = anyMissing
-    ? 'Certains cours indisponibles (ticker ou connexion).'
-    : `Cours mis à jour · ${new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`;
+    ? `Certains cours indisponibles via ${source}.`
+    : `Cours mis à jour (${source}) · ${new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`;
 }
 
 // Close PEA modal on overlay click
