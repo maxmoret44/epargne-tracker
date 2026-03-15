@@ -950,6 +950,7 @@ function renderDashboard() {
 
   if (totalInvested > 0) {
     const gain = totalMax - totalInvested;
+    portfolioGainPositive = gain >= 0;
     const pct = ((gain / totalInvested) * 100).toFixed(2);
     const el = document.getElementById('gainTotal');
     el.textContent = `${gain >= 0 ? '+' : ''}${fmt(gain)} (${gain >= 0 ? '+' : ''}${pct}%)`;
@@ -991,6 +992,7 @@ let chartArea = null;
 let chartDonut = null;
 let chartFs = null;
 let fsMode = null; // 'area' or 'donut'
+let portfolioGainPositive = true; // set in renderDashboard, used by chart totals
 
 // Donut center text plugin
 const donutCenterPlugin = {
@@ -1000,7 +1002,8 @@ const donutCenterPlugin = {
     const { ctx, chartArea: ca } = chart;
     let total = 0;
     chart.data.datasets[0].data.forEach((v, i) => {
-      if (chart.getDataVisibility(i)) total += parseFloat(v) || 0;
+      const arc = chart.getDatasetMeta(0).data[i];
+      if (!arc || !arc.hidden) total += parseFloat(v) || 0;
     });
     const cx = (ca.left + ca.right) / 2;
     const cy = (ca.top + ca.bottom) / 2;
@@ -1074,16 +1077,28 @@ function updateAreaTotal(chart, labelId) {
   if (!labelEl) return;
   if (!allData.length) return;
   const lastIdx = allData.length - 1;
-  const prevIdx = lastIdx > 0 ? lastIdx - 1 : 0;
-  let total = 0, prevTotal = 0;
+  let total = 0, visibleInvested = 0;
   chart.data.datasets.forEach((ds, i) => {
     if (chart.isDatasetVisible(i)) {
-      total     += ds.data[lastIdx] || 0;
-      prevTotal += ds.data[prevIdx] || 0;
+      const val = ds.data[lastIdx] || 0;
+      total += val;
+      const acc = ACCOUNTS[i];
+      if (acc) {
+        if (acc.key === 'cash') {
+          visibleInvested += val; // cash: invested = current value
+        } else {
+          visibleInvested += (investedAmounts[acc.key] || 0) + (totalInjections[acc.key] || 0);
+        }
+      }
     }
   });
-  labelEl.textContent = fmt(total);
-  labelEl.style.color = total >= prevTotal ? 'var(--green)' : 'var(--red)';
+  const gain = total - visibleInvested;
+  const pct = visibleInvested > 0 ? ((gain / visibleInvested) * 100).toFixed(1) : null;
+  const sign = gain >= 0 ? '+' : '';
+  const gainColor = gain >= 0 ? 'var(--green)' : 'var(--red)';
+  const gainStr = pct !== null ? ` <span style="font-size:0.75em;color:${gainColor}">${sign}${fmt(gain)} (${sign}${pct}%)</span>` : '';
+  labelEl.innerHTML = fmt(total) + gainStr;
+  labelEl.style.color = portfolioGainPositive ? 'var(--green)' : 'var(--red)';
 }
 
 function getChartOptions(type) {
@@ -1508,16 +1523,22 @@ function removePeaHolding(i) {
   refreshPeaModal();
 }
 
+function toGFTicker(yahooTicker) {
+  if (yahooTicker.endsWith('.PA')) return 'EURONEXT:' + yahooTicker.slice(0, -3);
+  if (yahooTicker.endsWith('.LS')) return 'ELI:' + yahooTicker.slice(0, -3);
+  return yahooTicker;
+}
+
 async function fetchPricesViaGoogleSheets(tickers) {
   // Uses GOOGLEFINANCE formulas in a scratch column of the target sheet
   const cfg = getConfig();
   if (!cfg.targetId || !accessToken) return null;
   try {
     const scratchRange = `'${cfg.targetTab}'!Z1:Z${tickers.length}`;
-    const formulas = tickers.map(t => [`=GOOGLEFINANCE("${t}","price")`]);
+    const formulas = tickers.map(t => [`=GOOGLEFINANCE("${toGFTicker(t)}","price")`]);
     await sheetsUpdate(cfg.targetId, scratchRange, formulas);
     // Give Sheets time to evaluate GOOGLEFINANCE formulas
-    await new Promise(r => setTimeout(r, 2500));
+    await new Promise(r => setTimeout(r, 4000));
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.targetId}/values/${encodeURIComponent(scratchRange)}?valueRenderOption=UNFORMATTED_VALUE`;
     const res = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
     if (!res.ok) return null;
