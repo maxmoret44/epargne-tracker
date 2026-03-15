@@ -146,7 +146,12 @@
     .legend-item {
       display: flex; align-items: center; gap: 6px;
       cursor: pointer; font-size: 12px; color: var(--text2);
-      user-select: none;
+      user-select: none; padding: 2px 0;
+    }
+    @media (max-width: 767px) {
+      .legend-item { font-size: 13px; gap: 8px; padding: 5px 0; }
+      .chart-container { margin-top: 20px; }
+      #chartArea { max-height: 170px; }
     }
     .legend-item input[type="checkbox"] {
       width: 14px; height: 14px; cursor: pointer;
@@ -993,10 +998,12 @@ function updateDonutTotal(labelId, data, visKey) {
   el.style.color = gainColor;
 }
 
+const CB_SIZE = ('ontouchstart' in window) ? 16 : 12;
+
 function styledCheckbox(cb, color, checked) {
   cb.style.cssText = `
     appearance:none; -webkit-appearance:none;
-    width:12px; height:12px; border-radius:2px;
+    width:${CB_SIZE}px; height:${CB_SIZE}px; border-radius:2px;
     border:2px solid ${color};
     background:${checked ? color : 'transparent'};
     cursor:pointer; flex-shrink:0; transition:background 0.15s;
@@ -1084,6 +1091,8 @@ function updateAreaTotal(chart, labelId) {
   labelEl.style.color = gainColor;
 }
 
+const IS_TOUCH = 'ontouchstart' in window;
+
 function getChartOptions(type) {
   const tooltipDefaults = {
     backgroundColor: '#1e293b',
@@ -1100,11 +1109,14 @@ function getChartOptions(type) {
   if (type === 'line') {
     return {
       responsive: true,
-      interaction: { mode: 'index', intersect: false },
+      maintainAspectRatio: true,
+      aspectRatio: IS_TOUCH ? 2.2 : 2.5,
+      interaction: { mode: IS_TOUCH ? 'nearest' : 'index', intersect: IS_TOUCH },
       plugins: {
         legend: { display: false },
         tooltip: {
           ...tooltipDefaults,
+          enabled: !IS_TOUCH,
           callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` }
         }
       },
@@ -1494,17 +1506,14 @@ async function preFetchPeaPrices() {
   } catch(e) { /* silent */ }
 }
 
-// Read pre-written prices from scratch column
+// Read pre-written prices from scratch column (works with API key OR OAuth)
 async function readPeaPricesFromSheet(count) {
   const cfg = getConfig();
-  if (!cfg.targetId || !accessToken) return null;
+  if (!cfg.targetId) return null;
   try {
     const range = `'${cfg.targetTab}'!Z1:Z${count}`;
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.targetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`;
-    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    return (data.values || []).map(r => parseFloat(r[0]) || null);
+    const values = await sheetsRead(cfg.targetId, range);
+    return (values || []).map(r => parseFloat(r[0]) || null);
   } catch(e) {
     console.warn('readPeaPrices:', e.message);
     return null;
@@ -1523,15 +1532,10 @@ async function refreshPeaModal() {
     return;
   }
 
-  if (!accessToken) {
-    st.innerHTML = 'Connectez-vous à Google pour voir les cours. <button onclick="refreshPeaModal()" style="background:var(--accent);border:none;color:#fff;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px">Réessayer</button>';
-    return;
-  }
-
   st.textContent = 'Récupération des cours...';
 
-  // Ensure formulas are in the sheet (write if needed)
-  await preFetchPeaPrices();
+  // Write GOOGLEFINANCE formulas if we have OAuth (first-time or refresh)
+  if (accessToken) await preFetchPeaPrices();
 
   // Poll for evaluated values (GOOGLEFINANCE needs time to evaluate)
   let prices = null;
@@ -1547,7 +1551,8 @@ async function refreshPeaModal() {
   }
 
   if (!prices || prices.every(p => p === null)) {
-    st.innerHTML = `Impossible de récupérer les cours (token expiré ?). <button onclick="refreshPeaModal()" style="background:var(--accent);border:none;color:#fff;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px">Réessayer</button>`;
+    const hint = accessToken ? 'Les formules sont en cours d\'évaluation.' : 'Connectez-vous à Google une fois pour activer les cours automatiques.';
+    st.innerHTML = `${hint} <button onclick="refreshPeaModal()" style="background:var(--accent);border:none;color:#fff;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px">Réessayer</button>`;
     renderPeaTable(listEl, holdings, Array(holdings.length).fill(null));
     return;
   }
