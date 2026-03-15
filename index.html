@@ -124,7 +124,10 @@
     }
     .chart-title svg { width: 18px; height: 18px; opacity: 0.7; }
     .chart-visible-total {
-      font-size: 16px; font-weight: 700; color: var(--green);
+      font-size: 16px; font-weight: 700;
+    }
+    @media (min-width: 768px) {
+      .chart-fs-total { font-size: 26px !important; }
     }
     .chart-expand-btn {
       background: none; border: none; color: var(--text2); cursor: pointer;
@@ -175,6 +178,12 @@
       flex: 1; display: flex; flex-direction: column; overflow: hidden;
     }
     .chart-fs-content canvas { flex: 1; max-height: calc(100vh - 160px); }
+    .chart-fs-content.donut-mode { align-items: center; }
+    .chart-fs-content.donut-mode canvas {
+      flex: none !important; height: auto !important;
+      max-width: min(80vw, calc(100vh - 200px));
+      max-height: min(80vw, calc(100vh - 200px));
+    }
 
     /* FORM */
     .form-group { margin-bottom: 16px; }
@@ -471,13 +480,15 @@
   <div id="chartFullscreen" class="chart-fs-overlay">
     <div class="chart-fs-header">
       <div class="chart-title" id="fsTitleLabel"></div>
-      <button class="chart-fs-close" onclick="closeFullscreen()">✕</button>
+      <div style="display:flex;align-items:center;gap:14px">
+        <span class="chart-visible-total chart-fs-total" id="fsTotalLabel" style="font-size:18px"></span>
+        <button class="chart-fs-close" onclick="closeFullscreen()">✕</button>
+      </div>
     </div>
-    <div class="chart-fs-content">
+    <div class="chart-fs-content" id="chartFsContent">
       <canvas id="chartFs" style="width:100%;height:100%"></canvas>
       <div class="chart-legend" id="legendFs" style="margin-top:14px"></div>
     </div>
-    <div style="text-align:right;font-size:13px;font-weight:700;color:var(--text);margin-top:8px" id="fsTotalLabel"></div>
   </div>
 
   <!-- ADD FORM -->
@@ -757,6 +768,7 @@ function connectGoogle() {
       sessionStorage.setItem('epargne_access_token', accessToken);
       updateConnectionStatus(true);
       loadData();
+      preFetchPeaPrices();
     }
   });
 
@@ -774,6 +786,7 @@ function trySilentAuth(clientId) {
         sessionStorage.setItem('epargne_access_token', accessToken);
         updateConnectionStatus(true, 'Connecté (auto)');
         loadData();
+        preFetchPeaPrices();
       },
       error_callback: () => {}
     });
@@ -954,12 +967,30 @@ const donutVisibility = {};
 function updateDonutTotal(labelId, data, visKey) {
   const el = document.getElementById(labelId);
   if (!el) return;
-  let total = 0;
+  let total = 0, visibleInvested = 0;
   data.forEach((v, i) => {
-    if (donutVisibility[visKey + i] !== false) total += parseFloat(v) || 0;
+    if (donutVisibility[visKey + i] !== false) {
+      const val = parseFloat(v) || 0;
+      total += val;
+      const acc = ACCOUNTS[i];
+      if (acc) {
+        if (acc.key === 'cash') {
+          visibleInvested += val;
+        } else {
+          visibleInvested += (investedAmounts[acc.key] || 0) + (totalInjections[acc.key] || 0);
+        }
+      } else {
+        visibleInvested += val; // Cristina: gain = 0
+      }
+    }
   });
-  el.textContent = fmt(total);
-  el.style.color = portfolioGainPositive ? 'var(--green)' : 'var(--red)';
+  const gain = total - visibleInvested;
+  const pct = visibleInvested > 0 ? ((gain / visibleInvested) * 100).toFixed(1) : null;
+  const sign = gain >= 0 ? '+' : '';
+  const gainColor = gain >= 0 ? 'var(--green)' : 'var(--red)';
+  const gainStr = pct !== null ? ` <span style="font-size:0.75em;color:${gainColor}">${sign}${fmt(gain)} (${sign}${pct}%)</span>` : '';
+  el.innerHTML = fmt(total) + gainStr;
+  el.style.color = gainColor;
 }
 
 function styledCheckbox(cb, color, checked) {
@@ -1050,7 +1081,7 @@ function updateAreaTotal(chart, labelId) {
   const gainColor = gain >= 0 ? 'var(--green)' : 'var(--red)';
   const gainStr = pct !== null ? ` <span style="font-size:0.75em;color:${gainColor}">${sign}${fmt(gain)} (${sign}${pct}%)</span>` : '';
   labelEl.innerHTML = fmt(total) + gainStr;
-  labelEl.style.color = portfolioGainPositive ? 'var(--green)' : 'var(--red)';
+  labelEl.style.color = gainColor;
 }
 
 function getChartOptions(type) {
@@ -1179,6 +1210,10 @@ function expandChart(mode) {
   overlay.classList.add('visible');
   legendFs.innerHTML = '';
   fsTotalLabel.textContent = '';
+  const fsContent = document.getElementById('chartFsContent');
+  fsContent.classList.remove('donut-mode');
+  fsCanvas.style.width = '100%';
+  fsCanvas.style.height = '100%';
 
   if (chartFs) { chartFs.destroy(); chartFs = null; }
 
@@ -1221,6 +1256,9 @@ function expandChart(mode) {
     buildAreaLegend(chartFs, 'legendFs');
 
   } else {
+    fsContent.classList.add('donut-mode');
+    fsCanvas.style.width = '';
+    fsCanvas.style.height = '';
     titleEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;opacity:0.7"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Répartition actuelle';
     if (!allData.length) return;
     const last = allData[allData.length - 1];
@@ -1442,54 +1480,35 @@ function toGFTicker(yahooTicker) {
   return yahooTicker;
 }
 
-async function fetchPricesViaGoogleSheets(tickers) {
-  // Uses GOOGLEFINANCE formulas in a scratch column of the target sheet
+// Pre-write GOOGLEFINANCE formulas to scratch column at auth time (background)
+async function preFetchPeaPrices() {
+  if (!accessToken) return;
+  const cfg = getConfig();
+  if (!cfg.targetId) return;
+  const holdings = getPeaHoldings();
+  if (!holdings.length) return;
+  try {
+    const range = `'${cfg.targetTab}'!Z1:Z${holdings.length}`;
+    const formulas = holdings.map(h => [`=GOOGLEFINANCE("${toGFTicker(h.ticker)}","price")`]);
+    await sheetsUpdate(cfg.targetId, range, formulas);
+  } catch(e) { /* silent */ }
+}
+
+// Read pre-written prices from scratch column
+async function readPeaPricesFromSheet(count) {
   const cfg = getConfig();
   if (!cfg.targetId || !accessToken) return null;
   try {
-    const scratchRange = `'${cfg.targetTab}'!Z1:Z${tickers.length}`;
-    const formulas = tickers.map(t => [`=GOOGLEFINANCE("${toGFTicker(t)}","price")`]);
-    await sheetsUpdate(cfg.targetId, scratchRange, formulas);
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.targetId}/values/${encodeURIComponent(scratchRange)}?valueRenderOption=UNFORMATTED_VALUE`;
-    // Poll until all GOOGLEFINANCE formulas have evaluated (max ~15s)
-    for (let attempt = 0; attempt < 5; attempt++) {
-      await new Promise(r => setTimeout(r, 3000));
-      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
-      if (!res.ok) return null;
-      const data = await res.json();
-      const values = (data.values || []).map(r => parseFloat(r[0]) || null);
-      if (values.filter(v => v !== null).length >= Math.ceil(tickers.length * 0.8)) {
-        return values;
-      }
-    }
-    // Final read
+    const range = `'${cfg.targetTab}'!Z1:Z${count}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.targetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`;
     const res = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
-    if (!res.ok) return null;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return (data.values || []).map(r => parseFloat(r[0]) || null);
   } catch(e) {
-    console.warn('Google Sheets price fetch failed:', e.message);
+    console.warn('readPeaPrices:', e.message);
     return null;
   }
-}
-
-async function fetchPriceYahoo(ticker) {
-  const urls = [
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`,
-    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`,
-  ];
-  for (const base of urls) {
-    for (const url of [base, `https://corsproxy.io/?${encodeURIComponent(base)}`]) {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        const data = await res.json();
-        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-        if (price) return price;
-      } catch {}
-    }
-  }
-  return null;
 }
 
 async function refreshPeaModal() {
@@ -1504,70 +1523,69 @@ async function refreshPeaModal() {
     return;
   }
 
-  st.textContent = 'Récupération des cours via Google Finance...';
-
-  // Primary: Google Finance via Sheets API (requires OAuth)
-  // Fallback: Yahoo Finance
-  let prices = await fetchPricesViaGoogleSheets(holdings.map(h => h.ticker));
-  const usedGoogleFinance = prices && prices.some(p => p !== null);
-  if (!usedGoogleFinance) {
-    st.textContent = 'Google Finance indisponible, essai Yahoo Finance...';
-    prices = await Promise.all(holdings.map(h => fetchPriceYahoo(h.ticker)));
+  if (!accessToken) {
+    st.innerHTML = 'Connectez-vous à Google pour voir les cours. <button onclick="refreshPeaModal()" style="background:var(--accent);border:none;color:#fff;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px">Réessayer</button>';
+    return;
   }
 
-  // Table header
+  st.textContent = 'Récupération des cours...';
+
+  // Ensure formulas are in the sheet (write if needed)
+  await preFetchPeaPrices();
+
+  // Poll for evaluated values (GOOGLEFINANCE needs time to evaluate)
+  let prices = null;
+  const needed = Math.ceil(holdings.length * 0.7);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await new Promise(r => setTimeout(r, attempt === 0 ? 2000 : 3000));
+    const vals = await readPeaPricesFromSheet(holdings.length);
+    if (vals) {
+      prices = vals;
+      if (vals.filter(v => v !== null).length >= needed) break;
+    }
+    if (attempt < 4) st.textContent = `Chargement des cours... (${attempt + 2}/5)`;
+  }
+
+  if (!prices || prices.every(p => p === null)) {
+    st.innerHTML = `Impossible de récupérer les cours (token expiré ?). <button onclick="refreshPeaModal()" style="background:var(--accent);border:none;color:#fff;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px">Réessayer</button>`;
+    renderPeaTable(listEl, holdings, Array(holdings.length).fill(null));
+    return;
+  }
+
+  renderPeaTable(listEl, holdings, prices);
+  const anyMissing = prices.some(p => p === null);
+  const retryBtn = `<button onclick="refreshPeaModal()" style="background:var(--surface2);border:none;color:var(--text);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px;margin-left:8px">↻ Rafraîchir</button>`;
+  st.innerHTML = (anyMissing ? 'Certains cours manquants.' : `Mis à jour · ${new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`) + retryBtn;
+}
+
+function renderPeaTable(listEl, holdings, prices) {
   let html = `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px 12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--surface2);font-size:11px;color:var(--text2);font-weight:600">
-    <span>NOM</span>
-    <span style="text-align:right">PRIX</span>
-    <span style="text-align:right">GAIN</span>
-    <span style="text-align:right">VALEUR</span>
-    <span></span>
+    <span>NOM</span><span style="text-align:right">PRIX</span><span style="text-align:right">GAIN</span><span style="text-align:right">VALEUR</span><span></span>
   </div>`;
-
-  let total = 0;
-  let totalGain = 0;
-  let anyMissing = false;
-
+  let total = 0, totalGain = 0;
   holdings.forEach((h, i) => {
-    const price = prices[i];
-    const val   = price !== null ? price * h.qty : null;
-    const gain  = (price !== null && h.purchasePrice > 0)
-                  ? (price - h.purchasePrice) * h.qty : null;
-    const gainPct = (gain !== null && h.purchasePrice > 0)
-                  ? ((price - h.purchasePrice) / h.purchasePrice * 100).toFixed(2) : null;
-
-    if (val  !== null) total     += val;
-    if (gain !== null) totalGain += gain;
-    if (val  === null) anyMissing = true;
-
-    const gainColor = gain === null ? 'var(--text2)' : (gain >= 0 ? 'var(--green)' : 'var(--red)');
-    const gainStr   = gain === null ? '—'
-                    : `${gain >= 0 ? '+' : ''}${fmt(gain)}<br><span style="font-size:10px">${gain >= 0 ? '+' : ''}${gainPct}%</span>`;
-
+    const price = prices ? prices[i] : null;
+    const val   = price != null ? price * h.qty : null;
+    const gain  = (price != null && h.purchasePrice > 0) ? (price - h.purchasePrice) * h.qty : null;
+    const gainPct = (gain != null && h.purchasePrice > 0) ? ((price - h.purchasePrice) / h.purchasePrice * 100).toFixed(2) : null;
+    if (val  != null) total     += val;
+    if (gain != null) totalGain += gain;
+    const gc  = gain == null ? 'var(--text2)' : (gain >= 0 ? 'var(--green)' : 'var(--red)');
+    const gs  = gain == null ? '—' : `${gain >= 0 ? '+' : ''}${fmt(gain)}<br><span style="font-size:10px">${gain >= 0 ? '+' : ''}${gainPct}%</span>`;
     html += `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--surface2)20;font-size:13px">
-      <div>
-        <div style="font-weight:500">${h.name}</div>
-        <div style="font-size:10px;color:var(--text2)">${h.ticker} · ${h.qty} parts${h.purchasePrice > 0 ? ` · px: ${h.purchasePrice.toFixed(2)}€` : ''}</div>
-      </div>
-      <span style="text-align:right;white-space:nowrap">${price !== null ? price.toFixed(2)+'€' : '—'}</span>
-      <span style="text-align:right;color:${gainColor};white-space:nowrap;line-height:1.4">${gainStr}</span>
-      <span style="text-align:right;font-weight:600;white-space:nowrap">${val !== null ? fmt(val) : '—'}</span>
+      <div><div style="font-weight:500">${h.name}</div><div style="font-size:10px;color:var(--text2)">${h.ticker} · ${h.qty} parts${h.purchasePrice > 0 ? ` · px: ${h.purchasePrice.toFixed(2)}€` : ''}</div></div>
+      <span style="text-align:right;white-space:nowrap">${price != null ? price.toFixed(2)+'€' : '—'}</span>
+      <span style="text-align:right;color:${gc};white-space:nowrap;line-height:1.4">${gs}</span>
+      <span style="text-align:right;font-weight:600;white-space:nowrap">${val != null ? fmt(val) : '—'}</span>
       <button class="pea-remove-btn" onclick="removePeaHolding(${i})" title="Supprimer">×</button>
     </div>`;
   });
-
   listEl.innerHTML = html;
-
-  const totalGainColor = totalGain >= 0 ? 'var(--green)' : 'var(--red)';
+  const tgc = totalGain >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('peaTotalLine').innerHTML =
     `<span style="color:var(--text2);font-weight:400;font-size:13px">Total PEA</span>
-     &nbsp; ${fmt(total)}
-     &nbsp; <span style="font-size:13px;color:${totalGainColor}">${totalGain >= 0 ? '+' : ''}${fmt(totalGain)}</span>`;
-
-  const source = usedGoogleFinance ? 'Google Finance' : 'Yahoo Finance';
-  st.textContent = anyMissing
-    ? `Certains cours indisponibles via ${source}.`
-    : `Cours mis à jour (${source}) · ${new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`;
+     &nbsp; ${fmt(total)} &nbsp;
+     <span style="font-size:13px;color:${tgc}">${totalGain >= 0 ? '+' : ''}${fmt(totalGain)}</span>`;
 }
 
 // Close PEA modal on overlay click
