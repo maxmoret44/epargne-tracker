@@ -572,12 +572,8 @@
     <div class="header"><h1>Configuration</h1></div>
 
     <div class="setting-item">
-      <label>Sheet Source (historique, lecture seule)</label>
-      <input type="text" id="cfgSourceId" placeholder="ID du Google Sheet source">
-    </div>
-    <div class="setting-item">
-      <label>Sheet Cible (nouvelles données)</label>
-      <input type="text" id="cfgTargetId" placeholder="ID du Google Sheet cible">
+      <label>Sheet ID (Google Sheet)</label>
+      <input type="text" id="cfgTargetId" placeholder="ID du Google Sheet">
     </div>
     <div class="setting-item">
       <label>API Key Google</label>
@@ -588,11 +584,7 @@
       <input type="text" id="cfgClientId" placeholder="Votre Client ID OAuth2">
     </div>
     <div class="setting-item">
-      <label>Onglet source</label>
-      <input type="text" id="cfgSourceTab" value="Base épargne" placeholder="Base épargne">
-    </div>
-    <div class="setting-item">
-      <label>Onglet cible</label>
+      <label>Onglet</label>
       <input type="text" id="cfgTargetTab" value="Feuille 1" placeholder="Feuille 1">
     </div>
 
@@ -604,15 +596,6 @@
     <div class="setting-item" style="margin-top: 20px;">
       <label>Statut de connexion</label>
       <div id="connectionStatus" style="padding: 8px 0; font-size: 14px; color: var(--text2);">Non connecté</div>
-    </div>
-
-    <hr style="border-color: var(--surface2); margin: 20px 0;">
-
-    <div class="setting-item">
-      <label>Migration source → cible</label>
-      <p>Copie toutes les données historiques du sheet source vers le sheet cible. À faire une seule fois. Les données existantes dans la cible seront écrasées à partir de la ligne 2.</p>
-      <button class="btn btn-warning" onclick="migrateData()" id="btnMigrate">Migrer source → cible</button>
-      <div class="status" id="migrateStatus"></div>
     </div>
   </div>
 
@@ -642,6 +625,7 @@
 // ============== CONFIG ==============
 const CONFIG_KEY = 'epargne_config';
 const DATA_KEY = 'epargne_data';
+const INVESTED_KEY = 'epargne_invested';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
 let tokenClient;
@@ -651,22 +635,18 @@ let accessToken = sessionStorage.getItem('epargne_access_token');
 function getConfig() {
   const raw = localStorage.getItem(CONFIG_KEY);
   return raw ? JSON.parse(raw) : {
-    sourceId: '1keQ0Bs49vsMwsneOEJ1RFgJwcGlNgs82yUIeVbVhcjU',
     targetId: '1CCKFA_14_e5ioCTuTRe1tIZtffGwm_YcYtUeEZbHwRU',
     apiKey: '',
     clientId: '',
-    sourceTab: 'Base épargne',
     targetTab: 'Feuille 1'
   };
 }
 
 function saveConfig() {
   const cfg = {
-    sourceId: document.getElementById('cfgSourceId').value.trim(),
     targetId: document.getElementById('cfgTargetId').value.trim(),
     apiKey: document.getElementById('cfgApiKey').value.trim(),
     clientId: document.getElementById('cfgClientId').value.trim(),
-    sourceTab: document.getElementById('cfgSourceTab').value.trim() || 'Base épargne',
     targetTab: document.getElementById('cfgTargetTab').value.trim() || 'Feuille 1',
   };
   localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
@@ -677,11 +657,9 @@ function saveConfig() {
 
 function loadConfig() {
   const cfg = getConfig();
-  document.getElementById('cfgSourceId').value = cfg.sourceId;
   document.getElementById('cfgTargetId').value = cfg.targetId;
   document.getElementById('cfgApiKey').value = cfg.apiKey;
   document.getElementById('cfgClientId').value = cfg.clientId;
-  document.getElementById('cfgSourceTab').value = cfg.sourceTab;
   document.getElementById('cfgTargetTab').value = cfg.targetTab;
 }
 
@@ -830,48 +808,19 @@ async function loadData() {
     document.getElementById('dashLoading').innerHTML = '<span style="color:var(--text2)">Allez dans Config > Connecter Google</span>';
     return;
   }
-  if (!cfg.sourceId && !cfg.targetId) {
-    document.getElementById('dashLoading').innerHTML = '<span style="color:var(--text2)">Configurez au moins un Sheet ID dans Config</span>';
+  if (!cfg.targetId) {
+    document.getElementById('dashLoading').innerHTML = '<span style="color:var(--text2)">Configurez le Sheet ID dans Config</span>';
     return;
   }
 
   try {
-    const promises = [];
-
-    if (cfg.sourceId) {
-      promises.push(sheetsRead(cfg.sourceId, `'${cfg.sourceTab}'!A9:G`));
-      promises.push(sheetsRead(cfg.sourceId, `'${cfg.sourceTab}'!V9:V`));
-      promises.push(sheetsRead(cfg.sourceId, `'${cfg.sourceTab}'!C2:C6`));
-    } else {
-      promises.push(Promise.resolve([]));
-      promises.push(Promise.resolve([]));
-      promises.push(Promise.resolve([]));
-    }
-
-    if (cfg.targetId) {
-      promises.push(sheetsRead(cfg.targetId, `'${cfg.targetTab}'!A2:M`));
-    } else {
-      promises.push(Promise.resolve([]));
-    }
-
-    const [sourceRows, sourceCristinaRaw, investedRaw, targetRows] = await Promise.all(promises);
-
-    const srcData = (sourceRows || []).filter(r => r[0]);
-    const srcCristina = (sourceCristinaRaw || []).map(r => parseFloat(r[0]) || 0);
-    while (srcCristina.length < srcData.length) srcCristina.push(srcCristina.length > 0 ? srcCristina[srcCristina.length - 1] : 0);
-
-    const inv = (investedRaw || []).map(r => parseFloat(r[0]) || 0);
-    investedAmounts = {
-      cash:      inv[0] || 0,
-      livret:    inv[1] || 0,
-      pea:       inv[2] || 0,
-      cto:       inv[3] || 0,
-      boursovie: inv[4] || 0,
-    };
+    const targetRows = cfg.targetId
+      ? await sheetsRead(cfg.targetId, `'${cfg.targetTab}'!A2:M`)
+      : [];
 
     const tgtFiltered = (targetRows || []).filter(r => r[0]);
-    const tgtData = tgtFiltered.map(r => [r[0], r[1], r[2], r[3], r[4], r[5], r[6]]);
-    const tgtCristina = tgtFiltered.map(r => parseFloat(r[7]) || 0);
+    allData = tgtFiltered.map(r => [r[0], r[1], r[2], r[3], r[4], r[5], r[6]]);
+    cristinaData = tgtFiltered.map(r => parseFloat(r[7]) || 0);
 
     totalInjections = { boursovie: 0, cto: 0, pea: 0, livret: 0, cash: 0 };
     tgtFiltered.forEach(r => {
@@ -882,9 +831,11 @@ async function loadData() {
       totalInjections.cash      += parseFloat(r[12]) || 0;
     });
 
-    allData = [...srcData, ...tgtData];
-    cristinaData = [...srcCristina, ...tgtCristina];
-    while (cristinaData.length < allData.length) cristinaData.push(cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0);
+    // investedAmounts: load from persistent cache (set during initial source migration)
+    const cachedInvested = localStorage.getItem(INVESTED_KEY);
+    if (cachedInvested) {
+      investedAmounts = JSON.parse(cachedInvested);
+    }
 
     localStorage.setItem(DATA_KEY, JSON.stringify({ allData, cristinaData, investedAmounts, totalInjections, ts: Date.now() }));
 
@@ -1089,6 +1040,9 @@ function updateAreaTotal(chart, labelId) {
         } else {
           visibleInvested += (investedAmounts[acc.key] || 0) + (totalInjections[acc.key] || 0);
         }
+      } else {
+        // Cristina (or extra dataset): invested = current value (gain ignored)
+        visibleInvested += val;
       }
     }
   });
@@ -1415,53 +1369,6 @@ function renderHistory() {
 }
 
 // ============== MIGRATION ==============
-async function migrateData() {
-  const cfg = getConfig();
-  if (!accessToken) { alert('Connectez-vous d\'abord à Google (Config > Connecter Google).'); return; }
-  if (!cfg.sourceId || !cfg.targetId) { alert('Configurez les deux Sheet IDs.'); return; }
-  if (!confirm('Attention : cette opération va écrire les données source dans la feuille cible à partir de la ligne 2. Continuer ?')) return;
-
-  const btn = document.getElementById('btnMigrate');
-  const st = document.getElementById('migrateStatus');
-  btn.disabled = true;
-  st.className = 'status info'; st.textContent = 'Lecture du sheet source...';
-
-  try {
-    const [srcRows, cristinaRows] = await Promise.all([
-      sheetsRead(cfg.sourceId, `'${cfg.sourceTab}'!A9:G`),
-      sheetsRead(cfg.sourceId, `'${cfg.sourceTab}'!V9:V`)
-    ]);
-
-    const rows = (srcRows || []).filter(r => r[0]);
-    const cristina = (cristinaRows || []).map(r => parseFloat(r[0]) || '');
-
-    if (rows.length === 0) {
-      st.className = 'status error'; st.textContent = 'Aucune donnée trouvée dans le sheet source.';
-      return;
-    }
-
-    st.textContent = `${rows.length} lignes trouvées. Écriture en cours...`;
-
-    const values = rows.map((r, i) => [
-      r[0] || '',
-      r[1] || '', r[2] || '', r[3] || '', r[4] || '', r[5] || '',
-      r[6] || '',
-      cristina[i] || '',
-      '', '', '', '', ''
-    ]);
-
-    await sheetsUpdate(cfg.targetId, `'${cfg.targetTab}'!A2:M${rows.length + 1}`, values);
-
-    st.className = 'status success';
-    st.textContent = `Migration terminée ! ${rows.length} lignes copiées.`;
-    await loadData();
-  } catch(e) {
-    st.className = 'status error';
-    st.textContent = 'Erreur: ' + e.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
 
 // ============== PEA PORTFOLIO ==============
 // Default holdings from your Google Finance PEA portfolio
@@ -1537,9 +1444,19 @@ async function fetchPricesViaGoogleSheets(tickers) {
     const scratchRange = `'${cfg.targetTab}'!Z1:Z${tickers.length}`;
     const formulas = tickers.map(t => [`=GOOGLEFINANCE("${toGFTicker(t)}","price")`]);
     await sheetsUpdate(cfg.targetId, scratchRange, formulas);
-    // Give Sheets time to evaluate GOOGLEFINANCE formulas
-    await new Promise(r => setTimeout(r, 4000));
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.targetId}/values/${encodeURIComponent(scratchRange)}?valueRenderOption=UNFORMATTED_VALUE`;
+    // Poll until all GOOGLEFINANCE formulas have evaluated (max ~15s)
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await new Promise(r => setTimeout(r, 3000));
+      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const values = (data.values || []).map(r => parseFloat(r[0]) || null);
+      if (values.filter(v => v !== null).length >= Math.ceil(tickers.length * 0.8)) {
+        return values;
+      }
+    }
+    // Final read
     const res = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
     if (!res.ok) return null;
     const data = await res.json();
