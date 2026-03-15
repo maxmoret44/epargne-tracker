@@ -451,9 +451,12 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
           Répartition actuelle
         </div>
-        <button class="chart-expand-btn" onclick="expandChart('donut')" title="Plein écran">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-        </button>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="chart-visible-total" id="donutTotalLabel"></span>
+          <button class="chart-expand-btn" onclick="expandChart('donut')" title="Plein écran">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          </button>
+        </div>
       </div>
       <canvas id="chartDonut" height="220"></canvas>
       <div class="chart-legend" id="legendDonut"></div>
@@ -945,31 +948,19 @@ let chartFs = null;
 let fsMode = null; // 'area' or 'donut'
 let portfolioGainPositive = true; // set in renderDashboard, used by chart totals
 
-// Donut center text plugin
-const donutCenterPlugin = {
-  id: 'donutCenter',
-  afterDraw(chart) {
-    if (chart.config.type !== 'doughnut') return;
-    const { ctx, chartArea: ca } = chart;
-    let total = 0;
-    chart.data.datasets[0].data.forEach((v, i) => {
-      const arc = chart.getDatasetMeta(0).data[i];
-      if (!arc || !arc.hidden) total += parseFloat(v) || 0;
-    });
-    const cx = (ca.left + ca.right) / 2;
-    const cy = (ca.top + ca.bottom) / 2;
-    // Color: compare visible total vs invested total for visible accounts
-    const color = chart.canvas.dataset.gainColor || '#10b981';
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = color;
-    ctx.font = '700 18px Inter, system-ui, sans-serif';
-    ctx.fillText(fmt(total), cx, cy);
-    ctx.restore();
-  }
-};
-Chart.register(donutCenterPlugin);
+// Track donut series visibility separately (Chart.js getDataVisibility timing is unreliable)
+const donutVisibility = {};
+
+function updateDonutTotal(labelId, data, visKey) {
+  const el = document.getElementById(labelId);
+  if (!el) return;
+  let total = 0;
+  data.forEach((v, i) => {
+    if (donutVisibility[visKey + i] !== false) total += parseFloat(v) || 0;
+  });
+  el.textContent = fmt(total);
+  el.style.color = portfolioGainPositive ? 'var(--green)' : 'var(--red)';
+}
 
 function styledCheckbox(cb, color, checked) {
   cb.style.cssText = `
@@ -1007,6 +998,10 @@ function buildDonutLegend(chart, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '';
+  const totalLabelId = containerId === 'legendFs' ? 'fsTotalLabel' : 'donutTotalLabel';
+  const data = chart.data.datasets[0].data;
+  // Init visibility state
+  data.forEach((_, i) => { donutVisibility[containerId + i] = true; });
   chart.data.labels.forEach((label, i) => {
     const color = chart.data.datasets[0].backgroundColor[i];
     const item = document.createElement('label');
@@ -1016,11 +1011,14 @@ function buildDonutLegend(chart, containerId) {
     styledCheckbox(cb, color, true);
     cb.addEventListener('change', e => {
       styledCheckbox(e.target, color, e.target.checked);
+      donutVisibility[containerId + i] = e.target.checked;
       chart.toggleDataVisibility(i);
       chart.update();
+      updateDonutTotal(totalLabelId, data, containerId);
     });
     container.appendChild(item);
   });
+  updateDonutTotal(totalLabelId, data, containerId);
 }
 
 function updateAreaTotal(chart, labelId) {
@@ -1392,10 +1390,18 @@ const PEA_DEFAULTS = [
 
 function getPeaHoldings() {
   const stored = localStorage.getItem('epargne_pea_holdings');
-  if (stored) return JSON.parse(stored);
-  // First open: seed with real holdings
-  savePeaHoldings(PEA_DEFAULTS);
-  return PEA_DEFAULTS;
+  if (!stored) {
+    savePeaHoldings(PEA_DEFAULTS);
+    return PEA_DEFAULTS;
+  }
+  // Backfill purchasePrice from defaults for any holding missing it (older stored versions)
+  const holdings = JSON.parse(stored).map(h => {
+    if (h.purchasePrice > 0) return h;
+    const def = PEA_DEFAULTS.find(d => d.ticker === h.ticker);
+    return def ? { ...h, purchasePrice: def.purchasePrice } : h;
+  });
+  savePeaHoldings(holdings);
+  return holdings;
 }
 function savePeaHoldings(h) {
   localStorage.setItem('epargne_pea_holdings', JSON.stringify(h));
