@@ -1507,15 +1507,18 @@ async function fetchPricesFromTwelveData(holdings) {
   if (!cfg.tdApiKey) return null;
   const symbols = holdings.map(h => h.ticker).join(',');
   try {
-    const res = await fetch(`https://api.twelvedata.com/price?symbol=${encodeURIComponent(symbols)}&apikey=${cfg.tdApiKey}`);
-    if (!res.ok) return null;
+    const res = await fetch(`https://api.twelvedata.com/price?symbol=${symbols}&apikey=${cfg.tdApiKey}`);
     const data = await res.json();
+    if (data.code || data.status === 'error') {
+      console.warn('TwelveData error:', data.message || data);
+      return null;
+    }
     if (holdings.length === 1) {
       return [parseFloat(data.price) || null];
     }
     return holdings.map(h => {
       const d = data[h.ticker];
-      return d && d.price ? parseFloat(d.price) || null : null;
+      return d && d.price && !d.code ? parseFloat(d.price) || null : null;
     });
   } catch(e) {
     console.warn('TwelveData:', e.message);
