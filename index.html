@@ -366,9 +366,9 @@
       .nav {
         position: fixed; top: 0; bottom: auto; left: 0; right: 0;
         border-top: none; border-bottom: 1px solid var(--surface2);
-        padding-bottom: 0;
+        padding-bottom: 0; justify-content: center;
       }
-      .nav-inner { max-width: 960px; margin: 0 auto; }
+      .nav-inner { max-width: 960px; margin: 0 auto; width: 100%; }
       .nav button { flex-direction: row; gap: 8px; padding: 14px 0; }
       .nav-label { opacity: 0; max-width: 0; overflow: hidden; white-space: nowrap; }
       .nav button:hover .nav-label,
@@ -627,9 +627,10 @@
       <hr style="border-color:var(--surface2);margin:14px 0">
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Ajouter un titre :</div>
       <div class="modal-add-row">
-        <input id="peaHoldingName" placeholder="Nom (ex: MSCI World)" style="flex:2;min-width:120px">
-        <input id="peaHoldingTicker" placeholder="Ticker (ex: CW8.PA)" style="flex:1;min-width:90px">
-        <input id="peaHoldingQty" type="number" placeholder="Qté" style="flex:0 0 70px">
+        <input id="peaHoldingName" placeholder="Nom" style="flex:2;min-width:100px">
+        <input id="peaHoldingTicker" placeholder="Ticker (.PA)" style="flex:1;min-width:80px">
+        <input id="peaHoldingQty" type="number" placeholder="Qté" style="flex:0 0 60px">
+        <input id="peaHoldingPx" type="number" placeholder="Px achat" style="flex:0 0 80px">
         <button class="modal-add-btn" onclick="addPeaHolding()">+</button>
       </div>
       <div class="pea-total-line" id="peaTotalLine"></div>
@@ -1012,6 +1013,16 @@ const donutCenterPlugin = {
 };
 Chart.register(donutCenterPlugin);
 
+function styledCheckbox(cb, color, checked) {
+  cb.style.cssText = `
+    appearance:none; -webkit-appearance:none;
+    width:12px; height:12px; border-radius:2px;
+    border:2px solid ${color};
+    background:${checked ? color : 'transparent'};
+    cursor:pointer; flex-shrink:0; transition:background 0.15s;
+  `;
+}
+
 function buildAreaLegend(chart, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -1020,12 +1031,11 @@ function buildAreaLegend(chart, containerId) {
     const color = Array.isArray(ds.borderColor) ? ds.borderColor[0] : ds.borderColor;
     const item = document.createElement('label');
     item.className = 'legend-item';
-    item.innerHTML = `<input type="checkbox" checked>
-      <span class="legend-swatch" style="background:${color}"></span>
-      <span>${ds.label}</span>`;
+    item.innerHTML = `<input type="checkbox" checked><span>${ds.label}</span>`;
     const cb = item.querySelector('input');
-    cb.style.accentColor = color;
+    styledCheckbox(cb, color, true);
     cb.addEventListener('change', e => {
+      styledCheckbox(e.target, color, e.target.checked);
       chart.setDatasetVisibility(i, e.target.checked);
       chart.update();
       updateAreaTotal(chart, containerId === 'legendFs' ? 'fsTotalLabel' : 'areaTotalLabel');
@@ -1039,17 +1049,15 @@ function buildDonutLegend(chart, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '';
-  const meta = chart.getDatasetMeta(0);
   chart.data.labels.forEach((label, i) => {
     const color = chart.data.datasets[0].backgroundColor[i];
     const item = document.createElement('label');
     item.className = 'legend-item';
-    item.innerHTML = `<input type="checkbox" checked>
-      <span class="legend-swatch" style="background:${color}"></span>
-      <span>${label}</span>`;
+    item.innerHTML = `<input type="checkbox" checked><span>${label}</span>`;
     const cb = item.querySelector('input');
-    cb.style.accentColor = color;
+    styledCheckbox(cb, color, true);
     cb.addEventListener('change', e => {
+      styledCheckbox(e.target, color, e.target.checked);
       chart.toggleDataVisibility(i);
       chart.update();
     });
@@ -1432,8 +1440,31 @@ async function migrateData() {
 }
 
 // ============== PEA PORTFOLIO ==============
+// Default holdings from your Google Finance PEA portfolio
+// purchasePrice = cost per share at time of purchase
+const PEA_DEFAULTS = [
+  { name: 'Air Liquide',           ticker: 'AI.PA',    qty: 2,  purchasePrice: 166.50 },
+  { name: 'BNP Paribas',           ticker: 'BNP.PA',   qty: 1,  purchasePrice: 75.99  },
+  { name: 'Sanofi',                ticker: 'SAN.PA',   qty: 2,  purchasePrice: 88.08  },
+  { name: 'TotalEnergies',         ticker: 'TTE.PA',   qty: 5,  purchasePrice: 55.74  },
+  { name: 'Veolia',                ticker: 'VIE.PA',   qty: 4,  purchasePrice: 31.03  },
+  { name: 'Technip Energies',      ticker: 'TE.PA',    qty: 4,  purchasePrice: 32.16  },
+  { name: 'Amundi PEA Em MSCI ESG',ticker: 'PAEEM.PA', qty: 4,  purchasePrice: 31.26  },
+  { name: 'Michelin',              ticker: 'ML.PA',    qty: 5,  purchasePrice: 32.93  },
+  { name: 'Bureau Veritas',        ticker: 'BVI.PA',   qty: 4,  purchasePrice: 28.66  },
+  { name: 'FDJ United',            ticker: 'FDJU.PA',  qty: 4,  purchasePrice: 30.80  },
+  { name: 'Galp',                  ticker: 'GALP.LS',  qty: 10, purchasePrice: 19.43  },
+  { name: 'Dassault Systèmes',     ticker: 'DSY.PA',   qty: 2,  purchasePrice: 28.27  },
+  { name: 'Carrefour',             ticker: 'CA.PA',    qty: 10, purchasePrice: 13.31  },
+  { name: 'Forvia',                ticker: 'FRVIA.PA', qty: 10, purchasePrice: 8.30   },
+];
+
 function getPeaHoldings() {
-  return JSON.parse(localStorage.getItem('epargne_pea_holdings') || '[]');
+  const stored = localStorage.getItem('epargne_pea_holdings');
+  if (stored) return JSON.parse(stored);
+  // First open: seed with real holdings
+  savePeaHoldings(PEA_DEFAULTS);
+  return PEA_DEFAULTS;
 }
 function savePeaHoldings(h) {
   localStorage.setItem('epargne_pea_holdings', JSON.stringify(h));
@@ -1449,16 +1480,15 @@ function closePeaModal() {
 }
 
 function addPeaHolding() {
-  const name   = document.getElementById('peaHoldingName').value.trim();
-  const ticker = document.getElementById('peaHoldingTicker').value.trim().toUpperCase();
-  const qty    = parseFloat(document.getElementById('peaHoldingQty').value) || 0;
+  const name          = document.getElementById('peaHoldingName').value.trim();
+  const ticker        = document.getElementById('peaHoldingTicker').value.trim().toUpperCase();
+  const qty           = parseFloat(document.getElementById('peaHoldingQty').value) || 0;
+  const purchasePrice = parseFloat(document.getElementById('peaHoldingPx').value) || 0;
   if (!name || !ticker || qty <= 0) return;
   const holdings = getPeaHoldings();
-  holdings.push({ name, ticker, qty });
+  holdings.push({ name, ticker, qty, purchasePrice });
   savePeaHoldings(holdings);
-  document.getElementById('peaHoldingName').value = '';
-  document.getElementById('peaHoldingTicker').value = '';
-  document.getElementById('peaHoldingQty').value = '';
+  ['peaHoldingName','peaHoldingTicker','peaHoldingQty','peaHoldingPx'].forEach(id => document.getElementById(id).value = '');
   refreshPeaModal();
 }
 
@@ -1474,7 +1504,7 @@ async function fetchPrice(ticker) {
   const proxy  = `https://corsproxy.io/?${encodeURIComponent(direct)}`;
   for (const url of [direct, proxy]) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
       if (!res.ok) continue;
       const data = await res.json();
       const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
@@ -1490,45 +1520,68 @@ async function refreshPeaModal() {
   const listEl = document.getElementById('peaHoldingsList');
 
   if (holdings.length === 0) {
-    listEl.innerHTML = '<p style="color:var(--text2);font-size:13px;padding:8px 0">Aucun titre. Ajoutez-en ci-dessous.</p>';
+    listEl.innerHTML = '<p style="color:var(--text2);font-size:13px;padding:8px 0">Aucun titre.</p>';
     document.getElementById('peaTotalLine').textContent = '';
     st.textContent = '';
     return;
   }
 
-  st.textContent = 'Récupération des cours...';
+  st.textContent = 'Récupération des cours temps réel...';
 
   const prices = await Promise.all(holdings.map(h => fetchPrice(h.ticker)));
 
-  let html = '';
+  // Table header
+  let html = `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px 12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--surface2);font-size:11px;color:var(--text2);font-weight:600">
+    <span>NOM</span>
+    <span style="text-align:right">PRIX</span>
+    <span style="text-align:right">GAIN</span>
+    <span style="text-align:right">VALEUR</span>
+    <span></span>
+  </div>`;
+
   let total = 0;
+  let totalGain = 0;
   let anyMissing = false;
 
   holdings.forEach((h, i) => {
     const price = prices[i];
-    const val = price !== null ? price * h.qty : null;
-    if (val !== null) total += val;
-    else anyMissing = true;
+    const val   = price !== null ? price * h.qty : null;
+    const gain  = (price !== null && h.purchasePrice > 0)
+                  ? (price - h.purchasePrice) * h.qty : null;
+    const gainPct = (gain !== null && h.purchasePrice > 0)
+                  ? ((price - h.purchasePrice) / h.purchasePrice * 100).toFixed(2) : null;
 
-    html += `<div class="pea-holding-row">
-      <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>
-      <span style="flex:1;font-weight:500">${h.name}
-        <small style="color:var(--text2);font-weight:400"> ${h.ticker}</small>
-      </span>
-      <span style="color:var(--text2);font-size:11px;white-space:nowrap">${h.qty} parts</span>
-      <span style="font-weight:600;min-width:80px;text-align:right;white-space:nowrap">
-        ${val !== null ? fmt(val) : '<span style="color:var(--text2)">—</span>'}
-        ${price !== null ? `<div style="font-size:10px;color:var(--text2)">${price.toFixed(2)} €</div>` : ''}
-      </span>
+    if (val  !== null) total     += val;
+    if (gain !== null) totalGain += gain;
+    if (val  === null) anyMissing = true;
+
+    const gainColor = gain === null ? 'var(--text2)' : (gain >= 0 ? 'var(--green)' : 'var(--red)');
+    const gainStr   = gain === null ? '—'
+                    : `${gain >= 0 ? '+' : ''}${fmt(gain)}<br><span style="font-size:10px">${gain >= 0 ? '+' : ''}${gainPct}%</span>`;
+
+    html += `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--surface2)20;font-size:13px">
+      <div>
+        <div style="font-weight:500">${h.name}</div>
+        <div style="font-size:10px;color:var(--text2)">${h.ticker} · ${h.qty} parts${h.purchasePrice > 0 ? ` · px: ${h.purchasePrice.toFixed(2)}€` : ''}</div>
+      </div>
+      <span style="text-align:right;white-space:nowrap">${price !== null ? price.toFixed(2)+'€' : '—'}</span>
+      <span style="text-align:right;color:${gainColor};white-space:nowrap;line-height:1.4">${gainStr}</span>
+      <span style="text-align:right;font-weight:600;white-space:nowrap">${val !== null ? fmt(val) : '—'}</span>
       <button class="pea-remove-btn" onclick="removePeaHolding(${i})" title="Supprimer">×</button>
     </div>`;
   });
 
   listEl.innerHTML = html;
-  document.getElementById('peaTotalLine').textContent = `Total PEA: ${fmt(total)}`;
+
+  const totalGainColor = totalGain >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('peaTotalLine').innerHTML =
+    `<span style="color:var(--text2);font-weight:400;font-size:13px">Total PEA</span>
+     &nbsp; ${fmt(total)}
+     &nbsp; <span style="font-size:13px;color:${totalGainColor}">${totalGain >= 0 ? '+' : ''}${fmt(totalGain)}</span>`;
+
   st.textContent = anyMissing
-    ? 'Certains cours indisponibles (ticker invalide ou CORS bloqué).'
-    : `Cours mis à jour.`;
+    ? 'Certains cours indisponibles (ticker ou connexion).'
+    : `Cours mis à jour · ${new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`;
 }
 
 // Close PEA modal on overlay click
