@@ -399,7 +399,7 @@
       .chart-shared-top .chart-expand-btn { display: none; }
     }
     @media (max-width: 767px) and (orientation: portrait) {
-      #chartArea { min-height: 252px; max-height: 324px; }
+      #chartArea { min-height: 270px; max-height: 360px; }
     }
     @media (min-width: 768px) {
       .charts-row { flex-direction: row; align-items: center; gap: 16px; }
@@ -1407,7 +1407,7 @@ function getChartOptions(type) {
         }
       },
       scales: {
-        x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, callback: function(val) { const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']; const lbl = this.getLabelForValue(val); if (!lbl) return ''; let d = new Date(lbl); if (isNaN(d.getTime())) { const p = lbl.split('/'); if (p.length===3) d = new Date(`${p[2]}-${p[1]}-${p[0]}`); } if (isNaN(d.getTime())) return lbl; return MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } }, grid: { display: false } },
+        x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, callback: function(val) { const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']; const lbl = this.getLabelForValue(val); if (!lbl) return ''; let d = new Date(lbl); if (isNaN(d.getTime())) { const p = lbl.split('/'); if (p.length===3) d = new Date(`${p[2]}-${p[1]}-${p[0]}`); else if (p.length===2) { const fp = allData.length>0 ? String(allData[0][0]).split('/') : []; const yr = fp.length===3 ? parseInt(fp[2]) : new Date().getFullYear(); d = new Date(`${yr}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`); } } if (isNaN(d.getTime())) return lbl; return MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } }, grid: { display: false } },
         y: {
           ticks: {
             color: '#64748b', font: { size: 10 },
@@ -2118,7 +2118,7 @@ async function loadBtcChart(days, btn) {
           }
         },
         scales: {
-          x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, callback: function(val) { const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']; const lbl = this.getLabelForValue(val); if (!lbl) return ''; let d = new Date(lbl); if (isNaN(d.getTime())) { const p = lbl.split('/'); if (p.length===3) d = new Date(`${p[2]}-${p[1]}-${p[0]}`); } if (isNaN(d.getTime())) return lbl; return MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } }, grid: { display: false } },
+          x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, callback: function(val) { const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']; const lbl = this.getLabelForValue(val); if (!lbl) return ''; let d = new Date(lbl); if (isNaN(d.getTime())) { const p = lbl.split('/'); if (p.length===3) d = new Date(`${p[2]}-${p[1]}-${p[0]}`); else if (p.length===2) { const fp = allData.length>0 ? String(allData[0][0]).split('/') : []; const yr = fp.length===3 ? parseInt(fp[2]) : new Date().getFullYear(); d = new Date(`${yr}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`); } } if (isNaN(d.getTime())) return lbl; return MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } }, grid: { display: false } },
           y: { ticks: { color: '#64748b', callback: v => fmt(v), font: { size: 10 } }, grid: { color: '#1e293b' } }
         }
       }
