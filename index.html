@@ -887,7 +887,7 @@
       </div>
       <!-- Onglet Portefeuille -->
       <div id="peaTabPortfolio">
-        <div id="peaHoldingsList" style="max-height:52dvh;overflow-y:auto"></div>
+        <div id="peaHoldingsList" style="max-height:min(52dvh, calc(82dvh - 220px));overflow-y:auto"></div>
         <hr style="border-color:var(--surface2);margin:14px 0">
         <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Ajouter un titre :</div>
         <div class="modal-add-row">
@@ -1970,11 +1970,13 @@ function savePeaHoldings(h) {
 async function openPeaModal() {
   peaNewsLoaded = false;
   switchPeaTab('portfolio');
+  document.body.style.overflow = 'hidden';
   document.getElementById('peaModal').classList.add('visible');
   await refreshPeaModal();
 }
 
 function closePeaModal() {
+  document.body.style.overflow = '';
   const ov = document.getElementById('peaModal');
   ov.classList.add('closing');
   setTimeout(() => ov.classList.remove('visible', 'closing'), 280);
@@ -2308,11 +2310,13 @@ let avNewsLoaded  = false;
 async function openAvModal() {
   avNewsLoaded = false;
   switchAvTab('positions');
+  document.body.style.overflow = 'hidden';
   document.getElementById('avModal').classList.add('visible');
   await refreshAvModal();
 }
 
 function closeAvModal() {
+  document.body.style.overflow = '';
   const ov = document.getElementById('avModal');
   ov.classList.add('closing');
   setTimeout(() => ov.classList.remove('visible', 'closing'), 280);
@@ -2484,12 +2488,14 @@ document.getElementById('avModal').addEventListener('click', function(e) {
 let chartBtc = null;
 
 async function openBtcModal() {
+  document.body.style.overflow = 'hidden';
   document.getElementById('btcModal').classList.add('visible');
   loadBtcData();
   loadBtcNews();
 }
 
 function closeBtcModal() {
+  document.body.style.overflow = '';
   const ov = document.getElementById('btcModal');
   ov.classList.add('closing');
   setTimeout(() => {
