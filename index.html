@@ -1495,7 +1495,26 @@ function toGFTicker(yahooTicker) {
   return yahooTicker;
 }
 
-// Pre-write GOOGLEFINANCE formulas to scratch column at auth time (background)
+const PEA_COURS_TAB = 'PEA_Cours';
+
+// Ensure the PEA_Cours tab exists, create it if not
+async function ensurePeaCoursTab(sheetId) {
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title`,
+    { headers: { 'Authorization': `Bearer ${accessToken}` } }
+  );
+  const meta = await res.json();
+  const exists = (meta.sheets || []).some(s => s.properties.title === PEA_COURS_TAB);
+  if (!exists) {
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: PEA_COURS_TAB } } }] })
+    });
+  }
+}
+
+// Write GOOGLEFINANCE formulas to dedicated PEA_Cours tab
 async function preFetchPeaPrices() {
   if (!accessToken) return;
   const cfg = getConfig();
@@ -1503,18 +1522,20 @@ async function preFetchPeaPrices() {
   const holdings = getPeaHoldings();
   if (!holdings.length) return;
   try {
-    const range = `'${cfg.targetTab}'!Z1:Z${holdings.length}`;
-    const formulas = holdings.map(h => [`=GOOGLEFINANCE("${toGFTicker(h.ticker)}","price")`]);
-    await sheetsUpdate(cfg.targetId, range, formulas);
-  } catch(e) { /* silent */ }
+    await ensurePeaCoursTab(cfg.targetId);
+    // Header row + one row per holding: [Name, Ticker, =GOOGLEFINANCE(...)]
+    const rows = [['Nom', 'Ticker', 'Prix']];
+    holdings.forEach(h => rows.push([h.name, h.ticker, `=GOOGLEFINANCE("${toGFTicker(h.ticker)}","price")`]));
+    await sheetsUpdate(cfg.targetId, `'${PEA_COURS_TAB}'!A1:C${rows.length}`, rows);
+  } catch(e) { console.warn('preFetchPeaPrices:', e.message); }
 }
 
-// Read pre-written prices from scratch column (works with API key OR OAuth)
+// Read prices from PEA_Cours tab column C (skipping header row)
 async function readPeaPricesFromSheet(count) {
   const cfg = getConfig();
   if (!cfg.targetId) return null;
   try {
-    const range = `'${cfg.targetTab}'!Z1:Z${count}`;
+    const range = `'${PEA_COURS_TAB}'!C2:C${count + 1}`;
     const values = await sheetsRead(cfg.targetId, range);
     return (values || []).map(r => parseFloat(r[0]) || null);
   } catch(e) {
