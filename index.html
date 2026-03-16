@@ -31,6 +31,24 @@
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    /* Custom scrollbar — modal boxes + any overflow-y:auto */
+    .modal-box::-webkit-scrollbar,
+    .modal-box *::-webkit-scrollbar { width: 4px; }
+    .modal-box::-webkit-scrollbar-track,
+    .modal-box *::-webkit-scrollbar-track { background: transparent; }
+    .modal-box::-webkit-scrollbar-thumb,
+    .modal-box *::-webkit-scrollbar-thumb {
+      background: var(--surface2);
+      border-radius: 4px;
+    }
+    .modal-box::-webkit-scrollbar-thumb:hover,
+    .modal-box *::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+    /* Firefox */
+    .modal-box, .modal-box * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--surface2) transparent;
+    }
+
     body {
       font-family: 'Inter', system-ui, sans-serif;
       background: var(--bg);
