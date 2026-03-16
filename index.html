@@ -1130,7 +1130,7 @@ function loadGIS() {
 // ============== DATA ==============
 let allData = [];
 let cristinaData = [];
-let investedAmounts = {};
+let investedAmounts = { boursovie: 600, cto: 458.96, pea: 2067.03, livret: 1400, cash: 0 };
 let totalInjections = {};
 
 async function loadData() {
@@ -1167,10 +1167,10 @@ async function loadData() {
       totalInjections.cash      += parseFloat(r[12]) || 0;
     });
 
-    // investedAmounts: load from persistent cache (set during initial source migration)
+    // investedAmounts: localStorage overrides hardcoded defaults if user customized via Config
     const cachedInvested = localStorage.getItem(INVESTED_KEY);
     if (cachedInvested) {
-      investedAmounts = JSON.parse(cachedInvested);
+      investedAmounts = { ...investedAmounts, ...JSON.parse(cachedInvested) };
     }
 
     localStorage.setItem(DATA_KEY, JSON.stringify({ allData, cristinaData, investedAmounts, totalInjections, ts: Date.now() }));
@@ -1185,7 +1185,7 @@ async function loadData() {
       const d = JSON.parse(cached);
       allData = d.allData || [];
       cristinaData = d.cristinaData || [];
-      investedAmounts = d.investedAmounts || {};
+      investedAmounts = { ...investedAmounts, ...(d.investedAmounts || {}) };
       totalInjections = d.totalInjections || {};
       renderDashboard();
       renderHistory();
