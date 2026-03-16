@@ -326,6 +326,14 @@
     .injection-fields .form-group input { padding: 8px 12px; font-size: 13px; background: var(--bg); }
 
     /* PEA MODAL */
+    @keyframes modalSlideUp {
+      from { transform: translateY(100%); opacity: 0.6; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    @keyframes modalSlideDown {
+      from { transform: translateY(0);    opacity: 1; }
+      to   { transform: translateY(100%); opacity: 0; }
+    }
     .modal-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.75);
@@ -338,8 +346,12 @@
       border-radius: var(--radius) var(--radius) 0 0;
       width: 100%; max-width: 600px;
       padding: 20px;
-      max-height: 85vh; overflow-y: auto;
+      min-height: 78dvh; max-height: 90dvh; overflow-y: auto;
       padding-bottom: calc(20px + env(safe-area-inset-bottom));
+      animation: modalSlideUp 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .modal-overlay.closing .modal-box {
+      animation: modalSlideDown 0.26s ease-in forwards;
     }
     .modal-header {
       display: flex; justify-content: space-between; align-items: center;
@@ -365,14 +377,15 @@
     }
     /* Allocation donut layout */
     .alloc-wrap { display: flex; gap: 20px; justify-content: center; padding: 8px 0; }
-    .alloc-block { flex: 1; min-width: 130px; max-width: 210px; }
-    .alloc-title { font-size: 11px; font-weight: 600; color: var(--text2); text-align: center; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
-    .alloc-chart-row { display: flex; align-items: center; gap: 12px; }
-    .alloc-canvas-wrap { flex-shrink: 0; width: 100px; }
+    .alloc-block { flex: 1; min-width: 130px; max-width: 230px; }
+    .alloc-title { font-size: 11px; font-weight: 600; color: var(--text2); text-align: center; margin-bottom: 10px; text-transform: uppercase; letter-spacing: .05em; }
+    .alloc-chart-row { display: flex; align-items: center; gap: 14px; }
+    .alloc-canvas-wrap { flex-shrink: 0; width: 120px; }
+    .alloc-legend { flex: 1; min-width: 0; }
     @media (max-width: 767px) {
-      .alloc-wrap { flex-direction: column; gap: 16px; }
+      .alloc-wrap { flex-direction: column; gap: 20px; }
       .alloc-block { max-width: 100%; }
-      .alloc-canvas-wrap { width: 90px; }
+      .alloc-canvas-wrap { width: 130px; }
     }
 
     .pea-holding-row {
@@ -829,14 +842,14 @@
             <div class="alloc-title">Géographique</div>
             <div class="alloc-chart-row">
               <div class="alloc-canvas-wrap"><canvas id="avGeoChart"></canvas></div>
-              <div id="avGeoLegend"></div>
+              <div id="avGeoLegend" class="alloc-legend"></div>
             </div>
           </div>
           <div class="alloc-block">
             <div class="alloc-title">Sectorielle</div>
             <div class="alloc-chart-row">
               <div class="alloc-canvas-wrap"><canvas id="avSectorChart"></canvas></div>
-              <div id="avSectorLegend"></div>
+              <div id="avSectorLegend" class="alloc-legend"></div>
             </div>
           </div>
         </div>
@@ -1946,7 +1959,9 @@ async function openPeaModal() {
 }
 
 function closePeaModal() {
-  document.getElementById('peaModal').classList.remove('visible');
+  const ov = document.getElementById('peaModal');
+  ov.classList.add('closing');
+  setTimeout(() => ov.classList.remove('visible', 'closing'), 280);
 }
 
 let peaNewsLoaded = false;
@@ -2282,7 +2297,9 @@ async function openAvModal() {
 }
 
 function closeAvModal() {
-  document.getElementById('avModal').classList.remove('visible');
+  const ov = document.getElementById('avModal');
+  ov.classList.add('closing');
+  setTimeout(() => ov.classList.remove('visible', 'closing'), 280);
 }
 
 function switchAvTab(tab) {
@@ -2457,8 +2474,12 @@ async function openBtcModal() {
 }
 
 function closeBtcModal() {
-  document.getElementById('btcModal').classList.remove('visible');
-  if (chartBtc) { chartBtc.destroy(); chartBtc = null; }
+  const ov = document.getElementById('btcModal');
+  ov.classList.add('closing');
+  setTimeout(() => {
+    ov.classList.remove('visible', 'closing');
+    if (chartBtc) { chartBtc.destroy(); chartBtc = null; }
+  }, 280);
 }
 
 async function loadBtcData() {
