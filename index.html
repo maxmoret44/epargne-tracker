@@ -155,9 +155,6 @@
       .chart-fs-content canvas { flex: none !important; height: auto !important; }
       .chart-fs-content { overflow-y: auto; }
     }
-    @media (max-width: 767px) and (orientation: portrait) {
-      #chartArea { min-height: 210px; max-height: 270px; }
-    }
     @media (max-width: 767px) and (orientation: landscape) {
       #chartArea { max-height: 140px; }
     }
@@ -384,7 +381,7 @@
     .pea-fetch-status { font-size: 11px; color: var(--text2); margin-top: 6px; text-align: center; }
 
     /* DASHBOARD LAYOUT */
-    .dash-section-data { }
+    .dash-section-data { padding-top: 10px; }
     .dash-section-charts {
       background: var(--surface);
       border-radius: var(--radius);
@@ -396,22 +393,18 @@
       margin-bottom: 14px;
     }
     .charts-row { display: flex; flex-direction: column; gap: 8px; }
-    .chart-sublabel {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 12px; color: var(--text2); font-weight: 600;
-      margin-bottom: 8px;
-    }
-    .chart-sublabel svg { width: 14px; height: 14px; opacity: 0.7; }
+    .chart-sublabel { display: none; }
     @media (max-width: 767px) {
-      .charts-donut-wrap { max-width: 260px; margin: 0 auto; }
+      .charts-donut-wrap { max-width: 182px; margin: 0 auto; }
+      .chart-shared-top .chart-expand-btn { display: none; }
     }
     @media (max-width: 767px) and (orientation: portrait) {
-      .dash-section-data { min-height: calc(100vh - 65px); }
+      #chartArea { min-height: 252px; max-height: 324px; }
     }
     @media (min-width: 768px) {
       .charts-row { flex-direction: row; align-items: flex-start; gap: 16px; }
       .charts-area-wrap { flex: 5; min-width: 0; }
-      .charts-donut-wrap { flex: 2; min-width: 0; max-width: 260px; }
+      .charts-donut-wrap { flex: 1.4; min-width: 0; max-width: 182px; }
     }
 
     /* BTC PERIOD BUTTONS */
@@ -1202,7 +1195,7 @@ function getChartOptions(type) {
     return {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: IS_TOUCH ? 1.6 : 2.5,
+      aspectRatio: IS_TOUCH ? 1.33 : 2.27,
       interaction: { mode: IS_TOUCH ? 'nearest' : 'index', intersect: IS_TOUCH },
       plugins: {
         legend: { display: false },
@@ -1842,7 +1835,7 @@ async function loadBtcChart(days, btn) {
           borderWidth: 2, fill: true, pointRadius: 0, tension: 0.3 }]
       },
       options: {
-        responsive: true, maintainAspectRatio: true, aspectRatio: IS_TOUCH ? 1.6 : 2.5,
+        responsive: true, maintainAspectRatio: true, aspectRatio: IS_TOUCH ? 1.33 : 2.27,
         plugins: {
           legend: { display: false },
           tooltip: {
