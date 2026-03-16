@@ -470,6 +470,37 @@
     /* Fullscreen donut : légende poussée vers le bas */
     .chart-fs-content.donut-mode ~ #legendFs { margin-top: auto; padding-top: 24px; }
 
+    /* PRIVACY MODE */
+    .privacy-btn {
+      position: fixed; top: 12px; right: 12px; z-index: 300;
+      background: var(--surface2); border: none; border-radius: 50%;
+      width: 34px; height: 34px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text2); transition: color 0.2s, background 0.2s;
+    }
+    .privacy-btn:hover { background: var(--surface); color: var(--text); }
+    .privacy-btn svg { width: 16px; height: 16px; }
+    body.privacy #totalEpargne,
+    body.privacy #totalMax,
+    body.privacy #totalCristina,
+    body.privacy #gainTotal,
+    body.privacy .acval,
+    body.privacy #sharedTotalLabel,
+    body.privacy #fsTotalLabel,
+    body.privacy .split-cards .value,
+    body.privacy canvas,
+    body.privacy .hist-val { filter: blur(7px); user-select: none; transition: filter 0.3s ease; }
+    body:not(.privacy) #totalEpargne,
+    body:not(.privacy) #totalMax,
+    body:not(.privacy) #totalCristina,
+    body:not(.privacy) #gainTotal,
+    body:not(.privacy) .acval,
+    body:not(.privacy) #sharedTotalLabel,
+    body:not(.privacy) #fsTotalLabel,
+    body:not(.privacy) .split-cards .value,
+    body:not(.privacy) canvas,
+    body:not(.privacy) .hist-val { filter: none; transition: filter 0.3s ease; }
+
     /* BTC PERIOD BUTTONS */
     .btc-period-btn {
       background: var(--surface2); border: none; border-radius: 6px;
@@ -1101,7 +1132,7 @@ function renderDashboard() {
         <span class="name">${a.name}</span>
         ${isClickable ? '<svg viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2" style="width:14px;height:14px;opacity:0.5"><polyline points="9 18 15 12 9 6"/></svg>' : ''}
       </div>
-      <div style="text-align:right">
+      <div class="acval" style="text-align:right">
         <span class="amount">${fmt(val)}</span>
         ${accountPct !== null ? `<div style="font-size:11px;color:${accountGain >= 0 ? 'var(--green)' : 'var(--red)'}">${accountGain >= 0 ? '+' : ''}${accountPct}%</div>` : ''}
       </div>
@@ -1653,9 +1684,9 @@ function renderHistory() {
     const d = r[0];
     const dateStr = typeof d === 'string' ? d : new Date(d).toLocaleDateString('fr-FR');
     html += `<tr><td>${dateStr}</td>`;
-    ACCOUNTS.forEach(a => html += `<td>${fmt(parseFloat(r[a.idx]) || 0)}</td>`);
-    html += `<td>${fmt(parseFloat(r[6]) || 0)}</td>`;
-    if (cristinaData.length > 0) html += `<td>${fmt(cristinaData[realIdx] || 0)}</td>`;
+    ACCOUNTS.forEach(a => html += `<td class="hist-val">${fmt(parseFloat(r[a.idx]) || 0)}</td>`);
+    html += `<td class="hist-val">${fmt(parseFloat(r[6]) || 0)}</td>`;
+    if (cristinaData.length > 0) html += `<td class="hist-val">${fmt(cristinaData[realIdx] || 0)}</td>`;
     html += '</tr>';
   });
 
@@ -2017,11 +2048,30 @@ document.querySelectorAll('.nav button').forEach(btn => {
   });
 });
 
+// ============== PRIVACY MODE ==============
+const PRIVACY_KEY = 'epargne_privacy';
+let privacyMode = localStorage.getItem(PRIVACY_KEY) === '1';
+
+const EYE_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_OFF_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
+function applyPrivacy() {
+  document.body.classList.toggle('privacy', privacyMode);
+  const btn = document.getElementById('privacyToggle');
+  if (btn) btn.innerHTML = privacyMode ? EYE_OFF_SVG : EYE_SVG;
+}
+function togglePrivacy() {
+  privacyMode = !privacyMode;
+  localStorage.setItem(PRIVACY_KEY, privacyMode ? '1' : '0');
+  applyPrivacy();
+}
+
 // ============== INIT ==============
 window.addEventListener('load', () => {
   loadConfig();
   loadGIS();
   prefillForm();
+  applyPrivacy();
 
   if (accessToken) updateConnectionStatus(true, 'Connecté (session)');
 
@@ -2042,6 +2092,9 @@ window.addEventListener('load', () => {
   }
 });
 </script>
+
+
+<button class="privacy-btn" id="privacyToggle" onclick="togglePrivacy()" title="Mode confidentialité"></button>
 
 </body>
 </html>
