@@ -443,8 +443,8 @@
       #dashboard .dash-section-charts {
         height: calc(100vh - 60px);
         height: calc(100dvh - 60px);
-        padding: 16px;
-        padding-top: 4vh;
+        padding: 8px 16px 6px;
+        padding-top: 3vh;
         box-sizing: border-box;
         overflow: hidden;
         scroll-snap-align: start;
@@ -471,18 +471,18 @@
       #legendShared {
         display: grid !important;
         grid-template-columns: 1fr 1fr;
-        gap: 8px;
+        gap: 6px;
         margin-top: auto;
         flex-shrink: 0;
       }
       #legendShared .legend-item {
-        font-size: 14px; gap: 10px;
-        padding: 10px 12px;
+        font-size: 13px; gap: 8px;
+        padding: 6px 8px;
         background: var(--surface2);
         border-radius: 10px;
         justify-content: flex-start;
       }
-      #legendShared .legend-item input[type="checkbox"] { width: 18px; height: 18px; }
+      #legendShared .legend-item input[type="checkbox"] { width: 16px; height: 16px; }
     }
 
     /* PC: légende partagée centrée */
@@ -1952,24 +1952,21 @@ async function loadPeaNews() {
     }).join('');
   }
 
-  // Fetch all 3 feeds in parallel from the start to maximise unique items
+  // Fetch all 3 feeds in parallel — targeted + général
   const [a, b, c] = await Promise.all([
     fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent(quotedNames)}&hl=fr&gl=FR&ceid=FR:fr`),
     fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent(looseNames)}&hl=fr&gl=FR&ceid=FR:fr`),
     fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent('bourse actions CAC40 Euronext France')}&hl=fr&gl=FR&ceid=FR:fr`),
   ]);
-  const allItems = dedupe([a, b, c]);
 
-  // Step 1 — 2-week window
-  let pool = allItems.filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= TWO_WEEKS);
+  // Toujours filtrer sur 2 semaines — jamais d'articles trop vieux
+  const recent = item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= TWO_WEEKS;
+  let pool = dedupe([a, b, c]).filter(recent);
 
-  // Step 2 — extend to 1 month if still < MIN
+  // Si < MIN, élargir à 1 mois (mais pas au-delà)
   if (pool.length < MIN) {
-    pool = allItems.filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= ONE_MONTH);
+    pool = dedupe([a, b, c]).filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= ONE_MONTH);
   }
-
-  // Step 3 — no date filter at all if still < MIN (show whatever is available)
-  if (pool.length < MIN) pool = allItems;
 
   if (pool.length === 0) {
     newsEl.innerHTML = `<a href="https://news.google.com/search?q=${encodeURIComponent('bourse PEA CAC40 France')}&hl=fr" target="_blank" rel="noopener"
