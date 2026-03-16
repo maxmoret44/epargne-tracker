@@ -462,7 +462,7 @@
       /* Donut : margin-top auto (prend la moitié de l'espace libre) */
       #dashboard .dash-section-charts .charts-donut-wrap {
         margin-top: auto;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
         margin-left: auto;
         margin-right: auto;
         max-width: 138px;
@@ -1916,12 +1916,11 @@ async function loadPeaNews() {
   const quotedNames = holdings.map(h => `"${h.name}"`).join(' OR ');
   const looseNames  = holdings.map(h => h.name.split(' ').slice(0, 2).join(' ')).join(' OR ');
 
-  const MIN = 10;
+  const MIN = 15;
   const NOW = Date.now();
   const TWO_WEEKS = 14 * 24 * 3600 * 1000;
   const ONE_MONTH = 30 * 24 * 3600 * 1000;
 
-  // Helper: fetch a feed and return items, or []
   async function fetchFeed(url) {
     try {
       const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
@@ -1931,7 +1930,6 @@ async function loadPeaNews() {
     } catch { return []; }
   }
 
-  // Deduplicate by title across multiple arrays
   function dedupe(arrays) {
     const seen = new Set();
     return arrays.flat().filter(item => {
@@ -1954,26 +1952,24 @@ async function loadPeaNews() {
     }).join('');
   }
 
-  // Step 1 — targeted feeds, 2-week window
-  let [a, b] = await Promise.all([
+  // Fetch all 3 feeds in parallel from the start to maximise unique items
+  const [a, b, c] = await Promise.all([
     fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent(quotedNames)}&hl=fr&gl=FR&ceid=FR:fr`),
     fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent(looseNames)}&hl=fr&gl=FR&ceid=FR:fr`),
+    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent('bourse actions CAC40 Euronext France')}&hl=fr&gl=FR&ceid=FR:fr`),
   ]);
-  let pool = dedupe([a, b]).filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= TWO_WEEKS);
+  const allItems = dedupe([a, b, c]);
 
-  // Step 2 — extend to 1 month if < MIN
+  // Step 1 — 2-week window
+  let pool = allItems.filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= TWO_WEEKS);
+
+  // Step 2 — extend to 1 month if still < MIN
   if (pool.length < MIN) {
-    pool = dedupe([a, b]).filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= ONE_MONTH);
+    pool = allItems.filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= ONE_MONTH);
   }
 
-  // Step 3 — pad with general bourse/CAC40 news if still < MIN
-  if (pool.length < MIN) {
-    const general = await fetchFeed(
-      `https://news.google.com/rss/search?q=${encodeURIComponent('bourse actions CAC40 France')}&hl=fr&gl=FR&ceid=FR:fr`
-    );
-    const generalRecent = general.filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= ONE_MONTH);
-    pool = dedupe([pool, generalRecent]);
-  }
+  // Step 3 — no date filter at all if still < MIN (show whatever is available)
+  if (pool.length < MIN) pool = allItems;
 
   if (pool.length === 0) {
     newsEl.innerHTML = `<a href="https://news.google.com/search?q=${encodeURIComponent('bourse PEA CAC40 France')}&hl=fr" target="_blank" rel="noopener"
