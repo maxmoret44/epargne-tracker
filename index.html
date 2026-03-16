@@ -1509,9 +1509,10 @@ async function fetchPricesFromTwelveData(holdings) {
   try {
     const res = await fetch(`https://api.twelvedata.com/price?symbol=${symbols}&apikey=${cfg.tdApiKey}`);
     const data = await res.json();
+    console.log('TwelveData response:', JSON.stringify(data).slice(0, 300));
     if (data.code || data.status === 'error') {
       console.warn('TwelveData error:', data.message || data);
-      return null;
+      return { _error: data.message || `code ${data.code}` };
     }
     if (holdings.length === 1) {
       return [parseFloat(data.price) || null];
@@ -1573,13 +1574,14 @@ async function refreshPeaModal() {
   if (cfg.tdApiKey) {
     st.textContent = 'Récupération des cours...';
     const prices = await fetchPricesFromTwelveData(holdings);
-    if (prices && prices.some(p => p !== null)) {
+    if (prices && !prices._error && prices.some(p => p !== null)) {
       renderPeaTable(listEl, holdings, prices);
       const anyMissing = prices.some(p => p === null);
       st.innerHTML = (anyMissing ? 'Certains cours manquants.' : `Mis à jour · ${new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`) + retryBtn;
       return;
     }
-    st.innerHTML = `Erreur Twelve Data. Vérifiez votre clé API. ${retryBtn}`;
+    const errDetail = prices && prices._error ? ` (${prices._error})` : '';
+    st.innerHTML = `Erreur Twelve Data${errDetail}. ${retryBtn}`;
     renderPeaTable(listEl, holdings, Array(holdings.length).fill(null));
     return;
   }
