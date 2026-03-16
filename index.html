@@ -668,7 +668,7 @@
       <!-- Total partagé + boutons plein écran -->
       <div class="chart-shared-top">
         <span class="chart-visible-total" id="sharedTotalLabel" style="font-size:18px;font-weight:700"></span>
-        <span id="sharedGainsLabel" style="cursor:pointer;font-size:14px;font-weight:600;text-align:right" onclick="toggleGainsDisplay()" title="Cliquer pour basculer €/%" ></span>
+        <span id="sharedGainsLabel" style="font-size:14px;font-weight:600;text-align:right"></span>
       </div>
       <!-- Ligne des graphiques -->
       <div class="charts-row">
@@ -1233,7 +1233,6 @@ let allData = [];
 let cristinaData = [];
 let investedAmounts = { boursovie: 600, cto: 458.96, pea: 2067.03, livret: 1400, cash: 0 };
 let totalInjections = {};
-let gainsShowPct = false;
 let cachedGainAbs = null, cachedGainPct = null;
 
 async function loadData() {
@@ -1689,7 +1688,7 @@ function updateSharedTotal() {
   el.style.color = 'var(--text)';
   const gainsEl = document.getElementById('sharedGainsLabel');
   if (gainsEl && pct !== null) {
-    gainsEl.textContent = gainsShowPct ? `${sign}${pct}%` : `${sign}${fmt(gain)}`;
+    gainsEl.textContent = `${sign}${fmt(gain)} · ${sign}${pct}%`;
     gainsEl.style.color = gainColor;
     gainsEl.style.filter = privacyMode ? 'blur(7px)' : 'none';
   }
@@ -2692,17 +2691,10 @@ function renderGainTotal() {
   const el = document.getElementById('gainTotal');
   if (!el || cachedGainAbs === null) return;
   const sign = cachedGainAbs >= 0 ? '+' : '';
-  el.textContent = gainsShowPct
-    ? `${sign}${cachedGainPct}%`
-    : `${sign}${fmt(cachedGainAbs)} (${sign}${cachedGainPct}%)`;
+  el.textContent = `${sign}${fmt(cachedGainAbs)} · ${sign}${cachedGainPct}%`;
   el.className = `gain ${cachedGainAbs >= 0 ? 'pos' : 'neg'}`;
-  el.style.cursor = 'pointer';
-  el.onclick = toggleGainsDisplay;
-}
-function toggleGainsDisplay() {
-  gainsShowPct = !gainsShowPct;
-  renderGainTotal();
-  updateSharedTotal();
+  el.style.cursor = '';
+  el.onclick = null;
 }
 
 // ============== INIT ==============
