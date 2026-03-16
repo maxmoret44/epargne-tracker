@@ -1387,6 +1387,7 @@ function buildSharedLegend(areaChart, donutChart) {
       donutVisibility['shared' + i] = vis;
       donutChart.toggleDataVisibility(i);
       donutChart.update();
+      recomputeAreaLine();
       updateSharedTotal();
     });
     container.appendChild(item);
@@ -1418,6 +1419,43 @@ function updateSharedTotal() {
   const gainStr = pct !== null ? ` <span style="font-size:0.75em;color:${gainColor}">${sign}${fmt(gain)} (${sign}${pct}%)</span>` : '';
   el.innerHTML = fmt(total) + gainStr;
   el.style.color = gainColor;
+}
+
+function recomputeAreaLine() {
+  if (!chartArea || !chartDonut || !allData.length) return;
+  const labels = chartDonut.data.labels;
+  const lastIdx = allData.length - 1;
+
+  // Recalcule les totaux visibles pour chaque point
+  const newTotals = allData.map((row, rowIdx) => {
+    let sum = 0;
+    labels.forEach((label, i) => {
+      if (donutVisibility['shared' + i] !== false) {
+        const acc = ACCOUNTS.find(a => a.name === label);
+        sum += acc ? (parseFloat(row[acc.idx]) || 0) : (cristinaData[rowIdx] || 0);
+      }
+    });
+    return sum;
+  });
+
+  // Recalcule la couleur selon gain/perte visible
+  let visibleInvested = 0;
+  labels.forEach((label, i) => {
+    if (donutVisibility['shared' + i] !== false) {
+      const acc = ACCOUNTS.find(a => a.name === label);
+      if (acc) {
+        if (acc.key !== 'cash') visibleInvested += (investedAmounts[acc.key] || 0) + (totalInjections[acc.key] || 0);
+      } else {
+        visibleInvested += cristinaData[lastIdx] || 0;
+      }
+    }
+  });
+  const isGain = (newTotals[lastIdx] || 0) >= visibleInvested;
+  const lineColor = isGain ? '#4ade80' : '#f87171';
+  chartArea.data.datasets[0].data = newTotals;
+  chartArea.data.datasets[0].borderColor = lineColor;
+  chartArea.data.datasets[0].backgroundColor = isGain ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)';
+  chartArea.update();
 }
 
 // ============== FULLSCREEN CHART ==============
