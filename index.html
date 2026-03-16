@@ -793,6 +793,46 @@
     <div class="sync-status" id="investedStatus"></div>
   </div>
 
+  <!-- BOURSOVIE / ASSURANCE VIE MODAL -->
+  <div id="avModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>BoursoVie — Assurance Vie</span>
+        <button class="modal-close-btn" onclick="closeAvModal()">✕</button>
+      </div>
+      <div class="modal-tabs">
+        <button class="modal-tab active" id="avTabBtnPositions" onclick="switchAvTab('positions')">Positions</button>
+        <button class="modal-tab" id="avTabBtnRepartition" onclick="switchAvTab('repartition')">Répartition</button>
+        <button class="modal-tab" id="avTabBtnNews" onclick="switchAvTab('news')">Actualités</button>
+      </div>
+      <!-- Onglet Positions -->
+      <div id="avTabPositions">
+        <div id="avHoldingsList" style="max-height:46vh;overflow-y:auto"></div>
+        <div class="pea-total-line" id="avTotalLine"></div>
+        <div class="pea-fetch-status" id="avFetchStatus"></div>
+      </div>
+      <!-- Onglet Répartition AV -->
+      <div id="avTabRepartition" style="display:none">
+        <div style="display:flex;gap:16px;justify-content:center;padding:8px 0;flex-wrap:wrap">
+          <div style="flex:1;min-width:130px;max-width:190px">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Géographique</div>
+            <canvas id="avGeoChart"></canvas>
+            <div id="avGeoLegend" style="margin-top:10px"></div>
+          </div>
+          <div style="flex:1;min-width:130px;max-width:190px">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Sectorielle</div>
+            <canvas id="avSectorChart"></canvas>
+            <div id="avSectorLegend" style="margin-top:10px"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Onglet Actualités AV -->
+      <div id="avTabNews" style="display:none">
+        <div id="avNews" style="font-size:13px;color:var(--text2)">Chargement...</div>
+      </div>
+    </div>
+  </div>
+
   <!-- PEA MODAL -->
   <div id="peaModal" class="modal-overlay">
     <div class="modal-box">
@@ -803,6 +843,7 @@
       <!-- Onglets -->
       <div class="modal-tabs">
         <button class="modal-tab active" id="peaTabBtnPortfolio" onclick="switchPeaTab('portfolio')">Portefeuille</button>
+        <button class="modal-tab" id="peaTabBtnRepartition" onclick="switchPeaTab('repartition')">Répartition</button>
         <button class="modal-tab" id="peaTabBtnNews" onclick="switchPeaTab('news')">Actualités</button>
       </div>
       <!-- Onglet Portefeuille -->
@@ -819,6 +860,21 @@
         </div>
         <div class="pea-total-line" id="peaTotalLine"></div>
         <div class="pea-fetch-status" id="peaFetchStatus"></div>
+      </div>
+      <!-- Onglet Répartition PEA -->
+      <div id="peaTabRepartition" style="display:none">
+        <div style="display:flex;gap:16px;justify-content:center;padding:8px 0;flex-wrap:wrap">
+          <div style="flex:1;min-width:130px;max-width:190px">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Géographique</div>
+            <canvas id="peaGeoChart"></canvas>
+            <div id="peaGeoLegend" style="margin-top:10px"></div>
+          </div>
+          <div style="flex:1;min-width:130px;max-width:190px">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Sectorielle</div>
+            <canvas id="peaSectorChart"></canvas>
+            <div id="peaSectorLegend" style="margin-top:10px"></div>
+          </div>
+        </div>
       </div>
       <!-- Onglet Actualités -->
       <div id="peaTabNews" style="display:none">
@@ -1256,8 +1312,8 @@ function renderDashboard() {
     const inv = (investedAmounts[a.key] || 0) + (totalInjections[a.key] || 0);
     const accountGain = a.key === 'cash' ? 0 : val - inv;
     const accountPct = ((investedAmounts[a.key] || 0) > 0 && a.key !== 'cash') ? ((accountGain / inv) * 100).toFixed(1) : null;
-    const isClickable = a.key === 'pea' || a.key === 'cto';
-    const clickFn = a.key === 'pea' ? 'openPeaModal()' : a.key === 'cto' ? 'openBtcModal()' : '';
+    const isClickable = a.key === 'pea' || a.key === 'cto' || a.key === 'boursovie';
+    const clickFn = a.key === 'pea' ? 'openPeaModal()' : a.key === 'cto' ? 'openBtcModal()' : a.key === 'boursovie' ? 'openAvModal()' : '';
     return `<div class="account-card${isClickable ? ' clickable' : ''}" ${isClickable ? `onclick="${clickFn}"` : ''}>
       <div class="left">
         <div class="dot" style="background:${a.color}"></div>
@@ -1852,20 +1908,20 @@ function renderHistory() {
 // Default holdings from your Google Finance PEA portfolio
 // purchasePrice = cost per share at time of purchase
 const PEA_DEFAULTS = [
-  { name: 'Air Liquide',           ticker: 'AI.PA',    qty: 2,  purchasePrice: 166.50 },
-  { name: 'BNP Paribas',           ticker: 'BNP.PA',   qty: 1,  purchasePrice: 75.99  },
-  { name: 'Sanofi',                ticker: 'SAN.PA',   qty: 2,  purchasePrice: 88.08  },
-  { name: 'TotalEnergies',         ticker: 'TTE.PA',   qty: 5,  purchasePrice: 55.74  },
-  { name: 'Veolia',                ticker: 'VIE.PA',   qty: 4,  purchasePrice: 31.03  },
-  { name: 'Technip Energies',      ticker: 'TE.PA',    qty: 4,  purchasePrice: 32.16  },
-  { name: 'Amundi PEA Em MSCI ESG',ticker: 'PAEEM.PA', qty: 4,  purchasePrice: 31.26  },
-  { name: 'Michelin',              ticker: 'ML.PA',    qty: 5,  purchasePrice: 32.93  },
-  { name: 'Bureau Veritas',        ticker: 'BVI.PA',   qty: 4,  purchasePrice: 28.66  },
-  { name: 'FDJ United',            ticker: 'FDJU.PA',  qty: 4,  purchasePrice: 30.80  },
-  { name: 'Galp',                  ticker: 'GALP.LS',  qty: 10, purchasePrice: 19.43  },
-  { name: 'Dassault Systèmes',     ticker: 'DSY.PA',   qty: 2,  purchasePrice: 28.27  },
-  { name: 'Carrefour',             ticker: 'CA.PA',    qty: 10, purchasePrice: 13.31  },
-  { name: 'Forvia',                ticker: 'FRVIA.PA', qty: 10, purchasePrice: 8.30   },
+  { name: 'Air Liquide',           ticker: 'AI.PA',    qty: 2,  purchasePrice: 166.50, sector: 'Industrie',    geo: 'France'    },
+  { name: 'BNP Paribas',           ticker: 'BNP.PA',   qty: 1,  purchasePrice: 75.99,  sector: 'Finance',      geo: 'France'    },
+  { name: 'Sanofi',                ticker: 'SAN.PA',   qty: 2,  purchasePrice: 88.08,  sector: 'Santé',        geo: 'France'    },
+  { name: 'TotalEnergies',         ticker: 'TTE.PA',   qty: 5,  purchasePrice: 55.74,  sector: 'Énergie',      geo: 'France'    },
+  { name: 'Veolia',                ticker: 'VIE.PA',   qty: 4,  purchasePrice: 31.03,  sector: 'Services',     geo: 'France'    },
+  { name: 'Technip Energies',      ticker: 'TE.PA',    qty: 4,  purchasePrice: 32.16,  sector: 'Industrie',    geo: 'France'    },
+  { name: 'Amundi PEA Em MSCI ESG',ticker: 'PAEEM.PA', qty: 4,  purchasePrice: 31.26,  sector: 'ETF Diversifié', geo: 'Émergents' },
+  { name: 'Michelin',              ticker: 'ML.PA',    qty: 5,  purchasePrice: 32.93,  sector: 'Industrie',    geo: 'France'    },
+  { name: 'Bureau Veritas',        ticker: 'BVI.PA',   qty: 4,  purchasePrice: 28.66,  sector: 'Services',     geo: 'France'    },
+  { name: 'FDJ United',            ticker: 'FDJU.PA',  qty: 4,  purchasePrice: 30.80,  sector: 'Consommation', geo: 'France'    },
+  { name: 'Galp',                  ticker: 'GALP.LS',  qty: 10, purchasePrice: 19.43,  sector: 'Énergie',      geo: 'Europe'    },
+  { name: 'Dassault Systèmes',     ticker: 'DSY.PA',   qty: 2,  purchasePrice: 28.27,  sector: 'Technologie',  geo: 'France'    },
+  { name: 'Carrefour',             ticker: 'CA.PA',    qty: 10, purchasePrice: 13.31,  sector: 'Distribution', geo: 'France'    },
+  { name: 'Forvia',                ticker: 'FRVIA.PA', qty: 10, purchasePrice: 8.30,   sector: 'Industrie',    geo: 'France'    },
 ];
 
 function getPeaHoldings() {
@@ -1899,13 +1955,17 @@ function closePeaModal() {
 }
 
 let peaNewsLoaded = false;
+let peaLastPrices = null;
 function switchPeaTab(tab) {
-  const isPortfolio = tab === 'portfolio';
-  document.getElementById('peaTabPortfolio').style.display = isPortfolio ? '' : 'none';
-  document.getElementById('peaTabNews').style.display = isPortfolio ? 'none' : '';
-  document.getElementById('peaTabBtnPortfolio').classList.toggle('active', isPortfolio);
-  document.getElementById('peaTabBtnNews').classList.toggle('active', !isPortfolio);
-  if (!isPortfolio && !peaNewsLoaded) loadPeaNews();
+  ['portfolio','repartition','news'].forEach(t => {
+    const cap = t.charAt(0).toUpperCase() + t.slice(1);
+    const el = document.getElementById('peaTab' + cap);
+    const btn = document.getElementById('peaTabBtn' + cap);
+    if (el)  el.style.display  = t === tab ? '' : 'none';
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  if (tab === 'repartition') renderPeaRepartition(peaLastPrices);
+  if (tab === 'news' && !peaNewsLoaded) loadPeaNews();
 }
 
 async function loadPeaNews() {
@@ -2091,6 +2151,7 @@ async function refreshPeaModal() {
   const found = prices ? prices.filter(p => p !== null).length : 0;
 
   if (found > 0) {
+    peaLastPrices = prices;
     renderPeaTable(listEl, holdings, prices);
     const anyMissing = prices.some(p => p === null);
     st.innerHTML = (anyMissing ? 'Certains cours manquants.' : `Mis à jour · ${new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`) + retryBtn;
@@ -2098,6 +2159,7 @@ async function refreshPeaModal() {
   }
 
   // Formulas written but not yet evaluated — user must open the sheet
+  peaLastPrices = null;
   renderPeaTable(listEl, holdings, Array(holdings.length).fill(null));
   st.innerHTML = `Formules écrites ✓ — ${sheetLink} une fois pour activer les cours, puis cliquez Rafraîchir. ${retryBtn}`;
 }
@@ -2135,6 +2197,256 @@ function renderPeaTable(listEl, holdings, prices) {
 // Close PEA modal on overlay click
 document.getElementById('peaModal').addEventListener('click', function(e) {
   if (e.target === this) closePeaModal();
+});
+
+// ============== SHARED ALLOCATION HELPERS ==============
+const _chartInst = {};
+const PALETTE_GEO    = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#f97316','#64748b'];
+const PALETTE_SECTOR = ['#f97316','#ec4899','#84cc16','#14b8a6','#a855f7','#eab308','#10b981','#f43f5e','#3b82f6','#64748b'];
+
+function makeDonutAlloc(canvasId, labels, values, colors) {
+  if (_chartInst[canvasId]) { _chartInst[canvasId].destroy(); delete _chartInst[canvasId]; }
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  const total = values.reduce((a,b)=>a+b,0);
+  _chartInst[canvasId] = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: true, aspectRatio: 1, cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${c.label}: ${fmt(c.raw)} (${((c.raw/total)*100).toFixed(1)}%)` } }
+      }
+    }
+  });
+}
+
+function makeLegendAlloc(containerId, labels, values, colors) {
+  const total = values.reduce((a,b)=>a+b,0);
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = labels.map((l,i) =>
+    `<div style="display:flex;align-items:center;gap:6px;padding:3px 0">
+      <div style="width:8px;height:8px;border-radius:50%;background:${colors[i]};flex-shrink:0"></div>
+      <span style="flex:1;font-size:11px;color:var(--text)">${l}</span>
+      <span style="font-size:11px;color:var(--text2)">${((values[i]/total)*100).toFixed(1)}%</span>
+    </div>`
+  ).join('');
+}
+
+function buildAlloc(holdings, prices, key) {
+  const map = {};
+  holdings.forEach((h, i) => {
+    const fallback = h.pxRevient || h.purchasePrice || 0;
+    const price = (prices && prices[i] != null) ? prices[i] : fallback;
+    const val = price * (h.qty || 0);
+    const k = h[key] || 'Autre';
+    map[k] = (map[k] || 0) + val;
+  });
+  return Object.entries(map).sort((a,b) => b[1]-a[1]);
+}
+
+// ============== PEA RÉPARTITION ==============
+function renderPeaRepartition(prices) {
+  const holdings = getPeaHoldings();
+  const geoEnt    = buildAlloc(holdings, prices, 'geo');
+  const sectorEnt = buildAlloc(holdings, prices, 'sector');
+  makeDonutAlloc('peaGeoChart',    geoEnt.map(e=>e[0]),    geoEnt.map(e=>e[1]),    PALETTE_GEO);
+  makeLegendAlloc('peaGeoLegend',  geoEnt.map(e=>e[0]),    geoEnt.map(e=>e[1]),    PALETTE_GEO);
+  makeDonutAlloc('peaSectorChart',    sectorEnt.map(e=>e[0]), sectorEnt.map(e=>e[1]), PALETTE_SECTOR);
+  makeLegendAlloc('peaSectorLegend',  sectorEnt.map(e=>e[0]), sectorEnt.map(e=>e[1]), PALETTE_SECTOR);
+}
+
+// ============== BOURSOVIE / ASSURANCE VIE ==============
+const AV_HOLDINGS = [
+  { name: 'AXA Or et Matières Premières C', isin: 'FR0010011171', qty: 1.1134, pxRevient: 66.87,   lastPrice: 125.48,  sector: 'Matières premières', geo: 'Global'       },
+  { name: 'Lazard Actions Emergentes R',     isin: 'FR0010380675', qty: 0.0315, pxRevient: 2058.41, lastPrice: 2629.20, sector: 'Actions',            geo: 'Émergents'    },
+  { name: 'Amundi MSCI All Country World',   isin: 'LU1829220216', qty: 0.1187, pxRevient: 501.76,  lastPrice: 533.18,  sector: 'ETF Diversifié',     geo: 'Monde'        },
+  { name: 'Amundi EURO STOXX 50 II',         isin: 'FR0007054358', qty: 0.8256, pxRevient: 60.13,   lastPrice: 63.83,   sector: 'ETF Actions',        geo: 'Europe'       },
+  { name: 'Amundi Nasdaq-100 II',            isin: 'LU1829221024', qty: 0.6048, pxRevient: 82.07,   lastPrice: 86.83,   sector: 'ETF Tech',           geo: 'États-Unis'   },
+  { name: 'JPM Global Healthcare',           isin: 'LU0880062913', qty: 0.1354, pxRevient: 293.54,  lastPrice: 275.84,  sector: 'Santé',              geo: 'Global'       },
+  { name: 'iShares Digital Security ETF',    isin: 'IE00BG0J4C88', qty: 4.4182, pxRevient: 8.99,    lastPrice: 8.38,    sector: 'Technologie',        geo: 'Global'       },
+];
+const AV_CASH = 300;
+
+let avPricesCache = null;
+let avNewsLoaded  = false;
+
+async function openAvModal() {
+  avNewsLoaded = false;
+  switchAvTab('positions');
+  document.getElementById('avModal').classList.add('visible');
+  await refreshAvModal();
+}
+
+function closeAvModal() {
+  document.getElementById('avModal').classList.remove('visible');
+}
+
+function switchAvTab(tab) {
+  ['positions','repartition','news'].forEach(t => {
+    const cap = t.charAt(0).toUpperCase() + t.slice(1);
+    const el  = document.getElementById('avTab' + cap);
+    const btn = document.getElementById('avTabBtn' + cap);
+    if (el)  el.style.display = t === tab ? '' : 'none';
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  if (tab === 'repartition') renderAvRepartition(avPricesCache);
+  if (tab === 'news' && !avNewsLoaded) loadAvNews();
+}
+
+async function fetchAvPrices() {
+  return Promise.all(AV_HOLDINGS.map(async h => {
+    try {
+      const sr = await fetch(
+        `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(h.isin)}&quotesCount=1&newsCount=0`,
+        { signal: AbortSignal.timeout(6000) }
+      );
+      if (!sr.ok) return null;
+      const sd = await sr.json();
+      const sym = sd.quotes?.[0]?.symbol;
+      if (!sym) return null;
+      const pr = await fetch(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1d`,
+        { signal: AbortSignal.timeout(6000) }
+      );
+      if (!pr.ok) return null;
+      const pd = await pr.json();
+      return pd.chart?.result?.[0]?.meta?.regularMarketPrice || null;
+    } catch { return null; }
+  }));
+}
+
+async function refreshAvModal() {
+  const listEl = document.getElementById('avHoldingsList');
+  const st     = document.getElementById('avFetchStatus');
+  const retryBtn = `<button onclick="refreshAvModal()" style="background:var(--surface2);border:none;color:var(--text);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px;margin-left:8px">↻ Rafraîchir</button>`;
+
+  // Show fallback prices immediately
+  renderAvTable(listEl, AV_HOLDINGS.map(h => h.lastPrice));
+  st.textContent = 'Mise à jour des cours…';
+
+  // Try live prices
+  const live = await fetchAvPrices();
+  const anyLive = live.some(p => p != null);
+  avPricesCache = live.map((p, i) => p ?? AV_HOLDINGS[i].lastPrice);
+  renderAvTable(listEl, avPricesCache);
+
+  const now = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+  st.innerHTML = (anyLive
+    ? `Cours en direct · ${now}`
+    : 'Cours indicatifs (13/03/2026)') + retryBtn;
+}
+
+function renderAvTable(listEl, prices) {
+  let html = `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:6px 10px;align-items:center;
+    padding:6px 0;border-bottom:1px solid var(--surface2);font-size:11px;color:var(--text2);font-weight:600">
+    <span>FONDS</span><span style="text-align:right">COURS</span>
+    <span style="text-align:right">GAIN</span><span style="text-align:right">VALEUR</span>
+  </div>`;
+  let total = 0, totalGain = 0;
+  AV_HOLDINGS.forEach((h, i) => {
+    const price = prices ? prices[i] : null;
+    const val   = price != null ? price * h.qty : null;
+    const cost  = h.pxRevient * h.qty;
+    const gain  = val != null ? val - cost : null;
+    const gainPct = (gain != null && cost > 0) ? ((gain/cost)*100).toFixed(1) : null;
+    if (val  != null) total     += val;
+    if (gain != null) totalGain += gain;
+    const gc = gain == null ? 'var(--text2)' : gain >= 0 ? 'var(--green)' : 'var(--red)';
+    const gs = gain == null ? '—'
+      : `${gain>=0?'+':''}${fmt(gain)}<br><span style="font-size:10px">${gain>=0?'+':''}${gainPct}%</span>`;
+    html += `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:6px 10px;align-items:center;
+      padding:8px 0;border-bottom:1px solid var(--surface2)20;font-size:13px">
+      <div>
+        <div style="font-weight:500;font-size:12px;line-height:1.3">${h.name}</div>
+        <div style="font-size:10px;color:var(--text2)">${h.isin} · ${h.qty} parts</div>
+      </div>
+      <span style="text-align:right;white-space:nowrap">${price!=null?price.toFixed(2)+'€':'—'}</span>
+      <span style="text-align:right;color:${gc};white-space:nowrap;line-height:1.4">${gs}</span>
+      <span style="text-align:right;font-weight:600;white-space:nowrap">${val!=null?fmt(val):'—'}</span>
+    </div>`;
+  });
+  // Ligne cash
+  total += AV_CASH;
+  html += `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:6px 10px;align-items:center;
+    padding:8px 0;font-size:13px">
+    <div>
+      <div style="font-weight:500;font-size:12px">Cash non alloué</div>
+      <div style="font-size:10px;color:var(--text2)">Disponible</div>
+    </div>
+    <span style="text-align:right">—</span>
+    <span style="text-align:right;color:var(--text2)">—</span>
+    <span style="text-align:right;font-weight:600">${fmt(AV_CASH)}</span>
+  </div>`;
+  listEl.innerHTML = html;
+  const tgc = totalGain >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('avTotalLine').innerHTML =
+    `<span style="color:var(--text2);font-weight:400;font-size:13px">Total BoursoVie</span>
+     &nbsp; ${fmt(total)} &nbsp;
+     <span style="font-size:13px;color:${tgc}">${totalGain>=0?'+':''}${fmt(totalGain)}</span>`;
+}
+
+function renderAvRepartition(prices) {
+  const usePrices = prices || AV_HOLDINGS.map(h => h.lastPrice);
+  const geoEnt    = buildAlloc(AV_HOLDINGS, usePrices, 'geo');
+  const sectorEnt = buildAlloc(AV_HOLDINGS, usePrices, 'sector');
+  makeDonutAlloc('avGeoChart',     geoEnt.map(e=>e[0]),    geoEnt.map(e=>e[1]),    PALETTE_GEO);
+  makeLegendAlloc('avGeoLegend',   geoEnt.map(e=>e[0]),    geoEnt.map(e=>e[1]),    PALETTE_GEO);
+  makeDonutAlloc('avSectorChart',  sectorEnt.map(e=>e[0]), sectorEnt.map(e=>e[1]), PALETTE_SECTOR);
+  makeLegendAlloc('avSectorLegend',sectorEnt.map(e=>e[0]), sectorEnt.map(e=>e[1]), PALETTE_SECTOR);
+}
+
+async function loadAvNews() {
+  const newsEl = document.getElementById('avNews');
+  newsEl.innerHTML = '<div style="padding:16px 0;text-align:center;color:var(--text2)">Chargement…</div>';
+  const MIN = 15, NOW = Date.now();
+  const TWO_WEEKS = 14*24*3600*1000, ONE_MONTH = 30*24*3600*1000;
+
+  async function fetchFeed(url) {
+    try {
+      const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
+      if (!res.ok) return [];
+      return (await res.json()).items || [];
+    } catch { return []; }
+  }
+  function dedupe(arrays) {
+    const seen = new Set();
+    return arrays.flat().filter(item => { if (seen.has(item.title)) return false; seen.add(item.title); return true; });
+  }
+  function renderItems(items) {
+    return items.slice(0,15).map(item => {
+      const date = item.pubDate ? new Date(item.pubDate).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}) : '';
+      return `<a href="${item.link}" target="_blank" rel="noopener"
+        style="display:block;padding:10px 0;border-bottom:1px solid var(--surface2);text-decoration:none;color:var(--text)">
+        <div style="font-size:13px;font-weight:500;line-height:1.4">${item.title}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">${item.author||''}${date?' · '+date:''}</div>
+      </a>`;
+    }).join('');
+  }
+  const [a,b,c,d,e] = await Promise.all([
+    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent('"assurance vie" fonds ETF épargne UC')}&hl=fr&gl=FR&ceid=FR:fr`),
+    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent('Amundi ETF MSCI émergents marchés mondiaux')}&hl=fr&gl=FR&ceid=FR:fr`),
+    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent('Nasdaq tech santé healthcare actions')}&hl=fr&gl=FR&ceid=FR:fr`),
+    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent('matières premières or métaux commodités')}&hl=fr&gl=FR&ceid=FR:fr`),
+    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent('épargne investissement diversification portefeuille')}&hl=fr&gl=FR&ceid=FR:fr`),
+  ]);
+  const recent = item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= TWO_WEEKS;
+  let pool = dedupe([a,b,c,d,e]).filter(recent);
+  if (pool.length < MIN) pool = dedupe([a,b,c,d,e]).filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= ONE_MONTH);
+  if (pool.length === 0) {
+    newsEl.innerHTML = `<a href="https://news.google.com/search?q=${encodeURIComponent('assurance vie fonds épargne')}&hl=fr" target="_blank" rel="noopener"
+      style="color:var(--accent);font-size:13px;padding:12px 0;display:block">Voir les actualités sur Google News →</a>`;
+    return;
+  }
+  avNewsLoaded = true;
+  newsEl.innerHTML = renderItems(pool);
+}
+
+// Close AV modal on overlay click
+document.getElementById('avModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAvModal();
 });
 
 // ============== BITCOIN MODAL ==============
