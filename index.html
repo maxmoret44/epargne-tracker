@@ -428,29 +428,29 @@
         display: flex; flex-direction: column; justify-content: center;
       }
       #dashboard .dash-section-charts {
-        min-height: calc(100vh - 60px);
-        min-height: calc(100dvh - 60px);
+        height: calc(100vh - 60px);
+        height: calc(100dvh - 60px);
         padding: 16px;
         padding-top: 4vh;
         box-sizing: border-box;
+        overflow: hidden;
         scroll-snap-align: start;
         scroll-snap-stop: always;
         margin: 0;
         border-radius: 0;
         background: var(--bg);
-        display: flex; flex-direction: column; justify-content: flex-start;
+        display: flex; flex-direction: column; justify-content: space-between;
       }
       /* Page 2 : total + légende plus grands */
       #dashboard .dash-section-charts #sharedTotalLabel { font-size: 26px !important; }
-      #dashboard .dash-section-charts .chart-shared-top { margin-bottom: 20px; }
-      /* Espace égal courbe↔donut ; légende poussée vers le bas */
+      #dashboard .dash-section-charts .chart-shared-top { margin-bottom: 0; }
+      /* gap courbe↔donut */
       #dashboard .dash-section-charts .charts-row { gap: 20px; }
       #legendShared {
         display: grid !important;
         grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        margin-top: auto;
-        padding-bottom: 6px;
+        gap: 8px;
+        margin-top: 0;
       }
       #legendShared .legend-item {
         font-size: 14px; gap: 10px;
