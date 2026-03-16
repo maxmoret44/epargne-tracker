@@ -143,6 +143,8 @@
     .chart-title svg { width: 18px; height: 18px; opacity: 0.7; }
     .chart-visible-total {
       font-size: 16px; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
     @media (min-width: 768px) {
       .chart-fs-total { font-size: 26px !important; }
@@ -1550,12 +1552,12 @@ function getChartOptions(type) {
             color: '#64748b', font: { size: 10 },
             callback: v => {
               if (privacyMode) return '—';
-              return IS_TOUCH
-                ? (Math.abs(v) >= 1000 ? (v/1000).toLocaleString('fr-FR', {maximumFractionDigits:1}) + 'k' : v)
-                : fmt(v);
+              const abs = Math.abs(v);
+              if (abs >= 1000) return (v/1000).toLocaleString('fr-FR', {maximumFractionDigits:1}) + 'k';
+              return v;
             }
           },
-          grid: { color: '#1e293b' }
+          grid: { color: '#1e293b', display: !IS_TOUCH }
         }
       }
     };
@@ -1685,7 +1687,6 @@ function updateSharedTotal() {
   const sign = gain >= 0 ? '+' : '';
   const gainColor = gain >= 0 ? 'var(--green)' : 'var(--red)';
   el.textContent = fmt(total);
-  el.style.color = 'var(--text)';
   const gainsEl = document.getElementById('sharedGainsLabel');
   if (gainsEl && pct !== null) {
     gainsEl.textContent = `${sign}${fmt(gain)} · ${sign}${pct}%`;
