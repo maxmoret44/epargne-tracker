@@ -609,10 +609,6 @@
       <label>Onglet</label>
       <input type="text" id="cfgTargetTab" value="Feuille 1" placeholder="Feuille 1">
     </div>
-    <div class="setting-item">
-      <label>Twelve Data API Key <span style="color:var(--text2);font-weight:400">(cours PEA — gratuit sur twelvedata.com)</span></label>
-      <input type="text" id="cfgTdApiKey" placeholder="Votre clé Twelve Data">
-    </div>
 
     <button class="btn" onclick="saveConfig()">Sauvegarder</button>
     <button class="btn btn-secondary" onclick="connectGoogle()">Connecter Google</button>
@@ -674,7 +670,6 @@ function saveConfig() {
     apiKey: document.getElementById('cfgApiKey').value.trim(),
     clientId: document.getElementById('cfgClientId').value.trim(),
     targetTab: document.getElementById('cfgTargetTab').value.trim() || 'Feuille 1',
-    tdApiKey: document.getElementById('cfgTdApiKey').value.trim(),
   };
   localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
   if (cfg.clientId) localStorage.setItem('epargne_client_id', cfg.clientId);
@@ -688,7 +683,6 @@ function loadConfig() {
   document.getElementById('cfgApiKey').value = cfg.apiKey;
   document.getElementById('cfgClientId').value = cfg.clientId;
   document.getElementById('cfgTargetTab').value = cfg.targetTab;
-  document.getElementById('cfgTdApiKey').value = cfg.tdApiKey || '';
 }
 
 // ============== GOOGLE SHEETS API ==============
@@ -1501,32 +1495,6 @@ function toGFTicker(yahooTicker) {
   return yahooTicker;
 }
 
-// Fetch current prices via Twelve Data (free, CORS-enabled, batch)
-async function fetchPricesFromTwelveData(holdings) {
-  const cfg = getConfig();
-  if (!cfg.tdApiKey) return null;
-  const symbols = holdings.map(h => h.ticker).join(',');
-  try {
-    const res = await fetch(`https://api.twelvedata.com/price?symbol=${symbols}&apikey=${cfg.tdApiKey}`);
-    const data = await res.json();
-    console.log('TwelveData response:', JSON.stringify(data).slice(0, 300));
-    if (data.code || data.status === 'error') {
-      console.warn('TwelveData error:', data.message || data);
-      return { _error: data.message || `code ${data.code}` };
-    }
-    if (holdings.length === 1) {
-      return [parseFloat(data.price) || null];
-    }
-    return holdings.map(h => {
-      const d = data[h.ticker];
-      return d && d.price && !d.code ? parseFloat(d.price) || null : null;
-    });
-  } catch(e) {
-    console.warn('TwelveData:', e.message);
-    return null;
-  }
-}
-
 // Pre-write GOOGLEFINANCE formulas to scratch column at auth time (background)
 async function preFetchPeaPrices() {
   if (!accessToken) return;
@@ -1567,28 +1535,37 @@ async function refreshPeaModal() {
     return;
   }
 
-  const retryBtn = `<button onclick="refreshPeaModal()" style="background:var(--surface2);border:none;color:var(--text);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px;margin-left:8px">↻ Rafraîchir</button>`;
   const cfg = getConfig();
+  const retryBtn = `<button onclick="refreshPeaModal()" style="background:var(--surface2);border:none;color:var(--text);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px;margin-left:8px">↻ Rafraîchir</button>`;
+  const sheetLink = cfg.targetId
+    ? `<a href="https://docs.google.com/spreadsheets/d/${cfg.targetId}/edit" target="_blank" style="color:var(--accent)">ouvrez votre Google Sheet</a>`
+    : 'ouvrez votre Google Sheet';
 
-  // Primary: Twelve Data (instant, CORS-enabled)
-  if (cfg.tdApiKey) {
-    st.textContent = 'Récupération des cours...';
-    const prices = await fetchPricesFromTwelveData(holdings);
-    if (prices && !prices._error && prices.some(p => p !== null)) {
-      renderPeaTable(listEl, holdings, prices);
-      const anyMissing = prices.some(p => p === null);
-      st.innerHTML = (anyMissing ? 'Certains cours manquants.' : `Mis à jour · ${new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`) + retryBtn;
-      return;
-    }
-    const errDetail = prices && prices._error ? ` (${prices._error})` : '';
-    st.innerHTML = `Erreur Twelve Data${errDetail}. ${retryBtn}`;
+  if (!accessToken) {
+    st.innerHTML = `Connectez-vous à Google (Config → Connecter Google) pour activer les cours automatiques.`;
     renderPeaTable(listEl, holdings, Array(holdings.length).fill(null));
     return;
   }
 
-  // No API key configured
-  st.innerHTML = `Ajoutez une clé <b>Twelve Data</b> dans Config pour activer les cours. <a href="https://twelvedata.com/register" target="_blank" style="color:var(--accent)">Inscription gratuite →</a>`;
+  // Write GOOGLEFINANCE formulas to column Z
+  st.textContent = 'Mise à jour des formules...';
+  await preFetchPeaPrices();
+
+  // Try to read cached values (available if sheet was opened in browser recently)
+  st.textContent = 'Lecture des cours...';
+  const prices = await readPeaPricesFromSheet(holdings.length);
+  const found = prices ? prices.filter(p => p !== null).length : 0;
+
+  if (found > 0) {
+    renderPeaTable(listEl, holdings, prices);
+    const anyMissing = prices.some(p => p === null);
+    st.innerHTML = (anyMissing ? 'Certains cours manquants.' : `Mis à jour · ${new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`) + retryBtn;
+    return;
+  }
+
+  // Formulas written but not yet evaluated — user must open the sheet
   renderPeaTable(listEl, holdings, Array(holdings.length).fill(null));
+  st.innerHTML = `Formules écrites ✓ — ${sheetLink} une fois pour activer les cours, puis cliquez Rafraîchir. ${retryBtn}`;
 }
 
 function renderPeaTable(listEl, holdings, prices) {
