@@ -431,16 +431,18 @@
         min-height: calc(100vh - 60px);
         min-height: calc(100dvh - 60px);
         padding: 16px;
+        padding-top: 7vh;
         box-sizing: border-box;
         scroll-snap-align: start;
         scroll-snap-stop: always;
         margin: 0;
         border-radius: 0;
         background: var(--bg);
-        display: flex; flex-direction: column; justify-content: center;
+        display: flex; flex-direction: column; justify-content: flex-start;
       }
       /* Page 2 : total + légende plus grands */
-      #dashboard .dash-section-charts #sharedTotalLabel { font-size: 20px !important; }
+      #dashboard .dash-section-charts #sharedTotalLabel { font-size: 26px !important; }
+      #dashboard .dash-section-charts .chart-shared-top { margin-bottom: 20px; }
       #legendShared {
         display: grid !important;
         grid-template-columns: 1fr 1fr;
@@ -578,15 +580,7 @@
     <div class="dash-section-charts">
       <!-- Total partagé + boutons plein écran -->
       <div class="chart-shared-top">
-        <span class="chart-visible-total" id="sharedTotalLabel" style="font-size:15px;font-weight:700"></span>
-        <div style="display:flex;gap:6px">
-          <button class="chart-expand-btn" onclick="expandChart('area')" title="Progression plein écran">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          </button>
-          <button class="chart-expand-btn" onclick="expandChart('donut')" title="Répartition plein écran">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-          </button>
-        </div>
+        <span class="chart-visible-total" id="sharedTotalLabel" style="font-size:18px;font-weight:700"></span>
       </div>
       <!-- Ligne des graphiques -->
       <div class="charts-row">
@@ -1232,7 +1226,7 @@ function updateDonutTotal(labelId, data, visKey) {
   const pct = visibleInvested > 0 ? ((gain / visibleInvested) * 100).toFixed(1) : null;
   const sign = gain >= 0 ? '+' : '';
   const gainColor = gain >= 0 ? 'var(--green)' : 'var(--red)';
-  const gainStr = pct !== null ? ` <span style="font-size:0.75em;color:${gainColor}">${sign}${fmt(gain)} (${sign}${pct}%)</span>` : '';
+  const gainStr = pct !== null ? ` <span style="font-size:0.78em;color:${gainColor}">${sign}${fmt(gain)} (${sign}${pct}%)</span>` : '';
   el.innerHTML = fmt(total) + gainStr;
   el.style.color = gainColor;
 }
@@ -1326,7 +1320,7 @@ function updateAreaTotal(chart, labelId) {
   const pct = visibleInvested > 0 ? ((gain / visibleInvested) * 100).toFixed(1) : null;
   const sign = gain >= 0 ? '+' : '';
   const gainColor = gain >= 0 ? 'var(--green)' : 'var(--red)';
-  const gainStr = pct !== null ? ` <span style="font-size:0.75em;color:${gainColor}">${sign}${fmt(gain)} (${sign}${pct}%)</span>` : '';
+  const gainStr = pct !== null ? ` <span style="font-size:0.78em;color:${gainColor}">${sign}${fmt(gain)} (${sign}${pct}%)</span>` : '';
   labelEl.innerHTML = fmt(total) + gainStr;
   labelEl.style.color = gainColor;
 }
@@ -1458,10 +1452,10 @@ function buildSharedLegend(areaChart, donutChart) {
   if (!container) return;
   container.innerHTML = '';
   const labels = donutChart.data.labels;
-  const colors = donutChart.data.datasets[0].backgroundColor;
+  const borderColors = donutChart.data.datasets[0].borderColor;
   labels.forEach((label, i) => {
     donutVisibility['shared' + i] = true;
-    const color = colors[i];
+    const color = borderColors[i];
     const item = document.createElement('label');
     item.className = 'legend-item';
     item.innerHTML = `<input type="checkbox" checked><span>${label}</span>`;
@@ -1502,7 +1496,7 @@ function updateSharedTotal() {
   const pct = visibleInvested > 0 ? ((gain / visibleInvested) * 100).toFixed(1) : null;
   const sign = gain >= 0 ? '+' : '';
   const gainColor = gain >= 0 ? 'var(--green)' : 'var(--red)';
-  const gainStr = pct !== null ? ` <span style="font-size:0.75em;color:${gainColor}">${sign}${fmt(gain)} (${sign}${pct}%)</span>` : '';
+  const gainStr = pct !== null ? ` <span style="font-size:0.78em;color:${gainColor}">${sign}${fmt(gain)} (${sign}${pct}%)</span>` : '';
   el.innerHTML = fmt(total) + gainStr;
   el.style.color = gainColor;
 }
