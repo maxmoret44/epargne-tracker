@@ -462,7 +462,7 @@
       /* Donut : margin-top auto (prend la moitié de l'espace libre) */
       #dashboard .dash-section-charts .charts-donut-wrap {
         margin-top: auto;
-        margin-bottom: 16px;
+        margin-bottom: 24px;
         margin-left: auto;
         margin-right: auto;
         max-width: 138px;
@@ -1255,7 +1255,7 @@ function renderDashboard() {
     const val = parseFloat(last[a.idx]) || 0;
     const inv = (investedAmounts[a.key] || 0) + (totalInjections[a.key] || 0);
     const accountGain = a.key === 'cash' ? 0 : val - inv;
-    const accountPct = (inv > 0 && a.key !== 'cash') ? ((accountGain / inv) * 100).toFixed(1) : null;
+    const accountPct = ((investedAmounts[a.key] || 0) > 0 && a.key !== 'cash') ? ((accountGain / inv) * 100).toFixed(1) : null;
     const isClickable = a.key === 'pea' || a.key === 'cto';
     const clickFn = a.key === 'pea' ? 'openPeaModal()' : a.key === 'cto' ? 'openBtcModal()' : '';
     return `<div class="account-card${isClickable ? ' clickable' : ''}" ${isClickable ? `onclick="${clickFn}"` : ''}>
