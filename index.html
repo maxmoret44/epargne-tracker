@@ -151,10 +151,15 @@
     @media (max-width: 767px) {
       .legend-item { font-size: 13px; gap: 8px; padding: 5px 0; }
       .chart-container { margin-top: 20px; }
-      #chartArea { max-height: 170px; }
       .chart-title-text { display: none; }
       .chart-fs-content canvas { flex: none !important; height: auto !important; }
       .chart-fs-content { overflow-y: auto; }
+    }
+    @media (max-width: 767px) and (orientation: portrait) {
+      #chartArea { min-height: 210px; max-height: 270px; }
+    }
+    @media (max-width: 767px) and (orientation: landscape) {
+      #chartArea { max-height: 140px; }
     }
     .legend-item input[type="checkbox"] {
       width: 14px; height: 14px; cursor: pointer;
@@ -378,15 +383,23 @@
     }
     .pea-fetch-status { font-size: 11px; color: var(--text2); margin-top: 6px; text-align: center; }
 
+    /* BTC PERIOD BUTTONS */
+    .btc-period-btn {
+      background: var(--surface2); border: none; border-radius: 6px;
+      color: var(--text2); padding: 6px 14px; font-size: 12px;
+      cursor: pointer; font-family: inherit; transition: all 0.15s;
+    }
+    .btc-period-btn.active, .btc-period-btn:hover { background: var(--accent); color: white; }
+
     /* RESPONSIVE DESKTOP */
     @media (min-width: 768px) {
       .nav {
         position: fixed; top: 0; bottom: auto; left: 0; right: 0;
         border-top: none; border-bottom: 1px solid var(--surface2);
-        padding-bottom: 0; justify-content: center;
+        padding-bottom: 0;
       }
-      .nav-inner { max-width: 960px; margin: 0 auto; width: 100%; }
-      .nav button { flex-direction: row; gap: 8px; padding: 14px 0; }
+      .nav-inner { max-width: 960px; margin: 0 auto; width: 100%; justify-content: center; }
+      .nav button { flex: none; flex-direction: row; gap: 8px; padding: 14px 32px; }
       .nav-label { opacity: 0; max-width: 0; overflow: hidden; white-space: nowrap; }
       .nav button:hover .nav-label,
       .nav button.active .nav-label { opacity: 1; max-width: 120px; font-size: 13px; }
@@ -516,7 +529,7 @@
     </div>
 
     <div class="form-group">
-      <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2"><path d="M12 1v4M12 19v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M1 12h4M19 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="4"/></svg>TR CTO (BTC)</label>
+      <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2"><path d="M12 1v4M12 19v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M1 12h4M19 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="4"/></svg>Bitcoin</label>
       <input type="number" id="fCto" step="0.01" placeholder="0.00">
     </div>
 
@@ -561,7 +574,7 @@
           <input type="number" id="injBoursovie" step="0.01" placeholder="0.00">
         </div>
         <div class="form-group">
-          <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" style="width:14px;height:14px"><circle cx="12" cy="12" r="4"/></svg>Injection TR CTO</label>
+          <label><svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" style="width:14px;height:14px"><circle cx="12" cy="12" r="4"/></svg>Injection Bitcoin</label>
           <input type="number" id="injCto" step="0.01" placeholder="0.00">
         </div>
         <div class="form-group">
@@ -640,6 +653,49 @@
       </div>
       <div class="pea-total-line" id="peaTotalLine"></div>
       <div class="pea-fetch-status" id="peaFetchStatus"></div>
+    </div>
+  </div>
+
+  <!-- BITCOIN MODAL -->
+  <div id="btcModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:660px">
+      <div class="modal-header">
+        <span>₿ Bitcoin — CTO</span>
+        <button class="modal-close-btn" onclick="closeBtcModal()">✕</button>
+      </div>
+      <!-- Current price -->
+      <div style="text-align:center;padding:10px 0 6px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Cours actuel BTC/EUR</div>
+        <div style="font-size:30px;font-weight:700" id="btcCurrentPrice">--</div>
+        <div style="font-size:13px;margin-top:3px" id="btcPriceChange">--</div>
+      </div>
+      <!-- Portfolio -->
+      <div style="background:var(--bg);border-radius:8px;padding:12px 16px;margin:12px 0 14px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:12px;color:var(--text2)">Mon portefeuille</div>
+          <div style="font-size:22px;font-weight:700;margin-top:2px" id="btcPortfolioValue">--</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:var(--text2)">Plus-value</div>
+          <div style="font-size:14px;font-weight:600;margin-top:2px" id="btcPortfolioGain">--</div>
+        </div>
+      </div>
+      <!-- Period selector -->
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="btc-period-btn" data-days="1" onclick="loadBtcChart(1,this)">24h</button>
+        <button class="btc-period-btn" data-days="7" onclick="loadBtcChart(7,this)">7j</button>
+        <button class="btc-period-btn active" data-days="30" onclick="loadBtcChart(30,this)">1m</button>
+        <button class="btc-period-btn" data-days="90" onclick="loadBtcChart(90,this)">3m</button>
+        <button class="btc-period-btn" data-days="365" onclick="loadBtcChart(365,this)">1a</button>
+        <button class="btc-period-btn" data-days="max" onclick="loadBtcChart('max',this)">Max</button>
+      </div>
+      <!-- Chart -->
+      <canvas id="chartBtc"></canvas>
+      <!-- News -->
+      <div style="margin-top:16px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Actualités Bitcoin</div>
+        <div id="btcNews" style="font-size:13px;color:var(--text2)">Chargement...</div>
+      </div>
     </div>
   </div>
 
@@ -890,7 +946,7 @@ async function loadData() {
 // ============== RENDER DASHBOARD ==============
 const ACCOUNTS = [
   { key: 'boursovie', name: 'BoursoVie',    idx: 1, color: '#c2185b' },
-  { key: 'cto',       name: 'TR CTO (BTC)', idx: 2, color: '#f59e0b' },
+  { key: 'cto',       name: 'Bitcoin',      idx: 2, color: '#f59e0b' },
   { key: 'pea',       name: 'TR PEA',       idx: 3, color: '#3b82f6' },
   { key: 'livret',    name: 'CE Livret A',  idx: 4, color: '#ef4444' },
   { key: 'cash',      name: 'TR Cash',      idx: 5, color: '#94a3b8' },
@@ -944,8 +1000,9 @@ function renderDashboard() {
     const inv = (investedAmounts[a.key] || 0) + (totalInjections[a.key] || 0);
     const accountGain = a.key === 'cash' ? 0 : val - inv;
     const accountPct = (inv > 0 && a.key !== 'cash') ? ((accountGain / inv) * 100).toFixed(1) : null;
-    const isClickable = a.key === 'pea';
-    return `<div class="account-card${isClickable ? ' clickable' : ''}" ${isClickable ? 'onclick="openPeaModal()"' : ''}>
+    const isClickable = a.key === 'pea' || a.key === 'cto';
+    const clickFn = a.key === 'pea' ? 'openPeaModal()' : a.key === 'cto' ? 'openBtcModal()' : '';
+    return `<div class="account-card${isClickable ? ' clickable' : ''}" ${isClickable ? `onclick="${clickFn}"` : ''}>
       <div class="left">
         <div class="dot" style="background:${a.color}"></div>
         <span class="name">${a.name}</span>
@@ -1113,7 +1170,7 @@ function getChartOptions(type) {
     return {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: IS_TOUCH ? 2.2 : 2.5,
+      aspectRatio: IS_TOUCH ? 1.6 : 2.5,
       interaction: { mode: IS_TOUCH ? 'nearest' : 'index', intersect: IS_TOUCH },
       plugins: {
         legend: { display: false },
@@ -1237,9 +1294,11 @@ function expandChart(mode) {
     if (!allData.length) return;
     const labels = allData.map(r => {
       const d = r[0];
-      if (typeof d === 'string' && d.includes('/')) return d;
-      try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }); }
-      catch { return d; }
+      try {
+        const dt = new Date(typeof d === 'string' && d.includes('/') ? d.split('/').reverse().join('-') : d);
+        const s = dt.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+        return s.replace(/\.$/, '').replace(/^./, c => c.toUpperCase());
+      } catch { return d; }
     });
     const datasets = ACCOUNTS.map(a => ({
       label: a.name,
@@ -1500,11 +1559,12 @@ const PEA_COURS_TAB = 'PEA_Cours';
 // Ensure the PEA_Cours tab exists, create it if not
 async function ensurePeaCoursTab(sheetId) {
   const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets(properties(title))`,
     { headers: { 'Authorization': `Bearer ${accessToken}` } }
   );
+  if (!res.ok) throw new Error(`Metadata error: ${res.status}`);
   const meta = await res.json();
-  const exists = (meta.sheets || []).some(s => s.properties.title === PEA_COURS_TAB);
+  const exists = (meta.sheets || []).some(s => s.properties && s.properties.title === PEA_COURS_TAB);
   if (!exists) {
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
       method: 'POST',
@@ -1622,6 +1682,144 @@ function renderPeaTable(listEl, holdings, prices) {
 // Close PEA modal on overlay click
 document.getElementById('peaModal').addEventListener('click', function(e) {
   if (e.target === this) closePeaModal();
+});
+
+// ============== BITCOIN MODAL ==============
+let chartBtc = null;
+
+async function openBtcModal() {
+  document.getElementById('btcModal').classList.add('visible');
+  loadBtcData();
+  loadBtcNews();
+}
+
+function closeBtcModal() {
+  document.getElementById('btcModal').classList.remove('visible');
+  if (chartBtc) { chartBtc.destroy(); chartBtc = null; }
+}
+
+async function loadBtcData() {
+  const priceEl = document.getElementById('btcCurrentPrice');
+  const changeEl = document.getElementById('btcPriceChange');
+  const portEl = document.getElementById('btcPortfolioValue');
+  const portGainEl = document.getElementById('btcPortfolioGain');
+
+  // Portfolio value from last data
+  if (allData.length > 0) {
+    const last = allData[allData.length - 1];
+    const currentValue = parseFloat(last[2]) || 0;
+    const invested = (investedAmounts.cto || 0) + (totalInjections.cto || 0);
+    const gain = currentValue - invested;
+    const gainPct = invested > 0 ? ((gain / invested) * 100).toFixed(2) : null;
+    portEl.textContent = fmt(currentValue);
+    if (gainPct !== null) {
+      portGainEl.textContent = `${gain >= 0 ? '+' : ''}${fmt(gain)} (${gain >= 0 ? '+' : ''}${gainPct}%)`;
+      portGainEl.style.color = gain >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+  }
+
+  // Current BTC price from CoinGecko
+  try {
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur&include_24hr_change=true');
+    const data = await res.json();
+    const price = data.bitcoin.eur;
+    const change = data.bitcoin.eur_24h_change;
+    priceEl.textContent = fmt(price);
+    const sign = change >= 0 ? '+' : '';
+    changeEl.textContent = `${sign}${change.toFixed(2)}% (24h)`;
+    changeEl.style.color = change >= 0 ? 'var(--green)' : 'var(--red)';
+  } catch(e) {
+    priceEl.textContent = 'Indisponible';
+    priceEl.style.color = 'var(--text2)';
+    console.warn('BTC price:', e.message);
+  }
+
+  // Load default chart period
+  await loadBtcChart(30, document.querySelector('.btc-period-btn[data-days="30"]'));
+}
+
+async function loadBtcChart(days, btn) {
+  document.querySelectorAll('.btc-period-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const canvas = document.getElementById('chartBtc');
+  canvas.style.opacity = '0.4';
+
+  try {
+    const url = days === 'max'
+      ? 'https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=eur&days=max&interval=weekly'
+      : `https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=eur&days=${days}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('CoinGecko ' + res.status);
+    const data = await res.json();
+    const prices = data.prices;
+
+    const labels = prices.map(p => {
+      const d = new Date(p[0]);
+      if (days <= 2) return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      if (days <= 90) return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+      const s = d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+      return s.replace(/\.$/, '').replace(/^./, c => c.toUpperCase());
+    });
+    const values = prices.map(p => p[1]);
+
+    if (chartBtc) { chartBtc.destroy(); chartBtc = null; }
+    const isUp = values.length > 1 && values[values.length - 1] >= values[0];
+    const color = isUp ? '#10b981' : '#ef4444';
+
+    chartBtc = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{ data: values, borderColor: color, backgroundColor: color + '22',
+          borderWidth: 2, fill: true, pointRadius: 0, tension: 0.3 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true, aspectRatio: IS_TOUCH ? 1.6 : 2.5,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e293b', titleColor: '#f1f5f9', bodyColor: '#94a3b8',
+            borderColor: '#334155', borderWidth: 1, cornerRadius: 8,
+            callbacks: { label: ctx => ` ${fmt(ctx.raw)}` }
+          }
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } }, grid: { display: false } },
+          y: { ticks: { color: '#64748b', callback: v => fmt(v), font: { size: 10 } }, grid: { color: '#1e293b' } }
+        }
+      }
+    });
+  } catch(e) {
+    console.warn('BTC chart:', e.message);
+  }
+  canvas.style.opacity = '1';
+}
+
+async function loadBtcNews() {
+  const newsEl = document.getElementById('btcNews');
+  try {
+    const rssUrl = encodeURIComponent('https://news.google.com/rss/search?q=bitcoin&hl=fr&gl=FR&ceid=FR:fr');
+    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}`);
+    const data = await res.json();
+    if (!data.items || data.items.length === 0) throw new Error('empty');
+    newsEl.innerHTML = data.items.slice(0, 5).map(item => {
+      const date = item.pubDate ? new Date(item.pubDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : '';
+      return `<a href="${item.link}" target="_blank" rel="noopener"
+        style="display:block;padding:10px 0;border-bottom:1px solid var(--surface2);text-decoration:none;color:var(--text)">
+        <div style="font-size:13px;font-weight:500;line-height:1.4">${item.title}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">${item.author || ''}${date ? ' · ' + date : ''}</div>
+      </a>`;
+    }).join('');
+  } catch(e) {
+    newsEl.innerHTML = `<a href="https://news.google.com/search?q=bitcoin&hl=fr" target="_blank" rel="noopener"
+      style="color:var(--accent);font-size:13px;padding:10px 0;display:block">
+      Voir les actualités Bitcoin sur Google News →</a>`;
+  }
+}
+
+document.getElementById('btcModal').addEventListener('click', function(e) {
+  if (e.target === this) closeBtcModal();
 });
 
 // ============== NAVIGATION ==============
