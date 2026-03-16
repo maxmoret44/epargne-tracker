@@ -364,8 +364,9 @@
       border-radius: var(--radius) var(--radius) 0 0;
       width: 100%; max-width: 600px;
       padding: 20px;
-      height: 82dvh; overflow-y: auto;
       padding-bottom: calc(20px + env(safe-area-inset-bottom));
+      height: 82dvh;
+      display: flex; flex-direction: column;
       animation: modalSlideUp 0.35s cubic-bezier(0.22, 1, 0.36, 1);
     }
     .modal-overlay.closing .modal-box {
@@ -374,9 +375,11 @@
     .modal-header {
       display: flex; justify-content: space-between; align-items: center;
       font-weight: 600; font-size: 15px; margin-bottom: 12px;
+      flex-shrink: 0;
     }
     .modal-tabs {
       display: flex; gap: 4px; margin-bottom: 14px;
+      flex-shrink: 0;
       border-bottom: 1px solid var(--surface2); padding-bottom: 0;
     }
     .modal-tab {
@@ -431,8 +434,19 @@
     .pea-total-line {
       text-align: right; margin-top: 14px;
       font-size: 16px; font-weight: 700; color: var(--text);
+      flex-shrink: 0;
     }
-    .pea-fetch-status { font-size: 11px; color: var(--text2); margin-top: 6px; text-align: center; }
+    .pea-fetch-status { font-size: 11px; color: var(--text2); margin-top: 6px; text-align: center; flex-shrink: 0; }
+
+    /* Tab content flex layout */
+    #peaTabPortfolio, #avTabPositions {
+      flex: 1; display: flex; flex-direction: column; min-height: 0;
+    }
+    #peaTabPortfolio hr, #peaTabPortfolio > div:not(#peaHoldingsList),
+    #avTabPositions > div:not(#avHoldingsList) { flex-shrink: 0; }
+    #peaHoldingsList { flex: 1; overflow-y: auto; min-height: 0; }
+    #avHoldingsList  { flex: 1; overflow-y: auto; min-height: 0; }
+    #peaTabNews, #avTabRepartition { flex: 1; overflow-y: auto; min-height: 0; }
 
     /* DASHBOARD LAYOUT */
     .dash-section-data { padding-top: 10px; }
@@ -887,7 +901,7 @@
       </div>
       <!-- Onglet Portefeuille -->
       <div id="peaTabPortfolio">
-        <div id="peaHoldingsList" style="max-height:min(52dvh, calc(82dvh - 220px));overflow-y:auto"></div>
+        <div id="peaHoldingsList"></div>
         <hr style="border-color:var(--surface2);margin:14px 0">
         <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Ajouter un titre :</div>
         <div class="modal-add-row">
@@ -1986,8 +2000,8 @@ let peaNewsLoaded = false;
 let peaLastPrices = null;
 function switchPeaTab(tab) {
   const isPortfolio = tab === 'portfolio';
-  document.getElementById('peaTabPortfolio').style.display = isPortfolio ? '' : 'none';
-  document.getElementById('peaTabNews').style.display      = isPortfolio ? 'none' : '';
+  document.getElementById('peaTabPortfolio').style.display = isPortfolio ? 'flex' : 'none';
+  document.getElementById('peaTabNews').style.display      = isPortfolio ? 'none' : 'flex';
   document.getElementById('peaTabBtnPortfolio').classList.toggle('active', isPortfolio);
   document.getElementById('peaTabBtnNews').classList.toggle('active', !isPortfolio);
   if (!isPortfolio && !peaNewsLoaded) loadPeaNews();
@@ -2324,8 +2338,8 @@ function closeAvModal() {
 
 function switchAvTab(tab) {
   const isPositions = tab === 'positions';
-  document.getElementById('avTabPositions').style.display   = isPositions ? '' : 'none';
-  document.getElementById('avTabRepartition').style.display = isPositions ? 'none' : '';
+  document.getElementById('avTabPositions').style.display   = isPositions ? 'flex' : 'none';
+  document.getElementById('avTabRepartition').style.display = isPositions ? 'none' : 'flex';
   document.getElementById('avTabBtnPositions').classList.toggle('active', isPositions);
   document.getElementById('avTabBtnRepartition').classList.toggle('active', !isPositions);
   if (!isPositions) renderAvRepartition(avPricesCache);
