@@ -443,7 +443,7 @@
       #dashboard .dash-section-charts {
         height: calc(100vh - 60px);
         height: calc(100dvh - 60px);
-        padding: 8px 16px 6px;
+        padding: 8px 16px 14px;
         padding-top: 3vh;
         box-sizing: border-box;
         overflow: hidden;
@@ -1427,7 +1427,7 @@ function getChartOptions(type) {
     return {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: IS_TOUCH ? 1.05 : 2.27,
+      aspectRatio: IS_TOUCH ? 1.08 : 2.27,
       animation: { duration: 400, easing: 'easeInOutQuart' },
       animations: {
         colors: { type: 'color', properties: ['borderColor', 'backgroundColor'], duration: 400 }
@@ -1952,20 +1952,22 @@ async function loadPeaNews() {
     }).join('');
   }
 
-  // Fetch all 3 feeds in parallel — targeted + général
-  const [a, b, c] = await Promise.all([
+  // Fetch 5 feeds in parallel — varied angles to maximize unique articles
+  const [a, b, c, d, e] = await Promise.all([
     fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent(quotedNames)}&hl=fr&gl=FR&ceid=FR:fr`),
-    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent(looseNames)}&hl=fr&gl=FR&ceid=FR:fr`),
-    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent('bourse actions CAC40 Euronext France')}&hl=fr&gl=FR&ceid=FR:fr`),
+    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent('CAC40 Euronext bourse Paris actions')}&hl=fr&gl=FR&ceid=FR:fr`),
+    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent('PEA investissement épargne actions France')}&hl=fr&gl=FR&ceid=FR:fr`),
+    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent('finance marchés dividende rendement placement')}&hl=fr&gl=FR&ceid=FR:fr`),
+    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent('économie entreprises résultats trimestriels France')}&hl=fr&gl=FR&ceid=FR:fr`),
   ]);
 
   // Toujours filtrer sur 2 semaines — jamais d'articles trop vieux
   const recent = item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= TWO_WEEKS;
-  let pool = dedupe([a, b, c]).filter(recent);
+  let pool = dedupe([a, b, c, d, e]).filter(recent);
 
   // Si < MIN, élargir à 1 mois (mais pas au-delà)
   if (pool.length < MIN) {
-    pool = dedupe([a, b, c]).filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= ONE_MONTH);
+    pool = dedupe([a, b, c, d, e]).filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= ONE_MONTH);
   }
 
   if (pool.length === 0) {
