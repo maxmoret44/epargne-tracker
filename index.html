@@ -511,6 +511,7 @@
       }
       /* Page 2 : total + légende plus grands */
       #dashboard .dash-section-charts #sharedTotalLabel { font-size: 26px !important; white-space: nowrap; overflow: hidden; }
+      #dashboard .dash-section-charts #sharedGainsLabel { font-size: 16px !important; }
       #dashboard .dash-section-charts .chart-shared-top { margin-bottom: 0; }
       /* charts-row devient transparent pour le flex → courbe et donut sont enfants directs */
       #dashboard .dash-section-charts .charts-row { display: contents; }
@@ -563,6 +564,10 @@
     }
     .privacy-btn:hover { background: var(--surface); color: var(--text); }
     .privacy-btn svg { width: 16px; height: 16px; }
+    @media (max-width: 767px) {
+      .privacy-btn { position: absolute; top: 12px; right: 12px; z-index: 10; }
+      .dash-section-data { position: relative; }
+    }
     body.privacy #totalEpargne,
     body.privacy #totalMax,
     body.privacy #totalCristina,
@@ -638,6 +643,7 @@
 
     <!-- Section 1 : données / tiles -->
     <div class="dash-section-data">
+      <button class="privacy-btn" id="privacyToggle" onclick="togglePrivacy()" title="Mode confidentialité"></button>
       <div class="header">
         <h1>Total Épargne</h1>
         <div class="total" id="totalEpargne">--</div>
@@ -662,6 +668,7 @@
       <!-- Total partagé + boutons plein écran -->
       <div class="chart-shared-top">
         <span class="chart-visible-total" id="sharedTotalLabel" style="font-size:18px;font-weight:700"></span>
+        <span id="sharedGainsLabel" style="cursor:pointer;font-size:14px;font-weight:600;text-align:right" onclick="toggleGainsDisplay()" title="Cliquer pour basculer €/%" ></span>
       </div>
       <!-- Ligne des graphiques -->
       <div class="charts-row">
@@ -1226,6 +1233,8 @@ let allData = [];
 let cristinaData = [];
 let investedAmounts = { boursovie: 600, cto: 458.96, pea: 2067.03, livret: 1400, cash: 0 };
 let totalInjections = {};
+let gainsShowPct = false;
+let cachedGainAbs = null, cachedGainPct = null;
 
 async function loadData() {
   const cfg = getConfig();
@@ -1333,9 +1342,8 @@ function renderDashboard() {
     const gain = totalMax - totalInvested;
     portfolioGainPositive = gain >= 0;
     const pct = ((gain / totalInvested) * 100).toFixed(2);
-    const el = document.getElementById('gainTotal');
-    el.textContent = `${gain >= 0 ? '+' : ''}${fmt(gain)} (${gain >= 0 ? '+' : ''}${pct}%)`;
-    el.className = `gain ${gain >= 0 ? 'pos' : 'neg'}`;
+    cachedGainAbs = gain; cachedGainPct = pct;
+    renderGainTotal();
     // Pass gain color to donut canvas for center text
     const donutCanvas = document.getElementById('chartDonut');
     if (donutCanvas) donutCanvas.dataset.gainColor = gain >= 0 ? '#10b981' : '#ef4444';
@@ -1538,6 +1546,7 @@ function getChartOptions(type) {
       scales: {
         x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, callback: function(val) { const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']; const lbl = this.getLabelForValue(val); if (!lbl) return ''; let d = new Date(lbl); if (isNaN(d.getTime())) { const p = lbl.split('/'); if (p.length===3) d = new Date(`${p[2]}-${p[1]}-${p[0]}`); else if (p.length===2) { const dd=parseInt(p[0]),mm=parseInt(p[1]); let yr=new Date().getFullYear(); for(const row of allData){const fp=String(row[0]).split('/');if(fp.length===3){const ry=parseInt(fp[2]),rm=parseInt(fp[1]);yr=mm>rm?ry-1:ry;break;}} d=new Date(`${yr}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`); } } if (isNaN(d.getTime())) return lbl; return MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } }, grid: { display: false } },
         y: {
+          position: 'right',
           ticks: {
             color: '#64748b', font: { size: 10 },
             callback: v => {
@@ -1676,9 +1685,14 @@ function updateSharedTotal() {
   const pct = visibleInvested > 0 ? ((gain / visibleInvested) * 100).toFixed(1) : null;
   const sign = gain >= 0 ? '+' : '';
   const gainColor = gain >= 0 ? 'var(--green)' : 'var(--red)';
-  const gainStr = pct !== null ? ` <span style="font-size:0.78em;color:${gainColor}">${sign}${fmt(gain)} (${sign}${pct}%)</span>` : '';
-  el.innerHTML = fmt(total) + gainStr;
-  el.style.color = gainColor;
+  el.textContent = fmt(total);
+  el.style.color = 'var(--text)';
+  const gainsEl = document.getElementById('sharedGainsLabel');
+  if (gainsEl && pct !== null) {
+    gainsEl.textContent = gainsShowPct ? `${sign}${pct}%` : `${sign}${fmt(gain)}`;
+    gainsEl.style.color = gainColor;
+    gainsEl.style.filter = privacyMode ? 'blur(7px)' : 'none';
+  }
 }
 
 function recomputeAreaLine() {
@@ -2663,6 +2677,9 @@ function applyPrivacy() {
   document.body.classList.toggle('privacy', privacyMode);
   const btn = document.getElementById('privacyToggle');
   if (btn) btn.innerHTML = privacyMode ? EYE_OFF_SVG : EYE_SVG;
+  // Blur gains label on chart page
+  const gainsEl = document.getElementById('sharedGainsLabel');
+  if (gainsEl) gainsEl.style.filter = privacyMode ? 'blur(7px)' : 'none';
   // Refresh chart Y-axis labels
   if (chartArea) chartArea.update('none');
 }
@@ -2670,6 +2687,22 @@ function togglePrivacy() {
   privacyMode = !privacyMode;
   localStorage.setItem(PRIVACY_KEY, privacyMode ? '1' : '0');
   applyPrivacy();
+}
+function renderGainTotal() {
+  const el = document.getElementById('gainTotal');
+  if (!el || cachedGainAbs === null) return;
+  const sign = cachedGainAbs >= 0 ? '+' : '';
+  el.textContent = gainsShowPct
+    ? `${sign}${cachedGainPct}%`
+    : `${sign}${fmt(cachedGainAbs)} (${sign}${cachedGainPct}%)`;
+  el.className = `gain ${cachedGainAbs >= 0 ? 'pos' : 'neg'}`;
+  el.style.cursor = 'pointer';
+  el.onclick = toggleGainsDisplay;
+}
+function toggleGainsDisplay() {
+  gainsShowPct = !gainsShowPct;
+  renderGainTotal();
+  updateSharedTotal();
 }
 
 // ============== INIT ==============
@@ -2702,7 +2735,6 @@ window.addEventListener('load', () => {
 </script>
 
 
-<button class="privacy-btn" id="privacyToggle" onclick="togglePrivacy()" title="Mode confidentialité"></button>
 
 </body>
 </html>
