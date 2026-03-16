@@ -343,8 +343,21 @@
     }
     .modal-header {
       display: flex; justify-content: space-between; align-items: center;
-      font-weight: 600; font-size: 15px; margin-bottom: 16px;
+      font-weight: 600; font-size: 15px; margin-bottom: 12px;
     }
+    .modal-tabs {
+      display: flex; gap: 4px; margin-bottom: 14px;
+      border-bottom: 1px solid var(--surface2); padding-bottom: 0;
+    }
+    .modal-tab {
+      background: none; border: none; cursor: pointer;
+      color: var(--text2); font-size: 13px; font-weight: 500;
+      padding: 6px 14px 10px; border-radius: 0;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .modal-tab:hover { color: var(--text); }
+    .modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
     .modal-close-btn {
       background: var(--surface2); border: none; color: var(--text);
       width: 28px; height: 28px; border-radius: 50%;
@@ -783,21 +796,33 @@
   <div id="peaModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-header">
-        <span>TR PEA — Portefeuille</span>
+        <span>TR PEA</span>
         <button class="modal-close-btn" onclick="closePeaModal()">✕</button>
       </div>
-      <div id="peaHoldingsList" style="max-height:50vh;overflow-y:auto"></div>
-      <hr style="border-color:var(--surface2);margin:14px 0">
-      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Ajouter un titre :</div>
-      <div class="modal-add-row">
-        <input id="peaHoldingName" placeholder="Nom" style="flex:2;min-width:100px">
-        <input id="peaHoldingTicker" placeholder="Ticker (.PA)" style="flex:1;min-width:80px">
-        <input id="peaHoldingQty" type="number" placeholder="Qté" style="flex:0 0 60px">
-        <input id="peaHoldingPx" type="number" placeholder="Px achat" style="flex:0 0 80px">
-        <button class="modal-add-btn" onclick="addPeaHolding()">+</button>
+      <!-- Onglets -->
+      <div class="modal-tabs">
+        <button class="modal-tab active" id="peaTabBtnPortfolio" onclick="switchPeaTab('portfolio')">Portefeuille</button>
+        <button class="modal-tab" id="peaTabBtnNews" onclick="switchPeaTab('news')">Actualités</button>
       </div>
-      <div class="pea-total-line" id="peaTotalLine"></div>
-      <div class="pea-fetch-status" id="peaFetchStatus"></div>
+      <!-- Onglet Portefeuille -->
+      <div id="peaTabPortfolio">
+        <div id="peaHoldingsList" style="max-height:46vh;overflow-y:auto"></div>
+        <hr style="border-color:var(--surface2);margin:14px 0">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Ajouter un titre :</div>
+        <div class="modal-add-row">
+          <input id="peaHoldingName" placeholder="Nom" style="flex:2;min-width:100px">
+          <input id="peaHoldingTicker" placeholder="Ticker (.PA)" style="flex:1;min-width:80px">
+          <input id="peaHoldingQty" type="number" placeholder="Qté" style="flex:0 0 60px">
+          <input id="peaHoldingPx" type="number" placeholder="Px achat" style="flex:0 0 80px">
+          <button class="modal-add-btn" onclick="addPeaHolding()">+</button>
+        </div>
+        <div class="pea-total-line" id="peaTotalLine"></div>
+        <div class="pea-fetch-status" id="peaFetchStatus"></div>
+      </div>
+      <!-- Onglet Actualités -->
+      <div id="peaTabNews" style="display:none">
+        <div id="peaNews" style="font-size:13px;color:var(--text2)">Chargement...</div>
+      </div>
     </div>
   </div>
 
@@ -1862,12 +1887,54 @@ function savePeaHoldings(h) {
 }
 
 async function openPeaModal() {
+  peaNewsLoaded = false;
+  switchPeaTab('portfolio');
   document.getElementById('peaModal').classList.add('visible');
   await refreshPeaModal();
 }
 
 function closePeaModal() {
   document.getElementById('peaModal').classList.remove('visible');
+}
+
+let peaNewsLoaded = false;
+function switchPeaTab(tab) {
+  const isPortfolio = tab === 'portfolio';
+  document.getElementById('peaTabPortfolio').style.display = isPortfolio ? '' : 'none';
+  document.getElementById('peaTabNews').style.display = isPortfolio ? 'none' : '';
+  document.getElementById('peaTabBtnPortfolio').classList.toggle('active', isPortfolio);
+  document.getElementById('peaTabBtnNews').classList.toggle('active', !isPortfolio);
+  if (!isPortfolio && !peaNewsLoaded) loadPeaNews();
+}
+
+async function loadPeaNews() {
+  const newsEl = document.getElementById('peaNews');
+  try {
+    // Build query from current holdings names
+    const holdings = getPeaHoldings();
+    const terms = holdings.map(h => h.name.split(' ')[0]).filter(Boolean).slice(0, 6);
+    const query = [...terms, 'bourse', 'PEA', 'CAC40'].join(' OR ');
+    const rssUrl = encodeURIComponent(`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=fr&gl=FR&ceid=FR:fr`);
+    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}&count=15`);
+    const data = await res.json();
+    if (!data.items || data.items.length === 0) throw new Error('empty');
+    peaNewsLoaded = true;
+    newsEl.innerHTML = data.items.slice(0, 15).map(item => {
+      const date = item.pubDate
+        ? new Date(item.pubDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+        : '';
+      return `<a href="${item.link}" target="_blank" rel="noopener"
+        style="display:block;padding:10px 0;border-bottom:1px solid var(--surface2);text-decoration:none;color:var(--text)">
+        <div style="font-size:13px;font-weight:500;line-height:1.4">${item.title}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">${item.author || ''}${date ? ' · ' + date : ''}</div>
+      </a>`;
+    }).join('');
+  } catch(e) {
+    const query = encodeURIComponent('PEA bourse CAC40 France');
+    newsEl.innerHTML = `<a href="https://news.google.com/search?q=${query}&hl=fr" target="_blank" rel="noopener"
+      style="color:var(--accent);font-size:13px;padding:10px 0;display:block">
+      Voir les actualités bourse sur Google News →</a>`;
+  }
 }
 
 function addPeaHolding() {
