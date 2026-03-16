@@ -395,7 +395,7 @@
     .charts-row { display: flex; flex-direction: column; gap: 8px; }
     .chart-sublabel { display: none; }
     @media (max-width: 767px) {
-      .charts-donut-wrap { max-width: 182px; margin: 0 auto; }
+      .charts-donut-wrap { max-width: 138px; margin: 0 auto; }
       .chart-shared-top .chart-expand-btn { display: none; }
     }
     @media (max-width: 767px) and (orientation: portrait) {
@@ -443,13 +443,14 @@
       /* Page 2 : total + légende plus grands */
       #dashboard .dash-section-charts #sharedTotalLabel { font-size: 26px !important; }
       #dashboard .dash-section-charts .chart-shared-top { margin-bottom: 20px; }
-      /* Espace égal courbe↔donut et donut↔légende pour centrer le donut */
+      /* Espace égal courbe↔donut ; légende poussée vers le bas */
       #dashboard .dash-section-charts .charts-row { gap: 20px; }
       #legendShared {
         display: grid !important;
         grid-template-columns: 1fr 1fr;
         gap: 10px;
-        margin-top: 20px;
+        margin-top: auto;
+        padding-bottom: 6px;
       }
       #legendShared .legend-item {
         font-size: 14px; gap: 10px;
