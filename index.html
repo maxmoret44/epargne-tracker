@@ -443,7 +443,7 @@
       #dashboard .dash-section-charts {
         height: calc(100vh - 60px);
         height: calc(100dvh - 60px);
-        padding: 8px 16px 22px;
+        padding: 8px 16px 10px;
         padding-top: 3vh;
         box-sizing: border-box;
         overflow: hidden;
@@ -455,14 +455,14 @@
         display: flex; flex-direction: column; justify-content: flex-start;
       }
       /* Page 2 : total + légende plus grands */
-      #dashboard .dash-section-charts #sharedTotalLabel { font-size: 26px !important; }
+      #dashboard .dash-section-charts #sharedTotalLabel { font-size: 26px !important; white-space: nowrap; overflow: hidden; }
       #dashboard .dash-section-charts .chart-shared-top { margin-bottom: 0; }
       /* charts-row devient transparent pour le flex → courbe et donut sont enfants directs */
       #dashboard .dash-section-charts .charts-row { display: contents; }
       /* Donut : margin-top auto (prend la moitié de l'espace libre) */
       #dashboard .dash-section-charts .charts-donut-wrap {
         margin-top: auto;
-        margin-bottom: 6px;
+        margin-bottom: 16px;
         margin-left: auto;
         margin-right: auto;
         max-width: 138px;
@@ -477,7 +477,7 @@
       }
       #legendShared .legend-item {
         font-size: 13px; gap: 8px;
-        padding: 9px 8px;
+        padding: 10px 8px;
         background: var(--surface2);
         border-radius: 10px;
         justify-content: flex-start;
@@ -1427,7 +1427,7 @@ function getChartOptions(type) {
     return {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: IS_TOUCH ? 1.08 : 2.27,
+      aspectRatio: IS_TOUCH ? 1.05 : 2.27,
       animation: { duration: 400, easing: 'easeInOutQuart' },
       animations: {
         colors: { type: 'color', properties: ['borderColor', 'backgroundColor'], duration: 400 }
