@@ -1296,6 +1296,10 @@ function getChartOptions(type) {
       responsive: true,
       maintainAspectRatio: true,
       aspectRatio: IS_TOUCH ? 1.33 : 2.27,
+      animation: { duration: 400, easing: 'easeInOutQuart' },
+      animations: {
+        colors: { type: 'color', properties: ['borderColor', 'backgroundColor'], duration: 400 }
+      },
       interaction: { mode: IS_TOUCH ? 'nearest' : 'index', intersect: IS_TOUCH },
       plugins: {
         legend: { display: false },
@@ -1483,7 +1487,7 @@ function recomputeAreaLine() {
   chartArea.data.datasets[0].data = newTotals;
   chartArea.data.datasets[0].borderColor = lineColor;
   chartArea.data.datasets[0].backgroundColor = isGain ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)';
-  chartArea.update('none'); // sans animation pour que la couleur s'applique immédiatement
+  chartArea.update();
 }
 
 // ============== FULLSCREEN CHART ==============
