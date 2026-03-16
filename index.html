@@ -986,7 +986,12 @@ async function loadData() {
       ? await sheetsRead(cfg.targetId, `'${cfg.targetTab}'!A2:M`)
       : [];
 
-    const tgtFiltered = (targetRows || []).filter(r => r[0]);
+    const raw = (targetRows || []).filter(r => r[0]);
+    // Déduplication : garder la dernière entrée par date
+    const dateMap = new Map();
+    raw.forEach(r => dateMap.set(r[0], r));
+    const tgtFiltered = Array.from(dateMap.values());
+
     allData = tgtFiltered.map(r => [r[0], r[1], r[2], r[3], r[4], r[5], r[6]]);
     cristinaData = tgtFiltered.map(r => parseFloat(r[7]) || 0);
 
@@ -1217,16 +1222,17 @@ function updateAreaTotal(chart, labelId) {
     if (chart.isDatasetVisible(i)) {
       const val = ds.data[lastIdx] || 0;
       total += val;
-      const acc = ACCOUNTS[i];
-      if (acc) {
-        if (acc.key === 'cash') {
-          visibleInvested += val; // cash: invested = current value
-        } else {
-          visibleInvested += (investedAmounts[acc.key] || 0) + (totalInjections[acc.key] || 0);
-        }
+      if (ds.label === 'Total') {
+        ACCOUNTS.forEach(a => {
+          if (a.key !== 'cash') visibleInvested += (investedAmounts[a.key] || 0) + (totalInjections[a.key] || 0);
+        });
+        if (cristinaData.length) visibleInvested += cristinaData[lastIdx] || 0;
       } else {
-        // Cristina (or extra dataset): invested = current value (gain ignored)
-        visibleInvested += val;
+        const acc = ACCOUNTS[i];
+        if (acc) {
+          if (acc.key === 'cash') visibleInvested += val;
+          else visibleInvested += (investedAmounts[acc.key] || 0) + (totalInjections[acc.key] || 0);
+        } else { visibleInvested += val; }
       }
     }
   });
@@ -1271,8 +1277,12 @@ function getChartOptions(type) {
       scales: {
         x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, callback: function(val) { const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']; const lbl = this.getLabelForValue(val); if (!lbl) return ''; let d = new Date(lbl); if (isNaN(d.getTime())) { const p = lbl.split('/'); if (p.length===3) d = new Date(`${p[2]}-${p[1]}-${p[0]}`); } if (isNaN(d.getTime())) return lbl; return MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } }, grid: { display: false } },
         y: {
-          stacked: true,
-          ticks: { color: '#64748b', callback: v => fmt(v), font: { size: 10 } },
+          ticks: {
+            color: '#64748b', font: { size: 10 },
+            callback: v => IS_TOUCH
+              ? (Math.abs(v) >= 1000 ? (v/1000).toLocaleString('fr-FR', {maximumFractionDigits:1}) + 'k' : v)
+              : fmt(v)
+          },
           grid: { color: '#1e293b' }
         }
       }
@@ -1302,29 +1312,27 @@ function renderCharts() {
     catch { return d; }
   });
 
-  const datasets = ACCOUNTS.map(a => ({
-    label: a.name,
-    data: allData.map(r => parseFloat(r[a.idx]) || 0),
-    backgroundColor: a.color + '55',
-    borderColor: a.color,
-    borderWidth: 2,
-    fill: true,
-    pointRadius: 0,
+  // Courbe totale unique
+  const lastIdx = allData.length - 1;
+  const totals = allData.map((row, i) =>
+    ACCOUNTS.reduce((s, a) => s + (parseFloat(row[a.idx]) || 0), 0) + (cristinaData[i] || 0)
+  );
+  const totalInvested = ACCOUNTS.reduce((s, a) =>
+    a.key === 'cash' ? s : s + (investedAmounts[a.key] || 0) + (totalInjections[a.key] || 0), 0
+  ) + (cristinaData[lastIdx] || 0);
+  const isGain = (totals[lastIdx] || 0) >= totalInvested;
+  const lineColor = isGain ? '#4ade80' : '#f87171';
+  const datasets = [{
+    label: 'Total',
+    data: totals,
+    borderColor: lineColor,
+    backgroundColor: isGain ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)',
+    fill: 'origin',
     tension: 0.4,
-  }));
-
-  if (cristinaData.length > 0) {
-    datasets.push({
-      label: 'Cristina',
-      data: cristinaData.map(v => parseFloat(v) || 0),
-      backgroundColor: '#f48fb133',
-      borderColor: '#f48fb1',
-      borderWidth: 2,
-      fill: true,
-      pointRadius: 0,
-      tension: 0.4,
-    });
-  }
+    borderWidth: 2.5,
+    pointRadius: 0,
+    pointHoverRadius: 4,
+  }];
 
   if (chartArea) chartArea.destroy();
   chartArea = new Chart(document.getElementById('chartArea'), {
@@ -1363,34 +1371,53 @@ function buildSharedLegend(areaChart, donutChart) {
   const container = document.getElementById('legendShared');
   if (!container) return;
   container.innerHTML = '';
-
-  // Init donut visibility
-  areaChart.data.datasets.forEach((_, i) => { donutVisibility['shared' + i] = true; });
-
-  areaChart.data.datasets.forEach((ds, i) => {
-    const color = Array.isArray(ds.borderColor) ? ds.borderColor[0] : ds.borderColor;
+  const labels = donutChart.data.labels;
+  const colors = donutChart.data.datasets[0].backgroundColor;
+  labels.forEach((label, i) => {
+    donutVisibility['shared' + i] = true;
+    const color = colors[i];
     const item = document.createElement('label');
     item.className = 'legend-item';
-    item.innerHTML = `<input type="checkbox" checked><span>${ds.label}</span>`;
+    item.innerHTML = `<input type="checkbox" checked><span>${label}</span>`;
     const cb = item.querySelector('input');
     styledCheckbox(cb, color, true);
     cb.addEventListener('change', e => {
       const vis = e.target.checked;
       styledCheckbox(e.target, color, vis);
-      // Synchro area
-      areaChart.setDatasetVisibility(i, vis);
-      areaChart.update();
-      // Synchro donut
       donutVisibility['shared' + i] = vis;
       donutChart.toggleDataVisibility(i);
       donutChart.update();
-      // Total partagé
-      updateAreaTotal(areaChart, 'sharedTotalLabel');
+      updateSharedTotal();
     });
     container.appendChild(item);
   });
+  updateSharedTotal();
+}
 
-  updateAreaTotal(areaChart, 'sharedTotalLabel');
+function updateSharedTotal() {
+  const el = document.getElementById('sharedTotalLabel');
+  if (!el || !chartDonut) return;
+  const values = chartDonut.data.datasets[0].data;
+  const labels = chartDonut.data.labels;
+  let total = 0, visibleInvested = 0;
+  labels.forEach((label, i) => {
+    if (donutVisibility['shared' + i] !== false) {
+      const val = parseFloat(values[i]) || 0;
+      total += val;
+      const acc = ACCOUNTS.find(a => a.name === label);
+      if (acc) {
+        if (acc.key === 'cash') visibleInvested += val;
+        else visibleInvested += (investedAmounts[acc.key] || 0) + (totalInjections[acc.key] || 0);
+      } else { visibleInvested += val; } // Cristina
+    }
+  });
+  const gain = total - visibleInvested;
+  const pct = visibleInvested > 0 ? ((gain / visibleInvested) * 100).toFixed(1) : null;
+  const sign = gain >= 0 ? '+' : '';
+  const gainColor = gain >= 0 ? 'var(--green)' : 'var(--red)';
+  const gainStr = pct !== null ? ` <span style="font-size:0.75em;color:${gainColor}">${sign}${fmt(gain)} (${sign}${pct}%)</span>` : '';
+  el.innerHTML = fmt(total) + gainStr;
+  el.style.color = gainColor;
 }
 
 // ============== FULLSCREEN CHART ==============
