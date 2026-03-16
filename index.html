@@ -746,6 +746,28 @@
       <label>Statut de connexion</label>
       <div id="connectionStatus" style="padding: 8px 0; font-size: 14px; color: var(--text2);">Non connecté</div>
     </div>
+
+    <hr style="border-color:var(--surface2);margin:24px 0 16px">
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px">Capital initialement investi</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Montant investi dans chaque compte avant le début du suivi (hors injections ultérieures)</div>
+    <div class="setting-item">
+      <label>BoursoVie</label>
+      <input type="number" id="invBoursovie" step="0.01" placeholder="0.00">
+    </div>
+    <div class="setting-item">
+      <label>Bitcoin (CTO)</label>
+      <input type="number" id="invCto" step="0.01" placeholder="0.00">
+    </div>
+    <div class="setting-item">
+      <label>TR PEA</label>
+      <input type="number" id="invPea" step="0.01" placeholder="0.00">
+    </div>
+    <div class="setting-item">
+      <label>CE Livret A</label>
+      <input type="number" id="invLivret" step="0.01" placeholder="0.00">
+    </div>
+    <button class="btn btn-secondary" onclick="saveInvested()" style="margin-top:8px">Sauvegarder les mises initiales</button>
+    <div class="sync-status" id="investedStatus"></div>
   </div>
 
   <!-- PEA MODAL -->
@@ -910,6 +932,29 @@ function loadConfig() {
   document.getElementById('cfgApiKey').value = cfg.apiKey;
   document.getElementById('cfgClientId').value = cfg.clientId;
   document.getElementById('cfgTargetTab').value = cfg.targetTab;
+  // Invested amounts
+  try {
+    const inv = JSON.parse(localStorage.getItem(INVESTED_KEY) || '{}');
+    document.getElementById('invBoursovie').value = inv.boursovie || '';
+    document.getElementById('invCto').value       = inv.cto       || '';
+    document.getElementById('invPea').value       = inv.pea       || '';
+    document.getElementById('invLivret').value    = inv.livret    || '';
+  } catch(e) {}
+}
+
+function saveInvested() {
+  const inv = {
+    boursovie: parseFloat(document.getElementById('invBoursovie').value) || 0,
+    cto:       parseFloat(document.getElementById('invCto').value)       || 0,
+    pea:       parseFloat(document.getElementById('invPea').value)       || 0,
+    livret:    parseFloat(document.getElementById('invLivret').value)    || 0,
+    cash:      0,
+  };
+  localStorage.setItem(INVESTED_KEY, JSON.stringify(inv));
+  investedAmounts = inv;
+  document.getElementById('investedStatus').textContent = 'Mises initiales sauvegardées !';
+  setTimeout(() => { document.getElementById('investedStatus').textContent = ''; }, 3000);
+  renderDashboard();
 }
 
 // ============== GOOGLE SHEETS API ==============
@@ -1366,9 +1411,12 @@ function getChartOptions(type) {
         y: {
           ticks: {
             color: '#64748b', font: { size: 10 },
-            callback: v => IS_TOUCH
-              ? (Math.abs(v) >= 1000 ? (v/1000).toLocaleString('fr-FR', {maximumFractionDigits:1}) + 'k' : v)
-              : fmt(v)
+            callback: v => {
+              if (privacyMode) return '—';
+              return IS_TOUCH
+                ? (Math.abs(v) >= 1000 ? (v/1000).toLocaleString('fr-FR', {maximumFractionDigits:1}) + 'k' : v)
+                : fmt(v);
+            }
           },
           grid: { color: '#1e293b' }
         }
@@ -2128,6 +2176,8 @@ function applyPrivacy() {
   document.body.classList.toggle('privacy', privacyMode);
   const btn = document.getElementById('privacyToggle');
   if (btn) btn.innerHTML = privacyMode ? EYE_OFF_SVG : EYE_SVG;
+  // Refresh chart Y-axis labels
+  if (chartArea) chartArea.update('none');
 }
 function togglePrivacy() {
   privacyMode = !privacyMode;
