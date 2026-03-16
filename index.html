@@ -1911,15 +1911,15 @@ async function loadPeaNews() {
   const newsEl = document.getElementById('peaNews');
   newsEl.innerHTML = '<div style="padding:16px 0;text-align:center;color:var(--text2)">Chargement...</div>';
 
-  // Build a flat query string from holdings names + general market terms
+  // Noms entre guillemets → correspondance exacte sur Google News
   const holdings = getPeaHoldings();
-  const names = holdings.map(h => h.name).join(' ');
-  const query = names + ' bourse PEA CAC40 actions France';
+  const quotedNames = holdings.map(h => `"${h.name}"`).join(' OR ');
+  // Fallback : 2 premiers mots de chaque nom (plus permissif)
+  const looseNames = holdings.map(h => h.name.split(' ').slice(0, 2).join(' ')).join(' OR ');
 
-  // Try up to 2 RSS feeds in sequence
   const feeds = [
-    `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=fr&gl=FR&ceid=FR:fr`,
-    `https://news.google.com/rss/search?q=${encodeURIComponent('bourse PEA CAC40 actions France')}&hl=fr&gl=FR&ceid=FR:fr`
+    `https://news.google.com/rss/search?q=${encodeURIComponent(quotedNames)}&hl=fr&gl=FR&ceid=FR:fr`,
+    `https://news.google.com/rss/search?q=${encodeURIComponent(looseNames)}&hl=fr&gl=FR&ceid=FR:fr`,
   ];
 
   for (const feed of feeds) {
