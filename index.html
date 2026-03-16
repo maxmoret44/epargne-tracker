@@ -1358,7 +1358,7 @@ function renderCharts() {
     type: 'doughnut',
     data: {
       labels: donutLabels,
-      datasets: [{ data: donutValues, backgroundColor: donutColors, borderWidth: 0 }]
+      datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '33'), borderColor: donutColors, borderWidth: 3 }]
     },
     options: getChartOptions('doughnut')
   });
@@ -1537,7 +1537,7 @@ function expandChart(mode) {
       type: 'doughnut',
       data: {
         labels: donutLabels,
-        datasets: [{ data: donutValues, backgroundColor: donutColors, borderWidth: 0 }]
+        datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '33'), borderColor: donutColors, borderWidth: 3 }]
       },
       options: getChartOptions('doughnut')
     });
