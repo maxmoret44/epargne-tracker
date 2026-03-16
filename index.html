@@ -346,7 +346,7 @@
       border-radius: var(--radius) var(--radius) 0 0;
       width: 100%; max-width: 600px;
       padding: 20px;
-      min-height: 78dvh; max-height: 90dvh; overflow-y: auto;
+      height: 82dvh; overflow-y: auto;
       padding-bottom: calc(20px + env(safe-area-inset-bottom));
       animation: modalSlideUp 0.35s cubic-bezier(0.22, 1, 0.36, 1);
     }
@@ -831,7 +831,7 @@
       </div>
       <!-- Onglet Positions -->
       <div id="avTabPositions">
-        <div id="avHoldingsList" style="max-height:46vh;overflow-y:auto"></div>
+        <div id="avHoldingsList"></div>
         <div class="pea-total-line" id="avTotalLine"></div>
         <div class="pea-fetch-status" id="avFetchStatus"></div>
       </div>
@@ -871,7 +871,7 @@
       </div>
       <!-- Onglet Portefeuille -->
       <div id="peaTabPortfolio">
-        <div id="peaHoldingsList" style="max-height:46vh;overflow-y:auto"></div>
+        <div id="peaHoldingsList" style="max-height:52dvh;overflow-y:auto"></div>
         <hr style="border-color:var(--surface2);margin:14px 0">
         <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Ajouter un titre :</div>
         <div class="modal-add-row">
