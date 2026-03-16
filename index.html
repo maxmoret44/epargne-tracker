@@ -1317,11 +1317,7 @@ function renderCharts() {
   const totals = allData.map((row, i) =>
     ACCOUNTS.reduce((s, a) => s + (parseFloat(row[a.idx]) || 0), 0) + (cristinaData[i] || 0)
   );
-  const totalInvested = ACCOUNTS.reduce((s, a) =>
-    a.key === 'cash' ? s : s + (investedAmounts[a.key] || 0) + (totalInjections[a.key] || 0), 0
-  ) + (cristinaData[lastIdx] || 0);
-  const isGain = (totals[lastIdx] || 0) >= totalInvested;
-  const lineColor = isGain ? '#4ade80' : '#f87171';
+  const lineColor = portfolioGainPositive ? '#4ade80' : '#f87171';
   const datasets = [{
     label: 'Total',
     data: totals,
@@ -1444,9 +1440,10 @@ function recomputeAreaLine() {
     if (donutVisibility['shared' + i] !== false) {
       const acc = ACCOUNTS.find(a => a.name === label);
       if (acc) {
-        if (acc.key !== 'cash') visibleInvested += (investedAmounts[acc.key] || 0) + (totalInjections[acc.key] || 0);
+        if (acc.key === 'cash') visibleInvested += parseFloat(allData[lastIdx][acc.idx]) || 0; // cash: investi = valeur actuelle
+        else visibleInvested += (investedAmounts[acc.key] || 0) + (totalInjections[acc.key] || 0);
       } else {
-        visibleInvested += cristinaData[lastIdx] || 0;
+        visibleInvested += cristinaData[lastIdx] || 0; // Cristina: gain = 0
       }
     }
   });
@@ -1455,7 +1452,7 @@ function recomputeAreaLine() {
   chartArea.data.datasets[0].data = newTotals;
   chartArea.data.datasets[0].borderColor = lineColor;
   chartArea.data.datasets[0].backgroundColor = isGain ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)';
-  chartArea.update();
+  chartArea.update('none'); // sans animation pour que la couleur s'applique immédiatement
 }
 
 // ============== FULLSCREEN CHART ==============
