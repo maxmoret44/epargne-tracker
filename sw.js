@@ -1,4 +1,4 @@
-const CACHE_NAME = 'epargne-v4';
+const CACHE_NAME = 'epargne-v5';
 const ASSETS = [
   './',
   './index.html',

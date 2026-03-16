@@ -363,6 +363,18 @@
       width: 28px; height: 28px; border-radius: 50%;
       font-size: 16px; cursor: pointer; line-height: 1;
     }
+    /* Allocation donut layout */
+    .alloc-wrap { display: flex; gap: 20px; justify-content: center; padding: 8px 0; }
+    .alloc-block { flex: 1; min-width: 130px; max-width: 210px; }
+    .alloc-title { font-size: 11px; font-weight: 600; color: var(--text2); text-align: center; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
+    .alloc-chart-row { display: flex; align-items: center; gap: 12px; }
+    .alloc-canvas-wrap { flex-shrink: 0; width: 100px; }
+    @media (max-width: 767px) {
+      .alloc-wrap { flex-direction: column; gap: 16px; }
+      .alloc-block { max-width: 100%; }
+      .alloc-canvas-wrap { width: 90px; }
+    }
+
     .pea-holding-row {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 0;
@@ -803,7 +815,6 @@
       <div class="modal-tabs">
         <button class="modal-tab active" id="avTabBtnPositions" onclick="switchAvTab('positions')">Positions</button>
         <button class="modal-tab" id="avTabBtnRepartition" onclick="switchAvTab('repartition')">Répartition</button>
-        <button class="modal-tab" id="avTabBtnNews" onclick="switchAvTab('news')">Actualités</button>
       </div>
       <!-- Onglet Positions -->
       <div id="avTabPositions">
@@ -813,22 +824,22 @@
       </div>
       <!-- Onglet Répartition AV -->
       <div id="avTabRepartition" style="display:none">
-        <div style="display:flex;gap:16px;justify-content:center;padding:8px 0;flex-wrap:wrap">
-          <div style="flex:1;min-width:130px;max-width:190px">
-            <div style="font-size:11px;font-weight:600;color:var(--text2);text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Géographique</div>
-            <canvas id="avGeoChart"></canvas>
-            <div id="avGeoLegend" style="margin-top:10px"></div>
+        <div class="alloc-wrap">
+          <div class="alloc-block">
+            <div class="alloc-title">Géographique</div>
+            <div class="alloc-chart-row">
+              <div class="alloc-canvas-wrap"><canvas id="avGeoChart"></canvas></div>
+              <div id="avGeoLegend"></div>
+            </div>
           </div>
-          <div style="flex:1;min-width:130px;max-width:190px">
-            <div style="font-size:11px;font-weight:600;color:var(--text2);text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Sectorielle</div>
-            <canvas id="avSectorChart"></canvas>
-            <div id="avSectorLegend" style="margin-top:10px"></div>
+          <div class="alloc-block">
+            <div class="alloc-title">Sectorielle</div>
+            <div class="alloc-chart-row">
+              <div class="alloc-canvas-wrap"><canvas id="avSectorChart"></canvas></div>
+              <div id="avSectorLegend"></div>
+            </div>
           </div>
         </div>
-      </div>
-      <!-- Onglet Actualités AV -->
-      <div id="avTabNews" style="display:none">
-        <div id="avNews" style="font-size:13px;color:var(--text2)">Chargement...</div>
       </div>
     </div>
   </div>
@@ -843,7 +854,6 @@
       <!-- Onglets -->
       <div class="modal-tabs">
         <button class="modal-tab active" id="peaTabBtnPortfolio" onclick="switchPeaTab('portfolio')">Portefeuille</button>
-        <button class="modal-tab" id="peaTabBtnRepartition" onclick="switchPeaTab('repartition')">Répartition</button>
         <button class="modal-tab" id="peaTabBtnNews" onclick="switchPeaTab('news')">Actualités</button>
       </div>
       <!-- Onglet Portefeuille -->
@@ -860,21 +870,6 @@
         </div>
         <div class="pea-total-line" id="peaTotalLine"></div>
         <div class="pea-fetch-status" id="peaFetchStatus"></div>
-      </div>
-      <!-- Onglet Répartition PEA -->
-      <div id="peaTabRepartition" style="display:none">
-        <div style="display:flex;gap:16px;justify-content:center;padding:8px 0;flex-wrap:wrap">
-          <div style="flex:1;min-width:130px;max-width:190px">
-            <div style="font-size:11px;font-weight:600;color:var(--text2);text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Géographique</div>
-            <canvas id="peaGeoChart"></canvas>
-            <div id="peaGeoLegend" style="margin-top:10px"></div>
-          </div>
-          <div style="flex:1;min-width:130px;max-width:190px">
-            <div style="font-size:11px;font-weight:600;color:var(--text2);text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Sectorielle</div>
-            <canvas id="peaSectorChart"></canvas>
-            <div id="peaSectorLegend" style="margin-top:10px"></div>
-          </div>
-        </div>
       </div>
       <!-- Onglet Actualités -->
       <div id="peaTabNews" style="display:none">
@@ -1957,15 +1952,12 @@ function closePeaModal() {
 let peaNewsLoaded = false;
 let peaLastPrices = null;
 function switchPeaTab(tab) {
-  ['portfolio','repartition','news'].forEach(t => {
-    const cap = t.charAt(0).toUpperCase() + t.slice(1);
-    const el = document.getElementById('peaTab' + cap);
-    const btn = document.getElementById('peaTabBtn' + cap);
-    if (el)  el.style.display  = t === tab ? '' : 'none';
-    if (btn) btn.classList.toggle('active', t === tab);
-  });
-  if (tab === 'repartition') renderPeaRepartition(peaLastPrices);
-  if (tab === 'news' && !peaNewsLoaded) loadPeaNews();
+  const isPortfolio = tab === 'portfolio';
+  document.getElementById('peaTabPortfolio').style.display = isPortfolio ? '' : 'none';
+  document.getElementById('peaTabNews').style.display      = isPortfolio ? 'none' : '';
+  document.getElementById('peaTabBtnPortfolio').classList.toggle('active', isPortfolio);
+  document.getElementById('peaTabBtnNews').classList.toggle('active', !isPortfolio);
+  if (!isPortfolio && !peaNewsLoaded) loadPeaNews();
 }
 
 async function loadPeaNews() {
@@ -2211,9 +2203,18 @@ function makeDonutAlloc(canvasId, labels, values, colors) {
   const total = values.reduce((a,b)=>a+b,0);
   _chartInst[canvasId] = new Chart(ctx, {
     type: 'doughnut',
-    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }] },
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors.map(c => c + '33'),
+        borderColor: colors,
+        borderWidth: 3,
+        hoverOffset: 4
+      }]
+    },
     options: {
-      responsive: true, maintainAspectRatio: true, aspectRatio: 1, cutout: '62%',
+      cutout: '65%',
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: c => ` ${c.label}: ${fmt(c.raw)} (${((c.raw/total)*100).toFixed(1)}%)` } }
@@ -2285,15 +2286,12 @@ function closeAvModal() {
 }
 
 function switchAvTab(tab) {
-  ['positions','repartition','news'].forEach(t => {
-    const cap = t.charAt(0).toUpperCase() + t.slice(1);
-    const el  = document.getElementById('avTab' + cap);
-    const btn = document.getElementById('avTabBtn' + cap);
-    if (el)  el.style.display = t === tab ? '' : 'none';
-    if (btn) btn.classList.toggle('active', t === tab);
-  });
-  if (tab === 'repartition') renderAvRepartition(avPricesCache);
-  if (tab === 'news' && !avNewsLoaded) loadAvNews();
+  const isPositions = tab === 'positions';
+  document.getElementById('avTabPositions').style.display   = isPositions ? '' : 'none';
+  document.getElementById('avTabRepartition').style.display = isPositions ? 'none' : '';
+  document.getElementById('avTabBtnPositions').classList.toggle('active', isPositions);
+  document.getElementById('avTabBtnRepartition').classList.toggle('active', !isPositions);
+  if (!isPositions) renderAvRepartition(avPricesCache);
 }
 
 async function fetchAvPrices() {
