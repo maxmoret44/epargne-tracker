@@ -1912,45 +1912,78 @@ async function loadPeaNews() {
   const newsEl = document.getElementById('peaNews');
   newsEl.innerHTML = '<div style="padding:16px 0;text-align:center;color:var(--text2)">Chargement...</div>';
 
-  // Noms entre guillemets → correspondance exacte sur Google News
   const holdings = getPeaHoldings();
   const quotedNames = holdings.map(h => `"${h.name}"`).join(' OR ');
-  // Fallback : 2 premiers mots de chaque nom (plus permissif)
-  const looseNames = holdings.map(h => h.name.split(' ').slice(0, 2).join(' ')).join(' OR ');
+  const looseNames  = holdings.map(h => h.name.split(' ').slice(0, 2).join(' ')).join(' OR ');
 
-  const feeds = [
-    `https://news.google.com/rss/search?q=${encodeURIComponent(quotedNames)}&hl=fr&gl=FR&ceid=FR:fr`,
-    `https://news.google.com/rss/search?q=${encodeURIComponent(looseNames)}&hl=fr&gl=FR&ceid=FR:fr`,
-  ];
+  const MIN = 10;
+  const NOW = Date.now();
+  const TWO_WEEKS = 14 * 24 * 3600 * 1000;
+  const ONE_MONTH = 30 * 24 * 3600 * 1000;
 
-  for (const feed of feeds) {
+  // Helper: fetch a feed and return items, or []
+  async function fetchFeed(url) {
     try {
-      const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed)}`);
-      if (!res.ok) continue;
+      const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
+      if (!res.ok) return [];
       const data = await res.json();
-      if (!data.items || data.items.length === 0) continue;
-      const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
-      const recent = data.items.filter(item => !item.pubDate || new Date(item.pubDate).getTime() >= twoWeeksAgo);
-      if (recent.length === 0) continue;
-      peaNewsLoaded = true;
-      newsEl.innerHTML = recent.slice(0, 15).map(item => {
-        const date = item.pubDate
-          ? new Date(item.pubDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
-          : '';
-        return `<a href="${item.link}" target="_blank" rel="noopener"
-          style="display:block;padding:10px 0;border-bottom:1px solid var(--surface2);text-decoration:none;color:var(--text)">
-          <div style="font-size:13px;font-weight:500;line-height:1.4">${item.title}</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:3px">${item.author || ''}${date ? ' · ' + date : ''}</div>
-        </a>`;
-      }).join('');
-      return; // success
-    } catch(e) { /* try next */ }
+      return data.items || [];
+    } catch { return []; }
   }
 
-  // Both feeds failed — show inline fallback link
-  newsEl.innerHTML = `<a href="https://news.google.com/search?q=${encodeURIComponent('bourse PEA CAC40 France')}&hl=fr" target="_blank" rel="noopener"
-    style="color:var(--accent);font-size:13px;padding:12px 0;display:block">
-    Voir les actualités bourse sur Google News →</a>`;
+  // Deduplicate by title across multiple arrays
+  function dedupe(arrays) {
+    const seen = new Set();
+    return arrays.flat().filter(item => {
+      if (seen.has(item.title)) return false;
+      seen.add(item.title);
+      return true;
+    });
+  }
+
+  function renderItems(items) {
+    return items.slice(0, 15).map(item => {
+      const date = item.pubDate
+        ? new Date(item.pubDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+        : '';
+      return `<a href="${item.link}" target="_blank" rel="noopener"
+        style="display:block;padding:10px 0;border-bottom:1px solid var(--surface2);text-decoration:none;color:var(--text)">
+        <div style="font-size:13px;font-weight:500;line-height:1.4">${item.title}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">${item.author || ''}${date ? ' · ' + date : ''}</div>
+      </a>`;
+    }).join('');
+  }
+
+  // Step 1 — targeted feeds, 2-week window
+  let [a, b] = await Promise.all([
+    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent(quotedNames)}&hl=fr&gl=FR&ceid=FR:fr`),
+    fetchFeed(`https://news.google.com/rss/search?q=${encodeURIComponent(looseNames)}&hl=fr&gl=FR&ceid=FR:fr`),
+  ]);
+  let pool = dedupe([a, b]).filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= TWO_WEEKS);
+
+  // Step 2 — extend to 1 month if < MIN
+  if (pool.length < MIN) {
+    pool = dedupe([a, b]).filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= ONE_MONTH);
+  }
+
+  // Step 3 — pad with general bourse/CAC40 news if still < MIN
+  if (pool.length < MIN) {
+    const general = await fetchFeed(
+      `https://news.google.com/rss/search?q=${encodeURIComponent('bourse actions CAC40 France')}&hl=fr&gl=FR&ceid=FR:fr`
+    );
+    const generalRecent = general.filter(item => !item.pubDate || NOW - new Date(item.pubDate).getTime() <= ONE_MONTH);
+    pool = dedupe([pool, generalRecent]);
+  }
+
+  if (pool.length === 0) {
+    newsEl.innerHTML = `<a href="https://news.google.com/search?q=${encodeURIComponent('bourse PEA CAC40 France')}&hl=fr" target="_blank" rel="noopener"
+      style="color:var(--accent);font-size:13px;padding:12px 0;display:block">
+      Voir les actualités bourse sur Google News →</a>`;
+    return;
+  }
+
+  peaNewsLoaded = true;
+  newsEl.innerHTML = renderItems(pool);
 }
 
 function addPeaHolding() {
