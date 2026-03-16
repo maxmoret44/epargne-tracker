@@ -402,9 +402,41 @@
       #chartArea { min-height: 252px; max-height: 324px; }
     }
     @media (min-width: 768px) {
-      .charts-row { flex-direction: row; align-items: flex-start; gap: 16px; }
+      .charts-row { flex-direction: row; align-items: center; gap: 16px; }
       .charts-area-wrap { flex: 5; min-width: 0; }
       .charts-donut-wrap { flex: 1.4; min-width: 0; max-width: 182px; }
+    }
+
+    /* MOBILE SNAP SCROLL (dashboard only) */
+    @media (max-width: 767px) {
+      #dashboard.page {
+        padding: 0;
+        height: calc(100vh - 60px);
+        height: calc(100dvh - 60px);
+        overflow-y: scroll;
+        scroll-snap-type: y mandatory;
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+      }
+      #dashboard .dash-section-data {
+        min-height: calc(100vh - 60px);
+        min-height: calc(100dvh - 60px);
+        padding: 10px 16px 20px;
+        box-sizing: border-box;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+      }
+      #dashboard .dash-section-charts {
+        min-height: calc(100vh - 60px);
+        min-height: calc(100dvh - 60px);
+        padding: 16px;
+        box-sizing: border-box;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        margin: 0;
+        border-radius: 0;
+        background: var(--bg);
+      }
     }
 
     /* BTC PERIOD BUTTONS */
