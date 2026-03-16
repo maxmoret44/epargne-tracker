@@ -488,7 +488,6 @@
     body.privacy #sharedTotalLabel,
     body.privacy #fsTotalLabel,
     body.privacy .split-cards .value,
-    body.privacy canvas,
     body.privacy .hist-val { filter: blur(7px); user-select: none; transition: filter 0.3s ease; }
     body:not(.privacy) #totalEpargne,
     body:not(.privacy) #totalMax,
@@ -498,7 +497,6 @@
     body:not(.privacy) #sharedTotalLabel,
     body:not(.privacy) #fsTotalLabel,
     body:not(.privacy) .split-cards .value,
-    body:not(.privacy) canvas,
     body:not(.privacy) .hist-val { filter: none; transition: filter 0.3s ease; }
 
     /* BTC PERIOD BUTTONS */
@@ -827,7 +825,64 @@ const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
 let tokenClient;
 let gisInited = false;
-let accessToken = sessionStorage.getItem('epargne_access_token');
+
+const TOKEN_STORAGE_KEY = 'epargne_gtoken';
+function loadCachedToken() {
+  try {
+    const raw = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!raw) return null;
+    const { token, expiry } = JSON.parse(raw);
+    if (Date.now() < expiry) return token;
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    return null;
+  } catch { return null; }
+}
+function saveToken(token, expiresIn = 3600) {
+  const expiry = Date.now() + (expiresIn - 120) * 1000; // buffer 2 min
+  localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify({ token, expiry }));
+}
+let accessToken = loadCachedToken();
+
+// ---- Form draft persistence ----
+const FORM_DRAFT_KEY = 'epargne_form_draft';
+const FORM_FIELD_IDS = ['fDate','fBoursovie','fCto','fPea','fLivret','fCash','fCristina',
+                        'injBoursovie','injCto','injPea','injLivret'];
+
+function saveFormDraft() {
+  const draft = {};
+  FORM_FIELD_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) draft[id] = el.value;
+  });
+  // Also save injection toggle state
+  const inj = document.getElementById('injectionToggle');
+  if (inj) draft['__injectionToggle'] = inj.checked;
+  localStorage.setItem(FORM_DRAFT_KEY, JSON.stringify(draft));
+}
+
+function restoreFormDraft() {
+  try {
+    const raw = localStorage.getItem(FORM_DRAFT_KEY);
+    if (!raw) return false;
+    const draft = JSON.parse(raw);
+    FORM_FIELD_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && draft[id] !== undefined) el.value = draft[id];
+    });
+    if (draft['__injectionToggle']) {
+      const inj = document.getElementById('injectionToggle');
+      if (inj) {
+        inj.checked = true;
+        document.getElementById('injectionFields')?.classList.add('visible');
+      }
+    }
+    return true;
+  } catch { return false; }
+}
+
+function clearFormDraft() {
+  localStorage.removeItem(FORM_DRAFT_KEY);
+}
 
 function getConfig() {
   const raw = localStorage.getItem(CONFIG_KEY);
@@ -881,7 +936,7 @@ async function sheetsRead(sheetId, range) {
     console.error(`Sheets API ${res.status}:`, body);
     if (res.status === 401 || (res.status === 403 && accessToken)) {
       accessToken = null;
-      sessionStorage.removeItem('epargne_access_token');
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
     }
     throw new Error(`Sheets API error: ${res.status}`);
   }
@@ -948,7 +1003,7 @@ function connectGoogle() {
         return;
       }
       accessToken = resp.access_token;
-      sessionStorage.setItem('epargne_access_token', accessToken);
+      saveToken(resp.access_token, resp.expires_in);
       updateConnectionStatus(true);
       loadData();
       preFetchPeaPrices();
@@ -966,7 +1021,7 @@ function trySilentAuth(clientId) {
       callback: (resp) => {
         if (resp.error) return;
         accessToken = resp.access_token;
-        sessionStorage.setItem('epargne_access_token', accessToken);
+        saveToken(resp.access_token, resp.expires_in);
         updateConnectionStatus(true, 'Connecté (auto)');
         loadData();
         preFetchPeaPrices();
@@ -1585,10 +1640,22 @@ function closeFullscreen() {
 
 // ============== FORM ==============
 function prefillForm() {
-  document.getElementById('fDate').valueAsDate = new Date();
   const lastCristina = cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0;
   if (lastCristina > 0) document.getElementById('cristinaLastVal').textContent = fmt(lastCristina);
+  // Try to restore a saved draft first; if none, set today's date
+  const restored = restoreFormDraft();
+  if (!restored) document.getElementById('fDate').valueAsDate = new Date();
 }
+
+// Auto-save form draft on every input
+(function setupFormDraftListeners() {
+  FORM_FIELD_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', saveFormDraft);
+  });
+  const inj = document.getElementById('injectionToggle');
+  if (inj) inj.addEventListener('change', saveFormDraft);
+})();
 
 document.getElementById('cristinaSame').addEventListener('change', function() {
   const input = document.getElementById('fCristina');
@@ -1652,6 +1719,7 @@ async function submitForm() {
     status.className = 'status success';
     status.textContent = `Données ajoutées ! Total Max: ${fmt(total)}`;
 
+    clearFormDraft();
     ['fBoursovie','fCto','fPea','fLivret','fCash','fCristina','injBoursovie','injCto','injPea','injLivret'].forEach(id => {
       document.getElementById(id).value = '';
     });
