@@ -1525,7 +1525,7 @@ async function preFetchPeaPrices() {
     await ensurePeaCoursTab(cfg.targetId);
     // Header row + one row per holding: [Name, Ticker, =GOOGLEFINANCE(...)]
     const rows = [['Nom', 'Ticker', 'Prix']];
-    holdings.forEach(h => rows.push([h.name, h.ticker, `=GOOGLEFINANCE("${toGFTicker(h.ticker)}","price")`]));
+    holdings.forEach(h => rows.push([h.name, h.ticker, `=GOOGLEFINANCE("${toGFTicker(h.ticker)}")`]));
     await sheetsUpdate(cfg.targetId, `'${PEA_COURS_TAB}'!A1:C${rows.length}`, rows);
   } catch(e) { console.warn('preFetchPeaPrices:', e.message); }
 }
