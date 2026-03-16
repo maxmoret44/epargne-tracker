@@ -59,7 +59,7 @@
     }
     .nav button.active { color: var(--accent); }
     .nav button svg { width: 22px; height: 22px; }
-    .nav-label { transition: opacity 0.2s; }
+    .nav-label { transition: opacity 0.25s ease, max-width 0.3s ease; }
 
     /* PAGES */
     .page { display: none; padding: 16px 16px 80px; max-width: 900px; margin: 0 auto; }
@@ -383,6 +383,37 @@
     }
     .pea-fetch-status { font-size: 11px; color: var(--text2); margin-top: 6px; text-align: center; }
 
+    /* DASHBOARD LAYOUT */
+    .dash-section-data { }
+    .dash-section-charts {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .chart-shared-top {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .charts-row { display: flex; flex-direction: column; gap: 8px; }
+    .chart-sublabel {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--text2); font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .chart-sublabel svg { width: 14px; height: 14px; opacity: 0.7; }
+    @media (max-width: 767px) {
+      .charts-donut-wrap { max-width: 260px; margin: 0 auto; }
+    }
+    @media (max-width: 767px) and (orientation: portrait) {
+      .dash-section-data { min-height: calc(100vh - 65px); }
+    }
+    @media (min-width: 768px) {
+      .charts-row { flex-direction: row; align-items: flex-start; gap: 16px; }
+      .charts-area-wrap { flex: 5; min-width: 0; }
+      .charts-donut-wrap { flex: 2; min-width: 0; max-width: 260px; }
+    }
+
     /* BTC PERIOD BUTTONS */
     .btc-period-btn {
       background: var(--surface2); border: none; border-radius: 6px;
@@ -436,60 +467,61 @@
 
   <!-- DASHBOARD -->
   <div id="dashboard" class="page active">
-    <div class="header">
-      <h1>Total Épargne</h1>
-      <div class="total" id="totalEpargne">--</div>
-      <div class="sub">Dernière mise à jour : <span id="lastUpdate">--</span></div>
-    </div>
 
-    <div class="split-cards">
-      <div class="card">
-        <div class="label">Max</div>
-        <div class="value" id="totalMax">--</div>
-        <div class="gain" id="gainTotal" style="font-size:12px;margin-top:4px"></div>
+    <!-- Section 1 : données / tiles -->
+    <div class="dash-section-data">
+      <div class="header">
+        <h1>Total Épargne</h1>
+        <div class="total" id="totalEpargne">--</div>
+        <div class="sub">Dernière mise à jour : <span id="lastUpdate">--</span></div>
       </div>
-      <div class="card">
-        <div class="label">Cristina</div>
-        <div class="value" id="totalCristina">--</div>
-      </div>
-    </div>
-
-    <div class="cards" id="accountCards"></div>
-
-    <!-- Area Chart -->
-    <div class="chart-container" id="containerArea">
-      <div class="chart-header">
-        <div class="chart-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          <span class="chart-title-text">Progression</span>
+      <div class="split-cards">
+        <div class="card">
+          <div class="label">Max</div>
+          <div class="value" id="totalMax">--</div>
+          <div class="gain" id="gainTotal" style="font-size:12px;margin-top:4px"></div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <span class="chart-visible-total" id="areaTotalLabel"></span>
-          <button class="chart-expand-btn" onclick="expandChart('area')" title="Plein écran">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        <div class="card">
+          <div class="label">Cristina</div>
+          <div class="value" id="totalCristina">--</div>
+        </div>
+      </div>
+      <div class="cards" id="accountCards"></div>
+    </div>
+
+    <!-- Section 2 : graphiques mutualisés -->
+    <div class="dash-section-charts">
+      <!-- Total partagé + boutons plein écran -->
+      <div class="chart-shared-top">
+        <span class="chart-visible-total" id="sharedTotalLabel" style="font-size:15px;font-weight:700"></span>
+        <div style="display:flex;gap:6px">
+          <button class="chart-expand-btn" onclick="expandChart('area')" title="Progression plein écran">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </button>
+          <button class="chart-expand-btn" onclick="expandChart('donut')" title="Répartition plein écran">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
           </button>
         </div>
       </div>
-      <canvas id="chartArea" height="200"></canvas>
-      <div class="chart-legend" id="legendArea"></div>
-    </div>
-
-    <!-- Donut Chart -->
-    <div class="chart-container" id="containerDonut">
-      <div class="chart-header">
-        <div class="chart-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-          Répartition actuelle
+      <!-- Ligne des graphiques -->
+      <div class="charts-row">
+        <div class="charts-area-wrap">
+          <div class="chart-sublabel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Progression
+          </div>
+          <canvas id="chartArea"></canvas>
         </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <span class="chart-visible-total" id="donutTotalLabel"></span>
-          <button class="chart-expand-btn" onclick="expandChart('donut')" title="Plein écran">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-          </button>
+        <div class="charts-donut-wrap">
+          <div class="chart-sublabel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+            Répartition
+          </div>
+          <canvas id="chartDonut"></canvas>
         </div>
       </div>
-      <canvas id="chartDonut" height="220"></canvas>
-      <div class="chart-legend" id="legendDonut"></div>
+      <!-- Légende partagée -->
+      <div class="chart-legend" id="legendShared" style="margin-top:12px"></div>
     </div>
 
     <div class="loading" id="dashLoading">
@@ -1085,7 +1117,7 @@ function buildAreaLegend(chart, containerId) {
       styledCheckbox(e.target, color, e.target.checked);
       chart.setDatasetVisibility(i, e.target.checked);
       chart.update();
-      updateAreaTotal(chart, containerId === 'legendFs' ? 'fsTotalLabel' : 'areaTotalLabel');
+      updateAreaTotal(chart, containerId === 'legendFs' ? 'fsTotalLabel' : 'sharedTotalLabel');
     });
     container.appendChild(item);
   });
@@ -1096,7 +1128,7 @@ function buildDonutLegend(chart, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '';
-  const totalLabelId = containerId === 'legendFs' ? 'fsTotalLabel' : 'donutTotalLabel';
+  const totalLabelId = containerId === 'legendFs' ? 'fsTotalLabel' : 'sharedTotalLabel';
   const data = chart.data.datasets[0].data;
   // Init visibility state
   data.forEach((_, i) => { donutVisibility[containerId + i] = true; });
@@ -1244,7 +1276,6 @@ function renderCharts() {
     data: { labels, datasets },
     options: getChartOptions('line')
   });
-  buildAreaLegend(chartArea, 'legendArea');
 
   // Donut
   const last = allData[allData.length - 1];
@@ -1267,7 +1298,43 @@ function renderCharts() {
     },
     options: getChartOptions('doughnut')
   });
-  buildDonutLegend(chartDonut, 'legendDonut');
+
+  // Légende et total partagés
+  buildSharedLegend(chartArea, chartDonut);
+}
+
+function buildSharedLegend(areaChart, donutChart) {
+  const container = document.getElementById('legendShared');
+  if (!container) return;
+  container.innerHTML = '';
+
+  // Init donut visibility
+  areaChart.data.datasets.forEach((_, i) => { donutVisibility['shared' + i] = true; });
+
+  areaChart.data.datasets.forEach((ds, i) => {
+    const color = Array.isArray(ds.borderColor) ? ds.borderColor[0] : ds.borderColor;
+    const item = document.createElement('label');
+    item.className = 'legend-item';
+    item.innerHTML = `<input type="checkbox" checked><span>${ds.label}</span>`;
+    const cb = item.querySelector('input');
+    styledCheckbox(cb, color, true);
+    cb.addEventListener('change', e => {
+      const vis = e.target.checked;
+      styledCheckbox(e.target, color, vis);
+      // Synchro area
+      areaChart.setDatasetVisibility(i, vis);
+      areaChart.update();
+      // Synchro donut
+      donutVisibility['shared' + i] = vis;
+      donutChart.toggleDataVisibility(i);
+      donutChart.update();
+      // Total partagé
+      updateAreaTotal(areaChart, 'sharedTotalLabel');
+    });
+    container.appendChild(item);
+  });
+
+  updateAreaTotal(areaChart, 'sharedTotalLabel');
 }
 
 // ============== FULLSCREEN CHART ==============
