@@ -431,7 +431,7 @@
         min-height: calc(100vh - 60px);
         min-height: calc(100dvh - 60px);
         padding: 16px;
-        padding-top: 7vh;
+        padding-top: 4vh;
         box-sizing: border-box;
         scroll-snap-align: start;
         scroll-snap-stop: always;
@@ -443,11 +443,13 @@
       /* Page 2 : total + légende plus grands */
       #dashboard .dash-section-charts #sharedTotalLabel { font-size: 26px !important; }
       #dashboard .dash-section-charts .chart-shared-top { margin-bottom: 20px; }
+      /* Espace égal courbe↔donut et donut↔légende pour centrer le donut */
+      #dashboard .dash-section-charts .charts-row { gap: 20px; }
       #legendShared {
         display: grid !important;
         grid-template-columns: 1fr 1fr;
         gap: 10px;
-        margin-top: 14px;
+        margin-top: 20px;
       }
       #legendShared .legend-item {
         font-size: 14px; gap: 10px;
