@@ -425,6 +425,7 @@
         box-sizing: border-box;
         scroll-snap-align: start;
         scroll-snap-stop: always;
+        display: flex; flex-direction: column; justify-content: center;
       }
       #dashboard .dash-section-charts {
         min-height: calc(100vh - 60px);
@@ -436,8 +437,38 @@
         margin: 0;
         border-radius: 0;
         background: var(--bg);
+        display: flex; flex-direction: column; justify-content: center;
       }
+      /* Page 2 : total + légende plus grands */
+      #dashboard .dash-section-charts #sharedTotalLabel { font-size: 20px !important; }
+      #legendShared {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      #legendShared .legend-item {
+        font-size: 14px; gap: 10px;
+        padding: 10px 12px;
+        background: var(--surface2);
+        border-radius: 10px;
+        justify-content: flex-start;
+      }
+      #legendShared .legend-item input[type="checkbox"] { width: 18px; height: 18px; }
     }
+
+    /* PC: légende partagée centrée */
+    @media (min-width: 768px) {
+      #legendShared { justify-content: center; }
+      #legendShared .legend-item { font-size: 13px; padding: 3px 4px; gap: 8px; }
+      #legendShared .legend-item input[type="checkbox"] { width: 15px; height: 15px; }
+    }
+    /* Fullscreen : légende centrée + plus grande */
+    #legendFs { justify-content: center; }
+    #legendFs .legend-item { font-size: 14px; gap: 10px; padding: 4px 2px; }
+    #legendFs .legend-item input[type="checkbox"] { width: 16px; height: 16px; }
+    /* Fullscreen donut : légende poussée vers le bas */
+    .chart-fs-content.donut-mode ~ #legendFs { margin-top: auto; padding-top: 24px; }
 
     /* BTC PERIOD BUTTONS */
     .btc-period-btn {
@@ -1238,7 +1269,7 @@ function getChartOptions(type) {
         }
       },
       scales: {
-        x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } }, grid: { display: false } },
+        x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, callback: function(val) { const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']; const lbl = this.getLabelForValue(val); if (!lbl) return ''; let d = new Date(lbl); if (isNaN(d.getTime())) { const p = lbl.split('/'); if (p.length===3) d = new Date(`${p[2]}-${p[1]}-${p[0]}`); } if (isNaN(d.getTime())) return lbl; return MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } }, grid: { display: false } },
         y: {
           stacked: true,
           ticks: { color: '#64748b', callback: v => fmt(v), font: { size: 10 } },
@@ -1877,7 +1908,7 @@ async function loadBtcChart(days, btn) {
           }
         },
         scales: {
-          x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } }, grid: { display: false } },
+          x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, callback: function(val) { const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']; const lbl = this.getLabelForValue(val); if (!lbl) return ''; let d = new Date(lbl); if (isNaN(d.getTime())) { const p = lbl.split('/'); if (p.length===3) d = new Date(`${p[2]}-${p[1]}-${p[0]}`); } if (isNaN(d.getTime())) return lbl; return MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } }, grid: { display: false } },
           y: { ticks: { color: '#64748b', callback: v => fmt(v), font: { size: 10 } }, grid: { color: '#1e293b' } }
         }
       }
