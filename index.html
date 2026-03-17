@@ -510,12 +510,12 @@
       .chart-shared-top .chart-expand-btn { display: none; }
     }
     @media (max-width: 767px) and (orientation: portrait) {
-      #chartArea { min-height: 270px; max-height: 490px; }
+      #chartArea { min-height: 275px; max-height: 500px; }
       /* Chart déborde à gauche et droite pour remplir les paddings du parent */
       #dashboard .dash-section-charts .charts-area-wrap {
-        margin-left: calc(-19px - 3vw);
+        margin-left: calc(-22px - 3vw);
         margin-right: -16px;
-        width: calc(100% + 35px + 3vw);
+        width: calc(100% + 38px + 3vw);
       }
     }
     @media (min-width: 768px) {
@@ -1650,21 +1650,28 @@ function rangeColor(pct) {
 }
 
 Chart.register({
-  id: 'rightFade',
+  id: 'edgeFade',
   beforeDatasetsDraw(chart) {
-    if (!IS_TOUCH) return;
+    if (!IS_TOUCH || chart.canvas.id !== 'chartArea') return;
     const { ctx, chartArea, width, height } = chart;
-    const fadeStart = chartArea.right - 72;
-    const fadeEnd   = chartArea.right + 8;
-    const grad = ctx.createLinearGradient(fadeStart, 0, fadeEnd, 0);
-    grad.addColorStop(0, 'rgba(15,23,42,0)');
-    grad.addColorStop(1, 'rgba(15,23,42,1)');
     ctx.save();
-    ctx.fillStyle = grad;
-    ctx.fillRect(fadeStart, 0, fadeEnd - fadeStart, height);
-    // fill the remainder (padding zone) solid
+    // Fondu gauche : opaque → transparent sur la zone de padding gauche
+    const lgrad = ctx.createLinearGradient(0, 0, chartArea.left, 0);
+    lgrad.addColorStop(0, 'rgba(15,23,42,1)');
+    lgrad.addColorStop(1, 'rgba(15,23,42,0)');
+    ctx.fillStyle = lgrad;
+    ctx.fillRect(0, 0, chartArea.left, height);
+    // Fondu droit : transparent → opaque avant la fin de la zone de données
+    const rStart = chartArea.right - 80;
+    const rEnd   = chartArea.right + 8;
+    const rgrad = ctx.createLinearGradient(rStart, 0, rEnd, 0);
+    rgrad.addColorStop(0, 'rgba(15,23,42,0)');
+    rgrad.addColorStop(1, 'rgba(15,23,42,1)');
+    ctx.fillStyle = rgrad;
+    ctx.fillRect(rStart, 0, rEnd - rStart, height);
+    // Zone de padding droite : opaque plein
     ctx.fillStyle = 'rgba(15,23,42,1)';
-    ctx.fillRect(fadeEnd, 0, width - fadeEnd, height);
+    ctx.fillRect(rEnd, 0, width - rEnd, height);
     ctx.restore();
   }
 });
@@ -1754,17 +1761,26 @@ function updateRangeDisplay() {
   });
 
   // % range = gain% à la fin (depuis l'origine) − gain% au début (depuis l'origine)
-  // Gain% à une date = (valeur − investi) / investi * 100, hors cash et Cristina
+  // Cristina et TR Cash : gain = 0 (valeur = investi), mais ils diluent comme en mode normal
   function gainPctAt(rowIdx) {
     let val = 0, inv = 0;
     chartDonut.data.labels.forEach((lbl, j) => {
       if (donutVisibility['shared' + j] === false) return;
       const acc = ACCOUNTS.find(a => a.name === lbl);
-      if (!acc || acc.key === 'cash') return;
       const row = allData[rowIdx];
       if (!row) return;
-      val += parseFloat(row[acc.idx]) || 0;
-      inv += getInvestedAt(rowIdx, acc.key);
+      if (!acc) {
+        // Cristina : pas de rendement
+        const v = cristinaData[rowIdx] || 0;
+        val += v; inv += v;
+      } else if (acc.key === 'cash') {
+        // TR Cash : pas de rendement
+        const v = parseFloat(row[acc.idx]) || 0;
+        val += v; inv += v;
+      } else {
+        val += parseFloat(row[acc.idx]) || 0;
+        inv += getInvestedAt(rowIdx, acc.key);
+      }
     });
     return inv > 0 ? ((val - inv) / inv * 100) : 0;
   }
