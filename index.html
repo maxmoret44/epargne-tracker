@@ -1587,7 +1587,11 @@ function getChartOptions(type) {
       legend: { display: false },
       tooltip: {
         ...tooltipDefaults,
-        callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}` }
+        displayColors: false,
+        callbacks: {
+          title: ctx => ctx[0].label,
+          label: ctx => fmt(ctx.raw)
+        }
       }
     }
   };
@@ -2295,7 +2299,16 @@ function makeDonutAlloc(canvasId, labels, values, colors) {
       cutout: '65%',
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: c => ` ${c.label}: ${fmt(c.raw)} (${((c.raw/total)*100).toFixed(1)}%)` } }
+        tooltip: {
+          displayColors: false,
+          backgroundColor: '#1e293b', titleColor: '#f1f5f9', bodyColor: '#94a3b8',
+          borderColor: '#334155', borderWidth: 1, cornerRadius: 8, padding: 10,
+          position: 'clamped',
+          callbacks: {
+            title: c => c[0].label,
+            label: c => `${fmt(c.raw)} (${((c.raw/total)*100).toFixed(1)}%)`
+          }
+        }
       }
     }
   });
