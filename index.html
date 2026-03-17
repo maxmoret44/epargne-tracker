@@ -1517,6 +1517,18 @@ function updateAreaTotal(chart, labelId) {
 
 const IS_TOUCH = 'ontouchstart' in window;
 
+// Positionneur tooltip clampé : ne dépasse jamais les bords du canvas
+Chart.Tooltip.positioners.clamped = function(items, eventPos) {
+  const pos = Chart.Tooltip.positioners.nearest.call(this, items, eventPos);
+  if (!pos) return false;
+  const w = this.width  || 0;
+  const h = this.height || 0;
+  const ca = this.chart.chartArea;
+  const x = Math.min(Math.max(pos.x, ca.left), ca.right  - w);
+  const y = Math.min(Math.max(pos.y, ca.top),  ca.bottom - h);
+  return { x, y };
+};
+
 function getChartOptions(type) {
   const tooltipDefaults = {
     backgroundColor: '#1e293b',
@@ -1528,6 +1540,7 @@ function getChartOptions(type) {
     padding: 10,
     titleFont: { family: 'Inter', weight: '600' },
     bodyFont: { family: 'Inter' },
+    position: 'clamped',
   };
 
   if (type === 'line') {
