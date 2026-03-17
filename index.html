@@ -872,6 +872,7 @@
       </div>
       <!-- Onglet Positions -->
       <div id="avTabPositions">
+        <div id="avHoldingsHeader"></div>
         <div id="avHoldingsList"></div>
         <div class="pea-total-line" id="avTotalLine"></div>
         <div class="pea-fetch-status" id="avFetchStatus"></div>
@@ -912,6 +913,7 @@
       </div>
       <!-- Onglet Portefeuille -->
       <div id="peaTabPortfolio">
+        <div id="peaHoldingsHeader"></div>
         <div id="peaHoldingsList"></div>
         <hr style="border-color:var(--surface2);margin:14px 0">
         <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Ajouter un titre :</div>
@@ -2239,10 +2241,15 @@ async function refreshPeaModal() {
 }
 
 function renderPeaTable(listEl, holdings, prices) {
-  const colStyle = 'border-left:1px solid var(--surface2);padding-left:10px';
-  let html = `<div style="display:grid;grid-template-columns:1fr 72px 80px 80px 24px;align-items:center;padding:6px 0;border-bottom:1px solid var(--surface2);font-size:11px;color:var(--text2);font-weight:600">
-    <span>NOM</span><span style="text-align:right;${colStyle}">PRIX</span><span style="text-align:right;${colStyle}">GAIN</span><span style="text-align:right;${colStyle}">VALEUR</span><span></span>
-  </div>`;
+  const cols = '1fr 72px 80px 80px 24px';
+  const cs = 'border-left:1px solid var(--surface2);padding-left:10px';
+  // En-tête sticky (hors du scroll)
+  document.getElementById('peaHoldingsHeader').innerHTML =
+    `<div style="display:grid;grid-template-columns:${cols};align-items:center;padding:6px 0;border-bottom:1px solid var(--surface2);font-size:11px;color:var(--text2);font-weight:600">
+      <span>NOM</span><span style="text-align:right;${cs}">PRIX</span><span style="text-align:right;${cs}">GAIN</span><span style="text-align:right;${cs}">VALEUR</span><span></span>
+    </div>`;
+  // Contenu : un seul grid continu
+  let rows = '';
   let total = 0, totalGain = 0;
   holdings.forEach((h, i) => {
     const price = prices ? prices[i] : null;
@@ -2253,15 +2260,14 @@ function renderPeaTable(listEl, holdings, prices) {
     if (gain != null) totalGain += gain;
     const gc  = gain == null ? 'var(--text2)' : (gain >= 0 ? 'var(--green)' : 'var(--red)');
     const gs  = gain == null ? '—' : `${gain >= 0 ? '+' : ''}${fmt(gain)}<br><span style="font-size:10px">${gain >= 0 ? '+' : ''}${gainPct}%</span>`;
-    html += `<div style="display:grid;grid-template-columns:1fr 72px 80px 80px 24px;align-items:center;padding:8px 0;border-bottom:1px solid var(--surface2)20;font-size:13px">
-      <div><div style="font-weight:500">${h.name}</div><div style="font-size:10px;color:var(--text2)">${h.ticker} · ${h.qty} parts${h.purchasePrice > 0 ? ` · px: ${h.purchasePrice.toFixed(2)}€` : ''}</div></div>
-      <span style="text-align:right;white-space:nowrap;${colStyle}">${price != null ? price.toFixed(2)+'€' : '—'}</span>
-      <span style="text-align:right;color:${gc};white-space:nowrap;line-height:1.4;${colStyle}">${gs}</span>
-      <span style="text-align:right;font-weight:600;white-space:nowrap;${colStyle}">${val != null ? fmt(val) : '—'}</span>
-      <button class="pea-remove-btn" onclick="removePeaHolding(${i})" title="Supprimer">×</button>
-    </div>`;
+    rows += `
+      <div style="padding:8px 0"><div style="font-weight:500">${h.name}</div><div style="font-size:10px;color:var(--text2)">${h.ticker} · ${h.qty} parts${h.purchasePrice > 0 ? ` · px: ${h.purchasePrice.toFixed(2)}€` : ''}</div></div>
+      <span style="text-align:right;white-space:nowrap;${cs};padding-top:8px;padding-bottom:8px">${price != null ? price.toFixed(2)+'€' : '—'}</span>
+      <span style="text-align:right;color:${gc};white-space:nowrap;line-height:1.4;${cs};padding-top:8px;padding-bottom:8px">${gs}</span>
+      <span style="text-align:right;font-weight:600;white-space:nowrap;${cs};padding-top:8px;padding-bottom:8px">${val != null ? fmt(val) : '—'}</span>
+      <button class="pea-remove-btn" onclick="removePeaHolding(${i})" title="Supprimer" style="padding-top:8px;padding-bottom:8px">×</button>`;
   });
-  listEl.innerHTML = html;
+  listEl.innerHTML = `<div style="display:grid;grid-template-columns:${cols};align-items:center;font-size:13px">${rows}</div>`;
   const tgc = totalGain >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('peaTotalLine').innerHTML =
     `<span style="color:var(--text2);font-weight:400;font-size:13px">Total PEA</span>
@@ -2434,11 +2440,15 @@ async function refreshAvModal() {
 }
 
 function renderAvTable(listEl, prices) {
-  const colStyle = 'border-left:1px solid var(--surface2);padding-left:10px';
-  let html = `<div style="display:grid;grid-template-columns:1fr 80px 80px;align-items:center;
-    padding:6px 0;border-bottom:1px solid var(--surface2);font-size:11px;color:var(--text2);font-weight:600">
-    <span>FONDS</span><span style="text-align:right;${colStyle}">GAIN</span><span style="text-align:right;${colStyle}">VALEUR</span>
-  </div>`;
+  const cols = '1fr 80px 80px';
+  const cs = 'border-left:1px solid var(--surface2);padding-left:10px';
+  // En-tête sticky (hors du scroll)
+  document.getElementById('avHoldingsHeader').innerHTML =
+    `<div style="display:grid;grid-template-columns:${cols};align-items:center;padding:6px 0;border-bottom:1px solid var(--surface2);font-size:11px;color:var(--text2);font-weight:600">
+      <span>FONDS</span><span style="text-align:right;${cs}">GAIN</span><span style="text-align:right;${cs}">VALEUR</span>
+    </div>`;
+  // Contenu : un seul grid continu
+  let rows = '';
   let total = 0, totalGain = 0;
   AV_HOLDINGS.forEach((h, i) => {
     const price = prices ? prices[i] : null;
@@ -2451,28 +2461,18 @@ function renderAvTable(listEl, prices) {
     const gc = gain == null ? 'var(--text2)' : gain >= 0 ? 'var(--green)' : 'var(--red)';
     const gs = gain == null ? '—'
       : `${gain>=0?'+':''}${fmt(gain)}<br><span style="font-size:10px">${gain>=0?'+':''}${gainPct}%</span>`;
-    html += `<div style="display:grid;grid-template-columns:1fr 80px 80px;align-items:center;
-      padding:8px 0;border-bottom:1px solid var(--surface2)20;font-size:13px">
-      <div>
-        <div style="font-weight:500;font-size:12px;line-height:1.3">${h.name}</div>
-        <div style="font-size:10px;color:var(--text2)">${h.isin} · ${h.qty} parts</div>
-      </div>
-      <span style="text-align:right;color:${gc};white-space:nowrap;line-height:1.4;${colStyle}">${gs}</span>
-      <span style="text-align:right;font-weight:600;white-space:nowrap;${colStyle}">${val!=null?fmt(val):'—'}</span>
-    </div>`;
+    rows += `
+      <div style="padding:8px 0"><div style="font-weight:500;font-size:12px;line-height:1.3">${h.name}</div><div style="font-size:10px;color:var(--text2)">${h.isin} · ${h.qty} parts</div></div>
+      <span style="text-align:right;color:${gc};white-space:nowrap;line-height:1.4;${cs};padding-top:8px;padding-bottom:8px">${gs}</span>
+      <span style="text-align:right;font-weight:600;white-space:nowrap;${cs};padding-top:8px;padding-bottom:8px">${val!=null?fmt(val):'—'}</span>`;
   });
   // Ligne cash
   total += AV_CASH;
-  html += `<div style="display:grid;grid-template-columns:1fr 80px 80px;align-items:center;
-    padding:8px 0;font-size:13px">
-    <div>
-      <div style="font-weight:500;font-size:12px">Cash non alloué</div>
-      <div style="font-size:10px;color:var(--text2)">Disponible</div>
-    </div>
-    <span style="text-align:right;color:var(--text2);${colStyle}">—</span>
-    <span style="text-align:right;font-weight:600;${colStyle}">${fmt(AV_CASH)}</span>
-  </div>`;
-  listEl.innerHTML = html;
+  rows += `
+    <div style="padding:8px 0"><div style="font-weight:500;font-size:12px">Cash non alloué</div><div style="font-size:10px;color:var(--text2)">Disponible</div></div>
+    <span style="text-align:right;color:var(--text2);${cs};padding-top:8px;padding-bottom:8px">—</span>
+    <span style="text-align:right;font-weight:600;${cs};padding-top:8px;padding-bottom:8px">${fmt(AV_CASH)}</span>`;
+  listEl.innerHTML = `<div style="display:grid;grid-template-columns:${cols};align-items:center;font-size:13px">${rows}</div>`;
   const tgc = totalGain >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('avTotalLine').innerHTML =
     `<span style="color:var(--text2);font-weight:400;font-size:13px">Total BoursoVie</span>
