@@ -513,9 +513,9 @@
       #chartArea { min-height: 270px; max-height: 490px; }
       /* Chart déborde à gauche et droite pour remplir les paddings du parent */
       #dashboard .dash-section-charts .charts-area-wrap {
-        margin-left: calc(-16px - 3vw);
+        margin-left: calc(-19px - 3vw);
         margin-right: -16px;
-        width: calc(100% + 32px + 3vw);
+        width: calc(100% + 35px + 3vw);
       }
     }
     @media (min-width: 768px) {
@@ -728,7 +728,6 @@
         <div class="charts-area-wrap">
           <div style="position:relative">
             <canvas id="chartArea"></canvas>
-            <div style="position:absolute;top:0;right:0;width:72px;height:100%;background:linear-gradient(to right,transparent,#0f172a);pointer-events:none;z-index:1"></div>
           </div>
         </div>
         <div class="charts-donut-wrap">
@@ -1649,6 +1648,26 @@ function rangeColor(pct) {
   const neutral = '#475569';
   return t >= 0 ? lerpColor(neutral, '#10b981', t) : lerpColor(neutral, '#ef4444', -t);
 }
+
+Chart.register({
+  id: 'rightFade',
+  beforeDatasetsDraw(chart) {
+    if (!IS_TOUCH) return;
+    const { ctx, chartArea, width, height } = chart;
+    const fadeStart = chartArea.right - 72;
+    const fadeEnd   = chartArea.right + 8;
+    const grad = ctx.createLinearGradient(fadeStart, 0, fadeEnd, 0);
+    grad.addColorStop(0, 'rgba(15,23,42,0)');
+    grad.addColorStop(1, 'rgba(15,23,42,1)');
+    ctx.save();
+    ctx.fillStyle = grad;
+    ctx.fillRect(fadeStart, 0, fadeEnd - fadeStart, height);
+    // fill the remainder (padding zone) solid
+    ctx.fillStyle = 'rgba(15,23,42,1)';
+    ctx.fillRect(fadeEnd, 0, width - fadeEnd, height);
+    ctx.restore();
+  }
+});
 
 Chart.register({
   id: 'rangeSelector',
