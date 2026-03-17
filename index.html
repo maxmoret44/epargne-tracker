@@ -505,7 +505,7 @@
       .chart-shared-top .chart-expand-btn { display: none; }
     }
     @media (max-width: 767px) and (orientation: portrait) {
-      #chartArea { min-height: 300px; max-height: 420px; }
+      #chartArea { min-height: 270px; max-height: 360px; }
     }
     @media (min-width: 768px) {
       .charts-row { flex-direction: row; align-items: center; gap: 16px; }
@@ -1320,13 +1320,22 @@ async function loadData() {
     allData = tgtFiltered.map(r => [r[0], r[1], r[2], r[3], r[4], r[5], r[6]]);
     cristinaData = tgtFiltered.map(r => parseFloat(r[7]) || 0);
 
+    // Colonnes I-L = montant cumulatif investi par compte (0 = carry-forward)
+    const colIdx = { boursovie: 8, cto: 9, pea: 10, livret: 11 };
+    investedHistory = {};
+    ['boursovie', 'cto', 'pea', 'livret'].forEach(key => {
+      let last = investedAmounts[key] || 0;
+      investedHistory[key] = tgtFiltered.map(r => {
+        const v = parseFloat(r[colIdx[key]]) || 0;
+        if (v > 0) last = v;
+        return last;
+      });
+    });
+    // totalInjections = montant supplémentaire investi au-delà du capital initial
     totalInjections = { boursovie: 0, cto: 0, pea: 0, livret: 0, cash: 0 };
-    tgtFiltered.forEach(r => {
-      totalInjections.boursovie += parseFloat(r[8])  || 0;
-      totalInjections.cto       += parseFloat(r[9])  || 0;
-      totalInjections.pea       += parseFloat(r[10]) || 0;
-      totalInjections.livret    += parseFloat(r[11]) || 0;
-      totalInjections.cash      += parseFloat(r[12]) || 0;
+    ['boursovie', 'cto', 'pea', 'livret'].forEach(key => {
+      const hist = investedHistory[key];
+      if (hist.length) totalInjections[key] = Math.max(0, hist[hist.length - 1] - (investedAmounts[key] || 0));
     });
 
     // investedAmounts: localStorage overrides hardcoded defaults if user customized via Config
@@ -1824,6 +1833,15 @@ function setupRangeDrag() {
   canvas.addEventListener('touchend', () => { draggingBar = null; });
 }
 
+// ── Historique des montants investis (colonnes I-L = cumulatif carry-forward) ─
+let investedHistory = {};
+
+function getInvestedAt(rowIdx, key) {
+  if (key === 'cash') return allData[rowIdx] ? (parseFloat(allData[rowIdx][5]) || 0) : 0;
+  const hist = investedHistory[key];
+  return (hist && hist[rowIdx] > 0) ? hist[rowIdx] : (investedAmounts[key] || 0);
+}
+
 // ── Sélection d'un point : met à jour le donut + labels ─────────────────────
 let selectedDataIdx = null;
 
@@ -1851,7 +1869,7 @@ function selectDataPoint(idx) {
       const acc = ACCOUNTS.find(a => a.name === lbl);
       if (acc) {
         if (acc.key === 'cash') visInv += v;
-        else visInv += (investedAmounts[acc.key] || 0) + (totalInjections[acc.key] || 0);
+        else visInv += getInvestedAt(i, acc.key);
       } else visInv += v;
     }
   });
@@ -1909,7 +1927,7 @@ function getChartOptions(type) {
     return {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: IS_TOUCH ? 0.88 : 2.27,
+      aspectRatio: IS_TOUCH ? 1.05 : 2.27,
       animation: { duration: 400, easing: 'easeInOutQuart' },
       animations: {
         colors: { type: 'color', properties: ['borderColor', 'backgroundColor'], duration: 400 }
@@ -2264,12 +2282,28 @@ async function submitForm() {
   try {
     if (!accessToken) throw new Error('Non connecté. Allez dans Config > Connecter Google.');
 
-    // Columns: Date|Bourso|CTO|PEA|Livret|Cash|Total|Cristina|InjBourso|InjCTO|InjPEA|InjLivret|InjCash(empty)
+    // Colonnes I-L : montant cumulatif investi = dernière valeur connue + nouvelle injection
+    // Si aucune injection, on laisse vide (carry-forward géré à la lecture)
+    const lastIdx = allData.length - 1;
+    const cumInv = {
+      boursovie: getInvestedAt(lastIdx, 'boursovie') + injections.boursovie,
+      cto:       getInvestedAt(lastIdx, 'cto')       + injections.cto,
+      pea:       getInvestedAt(lastIdx, 'pea')       + injections.pea,
+      livret:    getInvestedAt(lastIdx, 'livret')    + injections.livret,
+    };
+    const invRow = [
+      injections.boursovie ? cumInv.boursovie : '',
+      injections.cto       ? cumInv.cto       : '',
+      injections.pea       ? cumInv.pea       : '',
+      injections.livret    ? cumInv.livret    : '',
+      '',
+    ];
+    // Columns: Date|Bourso|CTO|PEA|Livret|Cash|Total|Cristina|InvCumBourso|InvCumCTO|InvCumPEA|InvCumLivret|_
     const newRow = [
       date,
       donnees.boursovie, donnees.cto, donnees.pea, donnees.livret, donnees.cash,
       total, donnees.cristina,
-      injections.boursovie || '', injections.cto || '', injections.pea || '', injections.livret || '', ''
+      ...invRow
     ];
 
     await sheetsAppend(`'${cfg.targetTab}'!A1`, [newRow]);
