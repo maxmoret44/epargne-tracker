@@ -510,7 +510,7 @@
       .chart-shared-top .chart-expand-btn { display: none; }
     }
     @media (max-width: 767px) and (orientation: portrait) {
-      #chartArea { min-height: 275px; max-height: 500px; }
+      #chartArea { min-height: 280px; max-height: 510px; }
       /* Chart déborde à gauche et droite pour remplir les paddings du parent */
       #dashboard .dash-section-charts .charts-area-wrap {
         margin-left: calc(-22px - 3vw);
@@ -1654,6 +1654,16 @@ Chart.register({
   beforeDatasetsDraw(chart) {
     if (!IS_TOUCH || chart.canvas.id !== 'chartArea') return;
     const { ctx, chartArea, width, height } = chart;
+    // Gradient horizontal de l'aire : 20% opacité à gauche → 0% à droite
+    const ds = chart.data.datasets[0];
+    if (ds?.fill !== undefined) {
+      const lc = ds.borderColor || '#4ade80';
+      const [r, g, b] = lc === '#f87171' ? [248, 113, 113] : [74, 222, 128];
+      const ag = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+      ag.addColorStop(0, `rgba(${r},${g},${b},0.20)`);
+      ag.addColorStop(1, `rgba(${r},${g},${b},0.00)`);
+      ds.backgroundColor = ag;
+    }
     ctx.save();
     // Fondu gauche : opaque → transparent sur la zone de padding gauche
     const lgrad = ctx.createLinearGradient(0, 0, chartArea.left, 0);
@@ -1752,6 +1762,11 @@ function updateRangeDisplay() {
   chartDonut.data.datasets[0].data = endData;
   chartDonut.data.datasets[0].borderColor = newBorderColors;
   chartDonut.data.datasets[0].backgroundColor = newBorderColors.map(c => c + '33');
+  // Colorier les carrés de légende selon la perf range
+  const _legendEl = document.getElementById('legendShared');
+  if (_legendEl) _legendEl.querySelectorAll('input[type="checkbox"]').forEach((cb, j) => {
+    styledCheckbox(cb, newBorderColors[j] || '#475569', cb.checked);
+  });
   chartDonut.update({ duration: 220, easing: 'easeInOutCubic' });
 
   // Pour l'affichage du total (valeur courante visible)
@@ -1824,6 +1839,17 @@ function toggleRangeMode() {
       chartDonut.data.datasets[0].borderColor = origColors;
       chartDonut.data.datasets[0].backgroundColor = origColors.map(c => c + '33');
       chartDonut.update({ duration: 220, easing: 'easeInOutCubic' });
+    }
+    // Restaurer les couleurs de la légende
+    const _legendEl = document.getElementById('legendShared');
+    if (_legendEl && chartDonut) {
+      const lblColors = chartDonut.data.labels.map(lbl => {
+        const acc = ACCOUNTS.find(a => a.name === lbl);
+        return acc ? acc.color : '#f48fb1';
+      });
+      _legendEl.querySelectorAll('input[type="checkbox"]').forEach((cb, j) => {
+        styledCheckbox(cb, lblColors[j] || '#475569', cb.checked);
+      });
     }
     const dateEl = document.getElementById('sharedDateLabel');
     if (dateEl) { dateEl.style.fontSize = ''; dateEl.textContent = ''; }
