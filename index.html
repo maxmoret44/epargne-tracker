@@ -493,10 +493,15 @@
       background: var(--surface); border: 1.5px solid var(--surface2);
       color: var(--text2); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: background 0.2s, border-color 0.2s, color 0.2s; z-index: 2;
+      transition: background 0.35s ease, border-color 0.35s ease, color 0.35s ease,
+                  transform 0.25s ease, box-shadow 0.35s ease; z-index: 2;
     }
     .donut-center-btn:hover { background: var(--surface2); border-color: var(--accent); color: var(--text); }
-    .donut-center-btn.active { background: rgba(99,102,241,0.18); border-color: #6366f1; color: #6366f1; }
+    .donut-center-btn.active {
+      background: rgba(99,102,241,0.18); border-color: #6366f1; color: #6366f1;
+      transform: scale(1.1);
+      box-shadow: 0 0 10px rgba(99,102,241,0.45);
+    }
 
     .charts-row { display: flex; flex-direction: column; gap: 8px; }
     .chart-sublabel { display: none; }
@@ -505,7 +510,13 @@
       .chart-shared-top .chart-expand-btn { display: none; }
     }
     @media (max-width: 767px) and (orientation: portrait) {
-      #chartArea { min-height: 270px; max-height: 360px; }
+      #chartArea { min-height: 270px; max-height: 380px; }
+      /* Chart pleine largeur sur mobile */
+      #dashboard .dash-section-charts .charts-area-wrap {
+        margin-left: -16px;
+        margin-right: -16px;
+        width: calc(100% + 32px);
+      }
     }
     @media (min-width: 768px) {
       .charts-row { flex-direction: row; align-items: center; gap: 16px; }
@@ -881,27 +892,6 @@
       <div id="connectionStatus" style="padding: 8px 0; font-size: 14px; color: var(--text2);">Non connecté</div>
     </div>
 
-    <hr style="border-color:var(--surface2);margin:24px 0 16px">
-    <div style="font-size:13px;font-weight:600;margin-bottom:4px">Capital initialement investi</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Montant investi dans chaque compte avant le début du suivi (hors injections ultérieures)</div>
-    <div class="setting-item">
-      <label>BoursoVie</label>
-      <input type="number" id="invBoursovie" step="0.01" placeholder="0.00">
-    </div>
-    <div class="setting-item">
-      <label>Bitcoin (CTO)</label>
-      <input type="number" id="invCto" step="0.01" placeholder="0.00">
-    </div>
-    <div class="setting-item">
-      <label>TR PEA</label>
-      <input type="number" id="invPea" step="0.01" placeholder="0.00">
-    </div>
-    <div class="setting-item">
-      <label>CE Livret A</label>
-      <input type="number" id="invLivret" step="0.01" placeholder="0.00">
-    </div>
-    <button class="btn btn-secondary" onclick="saveInvested()" style="margin-top:8px">Sauvegarder les mises initiales</button>
-    <div class="sync-status" id="investedStatus"></div>
   </div>
 
   <!-- BOURSOVIE / ASSURANCE VIE MODAL -->
@@ -1121,29 +1111,6 @@ function loadConfig() {
   document.getElementById('cfgApiKey').value = cfg.apiKey;
   document.getElementById('cfgClientId').value = cfg.clientId;
   document.getElementById('cfgTargetTab').value = cfg.targetTab;
-  // Invested amounts
-  try {
-    const inv = JSON.parse(localStorage.getItem(INVESTED_KEY) || '{}');
-    document.getElementById('invBoursovie').value = inv.boursovie || '';
-    document.getElementById('invCto').value       = inv.cto       || '';
-    document.getElementById('invPea').value       = inv.pea       || '';
-    document.getElementById('invLivret').value    = inv.livret    || '';
-  } catch(e) {}
-}
-
-function saveInvested() {
-  const inv = {
-    boursovie: parseFloat(document.getElementById('invBoursovie').value) || 0,
-    cto:       parseFloat(document.getElementById('invCto').value)       || 0,
-    pea:       parseFloat(document.getElementById('invPea').value)       || 0,
-    livret:    parseFloat(document.getElementById('invLivret').value)    || 0,
-    cash:      0,
-  };
-  localStorage.setItem(INVESTED_KEY, JSON.stringify(inv));
-  investedAmounts = inv;
-  document.getElementById('investedStatus').textContent = 'Mises initiales sauvegardées !';
-  setTimeout(() => { document.getElementById('investedStatus').textContent = ''; }, 3000);
-  renderDashboard();
 }
 
 // ============== GOOGLE SHEETS API ==============
@@ -1320,31 +1287,26 @@ async function loadData() {
     allData = tgtFiltered.map(r => [r[0], r[1], r[2], r[3], r[4], r[5], r[6]]);
     cristinaData = tgtFiltered.map(r => parseFloat(r[7]) || 0);
 
-    // Colonnes I-L = montant cumulatif investi par compte (0 = carry-forward)
+    // Colonnes I-L = montant cumulatif investi par compte (carry-forward depuis 0)
     const colIdx = { boursovie: 8, cto: 9, pea: 10, livret: 11 };
     investedHistory = {};
+    totalInjections = { boursovie: 0, cto: 0, pea: 0, livret: 0, cash: 0 };
     ['boursovie', 'cto', 'pea', 'livret'].forEach(key => {
-      let last = investedAmounts[key] || 0;
+      let last = 0; // Démarre à 0 : pas d'investissement avant la 1ère valeur connue dans le sheet
       investedHistory[key] = tgtFiltered.map(r => {
         const v = parseFloat(r[colIdx[key]]) || 0;
         if (v > 0) last = v;
         return last;
       });
-    });
-    // totalInjections = montant supplémentaire investi au-delà du capital initial
-    totalInjections = { boursovie: 0, cto: 0, pea: 0, livret: 0, cash: 0 };
-    ['boursovie', 'cto', 'pea', 'livret'].forEach(key => {
+      // Synchronise investedAmounts sur la dernière valeur réelle du sheet
       const hist = investedHistory[key];
-      if (hist.length) totalInjections[key] = Math.max(0, hist[hist.length - 1] - (investedAmounts[key] || 0));
+      if (hist.length) {
+        const lastKnown = hist[hist.length - 1];
+        if (lastKnown > 0) investedAmounts[key] = lastKnown;
+      }
     });
 
-    // investedAmounts: localStorage overrides hardcoded defaults if user customized via Config
-    const cachedInvested = localStorage.getItem(INVESTED_KEY);
-    if (cachedInvested) {
-      investedAmounts = { ...investedAmounts, ...JSON.parse(cachedInvested) };
-    }
-
-    localStorage.setItem(DATA_KEY, JSON.stringify({ allData, cristinaData, investedAmounts, totalInjections, ts: Date.now() }));
+    localStorage.setItem(DATA_KEY, JSON.stringify({ allData, cristinaData, investedAmounts, totalInjections, investedHistory, ts: Date.now() }));
 
     renderDashboard();
     renderHistory();
@@ -1358,6 +1320,7 @@ async function loadData() {
       cristinaData = d.cristinaData || [];
       investedAmounts = { ...investedAmounts, ...(d.investedAmounts || {}) };
       totalInjections = d.totalInjections || {};
+      investedHistory = d.investedHistory || {};
       renderDashboard();
       renderHistory();
       prefillForm();
@@ -1585,6 +1548,26 @@ let rangeMode = false;
 let rangeStartIdx = 0;
 let rangeEndIdx = 0;
 let draggingBar = null;
+let rangeAlpha = 0;          // 0→1 : opacité animée des barres/zone
+let _rangeAnimFrame = null;
+let rangeGainPositive = true; // contrôle la couleur cyan/orange
+
+function _animateRangeAlpha(target) {
+  if (_rangeAnimFrame) cancelAnimationFrame(_rangeAnimFrame);
+  function step() {
+    const diff = target - rangeAlpha;
+    if (Math.abs(diff) < 0.01) {
+      rangeAlpha = target;
+      chartArea?.update('none');
+      _rangeAnimFrame = null;
+      return;
+    }
+    rangeAlpha += diff * 0.14;
+    chartArea?.update('none');
+    _rangeAnimFrame = requestAnimationFrame(step);
+  }
+  _rangeAnimFrame = requestAnimationFrame(step);
+}
 
 // ── Plugin crosshair : trait vertical + point lumineux sur le point actif ────
 Chart.register({
@@ -1653,7 +1636,8 @@ function rangeColor(pct) {
 Chart.register({
   id: 'rangeSelector',
   afterDraw(chart) {
-    if (!rangeMode) return;
+    if (!rangeMode && rangeAlpha < 0.01) return;
+    const alpha = rangeAlpha;
     const meta = chart.getDatasetMeta(0);
     if (!meta.data.length) return;
     const si = Math.max(0, Math.min(rangeStartIdx, meta.data.length - 1));
@@ -1663,24 +1647,30 @@ Chart.register({
     const w = ex - sx; if (w <= 0) return;
     ctx.save();
 
-    // Single uniform gradient: fade in → solid → fade out
-    const fw = Math.min(48, w * 0.22);
+    // Couleur dynamique : cyan (gain) ↔ orange (perte)
+    const rgb  = rangeGainPositive ? '6,182,212'   : '249,115,22';
+    const barC = rangeGainPositive ? '#06b6d4'      : '#f97316';
+    const glow = rangeGainPositive ? 'rgba(6,182,212,0.7)' : 'rgba(249,115,22,0.7)';
+
+    // Gradient inversé : 0% au centre → 18% proche des barres
+    const fw = Math.min(72, w * 0.28);
     const grad = ctx.createLinearGradient(sx, 0, ex, 0);
-    grad.addColorStop(0, 'rgba(6,182,212,0)');
-    grad.addColorStop(fw / w, 'rgba(6,182,212,0.13)');
-    grad.addColorStop(1 - fw / w, 'rgba(6,182,212,0.13)');
-    grad.addColorStop(1, 'rgba(6,182,212,0)');
+    grad.addColorStop(0,                           `rgba(${rgb},${(alpha * 0.18).toFixed(3)})`);
+    grad.addColorStop(Math.min(0.44, fw / w),      `rgba(${rgb},0)`);
+    grad.addColorStop(Math.max(0.56, 1 - fw / w),  `rgba(${rgb},0)`);
+    grad.addColorStop(1,                           `rgba(${rgb},${(alpha * 0.18).toFixed(3)})`);
     ctx.fillStyle = grad;
     ctx.fillRect(sx, top, w, bottom - top);
 
-    // Bars with glow
+    // Barres avec glow (alpha-aware)
     [sx, ex].forEach(x => {
       ctx.save();
+      ctx.globalAlpha = alpha;
       ctx.shadowBlur = 14;
-      ctx.shadowColor = 'rgba(6,182,212,0.7)';
+      ctx.shadowColor = glow;
       ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom);
       ctx.lineWidth = 2.5;
-      ctx.strokeStyle = '#06b6d4';
+      ctx.strokeStyle = barC;
       ctx.stroke();
       ctx.restore();
     });
@@ -1712,17 +1702,27 @@ function updateRangeDisplay() {
   chartDonut.update({ duration: 220, easing: 'easeInOutCubic' });
 
   let totalEnd = 0, totalStart = 0;
+  let totalInvestStart = 0, totalInvestEnd = 0;
   chartDonut.data.labels.forEach((lbl, j) => {
     if (donutVisibility['shared' + j] === false) return;
     const acc = ACCOUNTS.find(a => a.name === lbl);
-    totalEnd += endData[j] || 0;
+    totalEnd   += endData[j] || 0;
     totalStart += acc ? (parseFloat(startRow[acc.idx]) || 0) : (cristinaData[si] || 0);
+    // Suivi des injections sur la période (hors cash)
+    if (acc && acc.key !== 'cash') {
+      totalInvestStart += getInvestedAt(si, acc.key);
+      totalInvestEnd   += getInvestedAt(ei, acc.key);
+    }
   });
 
-  const gain = totalEnd - totalStart;
-  const pct = totalStart > 0 ? ((gain / totalStart) * 100).toFixed(1) : null;
-  const sign = gain >= 0 ? '+' : '';
-  const gc = gain >= 0 ? 'var(--green)' : 'var(--red)';
+  // Gain pur = variation du portefeuille - nouvelles injections (performance marché uniquement)
+  const investedDelta = totalInvestEnd - totalInvestStart;
+  const pureGain = (totalEnd - totalStart) - investedDelta;
+  const pctBase  = totalStart > 0 ? totalStart : (investedDelta > 0 ? investedDelta : 1);
+  const pct  = ((pureGain / pctBase) * 100).toFixed(1);
+  rangeGainPositive = pureGain >= 0; // met à jour la couleur du plugin
+  const sign = pureGain >= 0 ? '+' : '';
+  const gc   = pureGain >= 0 ? 'var(--green)' : 'var(--red)';
 
   const startLbl = chartArea ? chartArea.data.labels[si] : '';
   const endLbl   = chartArea ? chartArea.data.labels[ei] : '';
@@ -1732,8 +1732,8 @@ function updateRangeDisplay() {
   const gainsEl = document.getElementById('sharedGainsLabel');
   if (dateEl)  { dateEl.style.fontSize = '10px'; dateEl.innerHTML = `${startLbl} <span style="opacity:0.4">→</span> ${endLbl}`; }
   if (totalEl) totalEl.textContent = fmt(totalEnd);
-  if (gainsEl && pct !== null) {
-    gainsEl.innerHTML = `${sign}${fmt(gain)}<br><span style="font-size:11px">${sign}${pct}%</span>`;
+  if (gainsEl) {
+    gainsEl.innerHTML = `${sign}${fmt(pureGain)}<br><span style="font-size:11px">${sign}${pct}%</span>`;
     gainsEl.style.color = gc;
     gainsEl.style.filter = privacyMode ? 'blur(7px)' : 'none';
   }
@@ -1748,6 +1748,7 @@ function toggleRangeMode() {
     rangeStartIdx = 0;
     rangeEndIdx = allData.length - 1;
     updateRangeDisplay();
+    _animateRangeAlpha(1); // fondu entrant des barres/zone
   } else {
     // Restore original donut colors
     const origColors = ACCOUNTS.map(a => a.color);
@@ -1760,7 +1761,7 @@ function toggleRangeMode() {
     const dateEl = document.getElementById('sharedDateLabel');
     if (dateEl) { dateEl.style.fontSize = ''; dateEl.textContent = ''; }
     selectDataPoint(null);
-    chartArea?.update('none'); // efface les barres du mode range
+    _animateRangeAlpha(0); // fondu sortant des barres/zone
   }
 }
 
@@ -1839,7 +1840,10 @@ let investedHistory = {};
 function getInvestedAt(rowIdx, key) {
   if (key === 'cash') return allData[rowIdx] ? (parseFloat(allData[rowIdx][5]) || 0) : 0;
   const hist = investedHistory[key];
-  return (hist && hist[rowIdx] > 0) ? hist[rowIdx] : (investedAmounts[key] || 0);
+  // Si pas d'historique (mode offline sans cache complet) → fallback sur investedAmounts
+  if (!hist || !hist.length) return investedAmounts[key] || 0;
+  if (rowIdx >= hist.length) return hist[hist.length - 1] || 0;
+  return hist[rowIdx] || 0; // 0 = pas encore investi à cette date (premières lignes)
 }
 
 // ── Sélection d'un point : met à jour le donut + labels ─────────────────────
@@ -1946,6 +1950,8 @@ function getChartOptions(type) {
         y: {
           position: 'right',
           ticks: {
+            mirror: IS_TOUCH,   // labels à l'intérieur du canvas sur mobile
+            padding: IS_TOUCH ? -2 : 4,
             color: '#64748b', font: { size: 10 },
             callback: v => {
               if (privacyMode) return '—';
@@ -2653,12 +2659,32 @@ const TICKER_DOMAIN = {
   'PUB.PA':   'publicis.com',
   'ORA.PA':   'orange.com',
 };
+// Mapping ticker → symbole TradingView
+const TICKER_TV = {
+  'AI.PA':    'EURONEXT:AI',    'BNP.PA':   'EURONEXT:BNP',  'SAN.PA':   'EURONEXT:SAN',
+  'TTE.PA':   'EURONEXT:TTE',   'VIE.PA':   'EURONEXT:VIE',  'TE.PA':    'EURONEXT:TE',
+  'ML.PA':    'EURONEXT:ML',    'BVI.PA':   'EURONEXT:BVI',  'FDJU.PA':  'EURONEXT:FDJU',
+  'GALP.LS':  'EURONEXT:GALP',  'DSY.PA':   'EURONEXT:DSY',  'CA.PA':    'EURONEXT:CA',
+  'FRVIA.PA': 'EURONEXT:FRVIA', 'PAEEM.PA': 'EURONEXT:PAEEM','OR.PA':    'EURONEXT:OR',
+  'MC.PA':    'EURONEXT:MC',    'SU.PA':    'EURONEXT:SU',   'CS.PA':    'EURONEXT:CS',
+  'ACA.PA':   'EURONEXT:ACA',   'GLE.PA':   'EURONEXT:GLE',  'SGO.PA':   'EURONEXT:SGO',
+  'RI.PA':    'EURONEXT:RI',    'EN.PA':    'EURONEXT:EN',   'KER.PA':   'EURONEXT:KER',
+  'CAP.PA':   'EURONEXT:CAP',   'SAF.PA':   'EURONEXT:SAF',  'HO.PA':    'EURONEXT:HO',
+  'PUB.PA':   'EURONEXT:PUB',   'ORA.PA':   'EURONEXT:ORA',
+};
+
 function getTickerLogo(ticker) {
   const domain = TICKER_DOMAIN[ticker];
   if (!domain) return '';
-  return `<img src="https://logo.clearbit.com/${domain}" width="16" height="16"
-    style="border-radius:3px;vertical-align:middle;margin-left:5px;flex-shrink:0"
-    onerror="this.style.display='none'" loading="lazy">`;
+  const tvSym = TICKER_TV[ticker] || 'EURONEXT:' + ticker.replace(/\.(PA|LS|AS)$/, '');
+  const tvUrl = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSym)}`;
+  return `<a href="${tvUrl}" target="_blank" rel="noopener"
+    style="display:inline-flex;align-items:center;margin-left:5px;flex-shrink:0"
+    onclick="event.stopPropagation()" title="Voir sur TradingView">
+    <img src="https://logo.clearbit.com/${domain}" width="16" height="16"
+      style="border-radius:3px;vertical-align:middle"
+      onerror="this.style.display='none'" loading="lazy">
+  </a>`;
 }
 
 function renderPeaTable(listEl, holdings, prices) {
@@ -3067,7 +3093,9 @@ async function loadBtcChart(days, btn) {
           }
         },
         scales: {
-          x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, callback: function(val) { const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']; const lbl = this.getLabelForValue(val); if (!lbl) return ''; let d = new Date(lbl); if (isNaN(d.getTime())) { const p = lbl.split('/'); if (p.length===3) d = new Date(`${p[2]}-${p[1]}-${p[0]}`); else if (p.length===2) { const dd=parseInt(p[0]),mm=parseInt(p[1]); let yr=new Date().getFullYear(); for(const row of allData){const fp=String(row[0]).split('/');if(fp.length===3){const ry=parseInt(fp[2]),rm=parseInt(fp[1]);yr=mm>rm?ry-1:ry;break;}} d=new Date(`${yr}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`); } } if (isNaN(d.getTime())) return lbl; return MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } }, grid: { display: false } },
+          x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 },
+            callback: function(val) { return this.getLabelForValue(val); }
+          }, grid: { display: false } },
           y: { ticks: { color: '#64748b', callback: v => fmt(v), font: { size: 10 } }, grid: { color: '#1e293b' } }
         }
       }
