@@ -453,6 +453,31 @@
     }
     .pea-fetch-status { font-size: 11px; color: var(--text2); margin-top: 6px; text-align: center; flex-shrink: 0; }
 
+    /* Chart tooltip card */
+    #chartTooltipBox {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(15,23,42,0.92);
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 8px 12px;
+      min-width: 130px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 50;
+      opacity: 0;
+      transform: translateY(6px) scale(0.97);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      white-space: nowrap;
+    }
+    #chartTooltipBox.tt-visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    #chartTooltipBox .tt-date  { font-size: 11px; color: #64748b; margin-bottom: 3px; }
+    #chartTooltipBox .tt-value { font-size: 17px; font-weight: 700; color: #f1f5f9; }
+    #chartTooltipBox .tt-delta { font-size: 12px; margin-top: 2px; font-weight: 500; }
+
     /* Tab content flex layout */
     #peaTabPortfolio, #avTabPositions {
       flex: 1; display: flex; flex-direction: column; min-height: 0;
@@ -694,7 +719,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Progression
           </div>
-          <canvas id="chartArea"></canvas>
+          <div style="position:relative">
+            <canvas id="chartArea"></canvas>
+            <div id="chartTooltipBox"></div>
+          </div>
         </div>
         <div class="charts-donut-wrap">
           <div class="chart-sublabel">
@@ -1539,6 +1567,65 @@ function updateAreaTotal(chart, labelId) {
 
 const IS_TOUCH = 'ontouchstart' in window;
 
+// ── Plugin crosshair : trait vertical animé sur le point actif ──────────────
+Chart.register({
+  id: 'crosshair',
+  afterDraw(chart) {
+    const active = chart.getActiveElements();
+    if (!active.length) return;
+    const { ctx, chartArea: { top, bottom } } = chart;
+    const x = active[0].element.x;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(148,163,184,0.35)';
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.restore();
+  }
+});
+
+// ── Handler tooltip externe pour la courbe progression ──────────────────────
+function areaTooltipHandler(context) {
+  const { chart, tooltip } = context;
+  const box = document.getElementById('chartTooltipBox');
+  if (!box) return;
+
+  if (!tooltip.dataPoints?.length || tooltip.opacity === 0) {
+    box.classList.remove('tt-visible');
+    return;
+  }
+
+  const dp    = tooltip.dataPoints[0];
+  const idx   = dp.dataIndex;
+  const val   = dp.raw;
+  const prevVal = idx > 0 ? chart.data.datasets[0].data[idx - 1] : null;
+  const delta   = prevVal !== null ? val - prevVal : null;
+  const pos     = delta === null ? 0 : delta;
+  const dColor  = pos >= 0 ? '#4ade80' : '#f87171';
+  const dSign   = pos >= 0 ? '+' : '';
+
+  box.innerHTML =
+    `<div class="tt-date">${dp.label}</div>` +
+    `<div class="tt-value">${fmt(val)}</div>` +
+    (delta !== null
+      ? `<div class="tt-delta" style="color:${dColor}">${dSign}${fmt(delta)}</div>`
+      : '');
+
+  // Positionnement : reste dans les bords du canvas
+  const ca    = chart.chartArea;
+  const boxW  = 148; // largeur estimée
+  const elX   = dp.element.x;
+  const left  = elX + 12 + boxW > ca.right ? elX - boxW - 12 : elX + 12;
+  const top   = ca.top + 4;
+
+  box.style.left = left + 'px';
+  box.style.top  = top  + 'px';
+  box.classList.add('tt-visible');
+}
+
 // Positionneur tooltip clampé : ne dépasse jamais les bords du canvas
 Chart.Tooltip.positioners.clamped = function(items, eventPos) {
   const pos = Chart.Tooltip.positioners.nearest.call(this, items, eventPos);
@@ -1574,13 +1661,13 @@ function getChartOptions(type) {
       animations: {
         colors: { type: 'color', properties: ['borderColor', 'backgroundColor'], duration: 400 }
       },
-      interaction: { mode: IS_TOUCH ? 'nearest' : 'index', intersect: IS_TOUCH },
+      interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
         tooltip: {
           ...tooltipDefaults,
-          enabled: !IS_TOUCH,
-          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` }
+          enabled: false,
+          external: areaTooltipHandler,
         }
       },
       scales: {
@@ -1653,6 +1740,14 @@ function renderCharts() {
     data: { labels, datasets },
     options: getChartOptions('line')
   });
+  // Masquer le tooltip custom quand le doigt/souris quitte le canvas
+  const areaCanvas = document.getElementById('chartArea');
+  ['mouseleave','touchend','touchcancel'].forEach(ev =>
+    areaCanvas.addEventListener(ev, () => {
+      const box = document.getElementById('chartTooltipBox');
+      if (box) box.classList.remove('tt-visible');
+    }, { passive: true })
+  );
 
   // Donut
   const last = allData[allData.length - 1];
