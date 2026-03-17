@@ -510,7 +510,7 @@
       .chart-shared-top .chart-expand-btn { display: none; }
     }
     @media (max-width: 767px) and (orientation: portrait) {
-      #chartArea { min-height: 270px; max-height: 440px; }
+      #chartArea { min-height: 270px; max-height: 450px; }
       /* Chart déborde à gauche seulement ; droite conserve son espace pour sélectionner le dernier point */
       #dashboard .dash-section-charts .charts-area-wrap {
         margin-left: calc(-16px - 3vw);
@@ -579,7 +579,7 @@
       #dashboard .dash-section-charts .donut-side-l { align-items: flex-start; text-align: left; }
       #dashboard .dash-section-charts .donut-side-r { align-items: flex-end; text-align: right; }
       #dashboard .dash-section-charts #sharedTotalLabel { font-size: 22px !important; white-space: nowrap; }
-      #dashboard .dash-section-charts #sharedGainsLabel { font-size: 20px !important; white-space: nowrap; }
+      #dashboard .dash-section-charts #sharedGainsLabel { font-size: 26px !important; white-space: nowrap; line-height: 1.2; }
       #dashboard .dash-section-charts #sharedDateLabel { font-size: 13px !important; }
       /* Légende : margin-top auto (prend l'autre moitié → donut centré) */
       #legendShared {
@@ -1920,7 +1920,7 @@ function selectDataPoint(idx) {
   if (dateEl)  dateEl.textContent  = label || '';
   if (totalEl) totalEl.textContent = fmt(total);
   if (gainsEl && pct !== null) {
-    gainsEl.innerHTML = `${sign}${fmt(gain)}<br><span style="font-size:11px">${sign}${pct}%</span>`;
+    gainsEl.innerHTML = `${sign}${pct}%<br><span style="font-size:11px;opacity:0.7">${sign}${fmt(gain)}</span>`;
     gainsEl.style.color  = gc;
     gainsEl.style.filter = privacyMode ? 'blur(7px)' : 'none';
   }
