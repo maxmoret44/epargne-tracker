@@ -505,7 +505,7 @@
       .chart-shared-top .chart-expand-btn { display: none; }
     }
     @media (max-width: 767px) and (orientation: portrait) {
-      #chartArea { min-height: 270px; max-height: 360px; }
+      #chartArea { min-height: 300px; max-height: 420px; }
     }
     @media (min-width: 768px) {
       .charts-row { flex-direction: row; align-items: center; gap: 16px; }
@@ -1751,6 +1751,7 @@ function toggleRangeMode() {
     const dateEl = document.getElementById('sharedDateLabel');
     if (dateEl) { dateEl.style.fontSize = ''; dateEl.textContent = ''; }
     selectDataPoint(null);
+    chartArea?.update('none'); // efface les barres du mode range
   }
 }
 
@@ -1765,20 +1766,16 @@ function setupRangeDrag() {
     const r = canvas.getBoundingClientRect();
     return (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
   }
+  // Chart.js meta coordinates are in logical (CSS) pixels — no DPR scaling needed
   function getBarLogicalX(idx) {
     if (!chartArea) return 0;
-    const meta = chartArea.getDatasetMeta(0);
-    if (!meta.data[idx]) return 0;
-    const dpr = canvas.width / canvas.getBoundingClientRect().width;
-    return meta.data[idx].x / dpr;
+    return chartArea.getDatasetMeta(0).data[idx]?.x ?? 0;
   }
   function nearestIdx(lx) {
     if (!chartArea) return 0;
-    const dpr = canvas.width / canvas.getBoundingClientRect().width;
-    const cx = lx * dpr;
     const meta = chartArea.getDatasetMeta(0);
     let best = 0, bd = Infinity;
-    meta.data.forEach((pt, i) => { const d = Math.abs(pt.x - cx); if (d < bd) { bd = d; best = i; } });
+    meta.data.forEach((pt, i) => { const d = Math.abs(pt.x - lx); if (d < bd) { bd = d; best = i; } });
     return best;
   }
 
@@ -1808,9 +1805,11 @@ function setupRangeDrag() {
 
   canvas.addEventListener('touchstart', e => {
     if (!rangeMode) return;
+    e.preventDefault(); // toujours bloquer Chart.js en mode range
     const lx = getLogicalX(e);
-    if (Math.abs(lx - getBarLogicalX(rangeStartIdx)) < 24) { draggingBar = 'start'; e.preventDefault(); }
-    else if (Math.abs(lx - getBarLogicalX(rangeEndIdx)) < 24) { draggingBar = 'end'; e.preventDefault(); }
+    const ds = Math.abs(lx - getBarLogicalX(rangeStartIdx));
+    const de = Math.abs(lx - getBarLogicalX(rangeEndIdx));
+    draggingBar = ds <= de ? 'start' : 'end'; // attrape la barre la plus proche
   }, { passive: false });
 
   canvas.addEventListener('touchmove', e => {
@@ -1910,7 +1909,7 @@ function getChartOptions(type) {
     return {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: IS_TOUCH ? 1.05 : 2.27,
+      aspectRatio: IS_TOUCH ? 0.88 : 2.27,
       animation: { duration: 400, easing: 'easeInOutQuart' },
       animations: {
         colors: { type: 'color', properties: ['borderColor', 'backgroundColor'], duration: 400 }
