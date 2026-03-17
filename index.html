@@ -479,12 +479,12 @@
     .donut-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
     .donut-side-l { align-items: flex-end; text-align: right; }
     .donut-side-r { align-items: flex-start; text-align: left; }
-    .di-date { font-size: 11px; color: var(--text2); }
-    .di-total { font-size: 18px; font-weight: 700;
+    .di-date { font-size: 13px; color: var(--text2); font-weight: 500; }
+    .di-total { font-size: 20px; font-weight: 700;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text; line-height: 1.1; }
-    .di-gains { font-size: 13px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
+    .di-gains { font-size: 14px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
 
     /* Donut center toggle button */
     .donut-center-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
@@ -564,9 +564,9 @@
       }
       #dashboard .dash-section-charts #chartDonut { max-width: 120px; }
       #dashboard .dash-section-charts .donut-center-wrap { max-width: 120px; flex-shrink: 0; }
-      #dashboard .dash-section-charts #sharedTotalLabel { font-size: 18px !important; white-space: nowrap; }
-      #dashboard .dash-section-charts #sharedGainsLabel { font-size: 12px !important; }
-      #dashboard .dash-section-charts #sharedDateLabel { font-size: 10px !important; }
+      #dashboard .dash-section-charts #sharedTotalLabel { font-size: 19px !important; white-space: nowrap; }
+      #dashboard .dash-section-charts #sharedGainsLabel { font-size: 13px !important; }
+      #dashboard .dash-section-charts #sharedDateLabel { font-size: 12px !important; }
       /* Légende : margin-top auto (prend l'autre moitié → donut centré) */
       #legendShared {
         display: grid !important;
@@ -1653,28 +1653,29 @@ Chart.register({
     const sx = meta.data[si].x, ex = meta.data[ei].x;
     const w = ex - sx; if (w <= 0) return;
     ctx.save();
-    const clr = 'rgba(99,102,241,';
-    // Fill
-    ctx.fillStyle = clr + '0.10)';
+
+    // Single uniform gradient: fade in → solid → fade out
+    const fw = Math.min(48, w * 0.22);
+    const grad = ctx.createLinearGradient(sx, 0, ex, 0);
+    grad.addColorStop(0, 'rgba(6,182,212,0)');
+    grad.addColorStop(fw / w, 'rgba(6,182,212,0.13)');
+    grad.addColorStop(1 - fw / w, 'rgba(6,182,212,0.13)');
+    grad.addColorStop(1, 'rgba(6,182,212,0)');
+    ctx.fillStyle = grad;
     ctx.fillRect(sx, top, w, bottom - top);
-    // Fade edges
-    const fw = Math.min(36, w * 0.25);
-    const gL = ctx.createLinearGradient(sx, 0, sx + fw, 0);
-    gL.addColorStop(0, clr + '0)'); gL.addColorStop(1, clr + '0.10)');
-    ctx.fillStyle = gL; ctx.fillRect(sx, top, fw, bottom - top);
-    const gR = ctx.createLinearGradient(ex - fw, 0, ex, 0);
-    gR.addColorStop(0, clr + '0.10)'); gR.addColorStop(1, clr + '0)');
-    ctx.fillStyle = gR; ctx.fillRect(ex - fw, top, fw, bottom - top);
-    // Bars
+
+    // Bars with glow
     [sx, ex].forEach(x => {
+      ctx.save();
+      ctx.shadowBlur = 14;
+      ctx.shadowColor = 'rgba(6,182,212,0.7)';
       ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom);
-      ctx.lineWidth = 2; ctx.strokeStyle = '#6366f1'; ctx.stroke();
-      // Handle dots
-      [top + 7, bottom - 7].forEach(y => {
-        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = '#6366f1'; ctx.fill();
-      });
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = '#06b6d4';
+      ctx.stroke();
+      ctx.restore();
     });
+
     ctx.restore();
   }
 });
@@ -1720,7 +1721,7 @@ function updateRangeDisplay() {
   const dateEl  = document.getElementById('sharedDateLabel');
   const totalEl = document.getElementById('sharedTotalLabel');
   const gainsEl = document.getElementById('sharedGainsLabel');
-  if (dateEl)  { dateEl.style.fontSize = '9px'; dateEl.innerHTML = `${startLbl} <span style="opacity:0.4">→</span> ${endLbl}`; }
+  if (dateEl)  { dateEl.style.fontSize = '10px'; dateEl.innerHTML = `${startLbl} <span style="opacity:0.4">→</span> ${endLbl}`; }
   if (totalEl) totalEl.textContent = fmt(totalEnd);
   if (gainsEl && pct !== null) {
     gainsEl.innerHTML = `${sign}${fmt(gain)}<br><span style="font-size:11px">${sign}${pct}%</span>`;
@@ -1748,7 +1749,7 @@ function toggleRangeMode() {
       chartDonut.update({ duration: 220, easing: 'easeInOutCubic' });
     }
     const dateEl = document.getElementById('sharedDateLabel');
-    if (dateEl) dateEl.style.fontSize = '';
+    if (dateEl) { dateEl.style.fontSize = ''; dateEl.textContent = ''; }
     selectDataPoint(null);
   }
 }
@@ -1996,9 +1997,7 @@ function renderCharts() {
   });
   // Retour au dernier point quand doigt/souris quitte le canvas
   const areaCanvas = document.getElementById('chartArea');
-  ['mouseleave','touchend','touchcancel'].forEach(ev =>
-    areaCanvas.addEventListener(ev, () => { if (!rangeMode) selectDataPoint(null); }, { passive: true })
-  );
+  // Pas de reset au survol — le point reste sélectionné jusqu'à navigation
 
   // Donut
   const last = allData[allData.length - 1];
