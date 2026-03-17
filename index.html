@@ -453,30 +453,6 @@
     }
     .pea-fetch-status { font-size: 11px; color: var(--text2); margin-top: 6px; text-align: center; flex-shrink: 0; }
 
-    /* Chart tooltip card */
-    #chartTooltipBox {
-      position: absolute;
-      pointer-events: none;
-      background: rgba(15,23,42,0.92);
-      border: 1px solid #334155;
-      border-radius: 9px;
-      padding: 8px 12px;
-      min-width: 130px;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      z-index: 50;
-      opacity: 0;
-      transform: translateY(6px) scale(0.97);
-      transition: opacity 0.18s ease, transform 0.18s ease;
-      white-space: nowrap;
-    }
-    #chartTooltipBox.tt-visible {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-    #chartTooltipBox .tt-date  { font-size: 11px; color: #64748b; margin-bottom: 3px; }
-    #chartTooltipBox .tt-value { font-size: 17px; font-weight: 700; color: #f1f5f9; }
-    #chartTooltipBox .tt-delta { font-size: 12px; margin-top: 2px; font-weight: 500; }
 
     /* Tab content flex layout */
     #peaTabPortfolio, #avTabPositions {
@@ -496,10 +472,19 @@
       padding: 16px;
       margin: 16px 0;
     }
-    .chart-shared-top {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 14px;
+    .chart-shared-top { display: none; }
+    .charts-donut-wrap {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
     }
+    .donut-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .donut-side-l { align-items: flex-end; text-align: right; }
+    .donut-side-r { align-items: flex-start; text-align: left; }
+    .di-date { font-size: 11px; color: var(--text2); }
+    .di-total { font-size: 18px; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; line-height: 1.1; }
+    .di-gains { font-size: 13px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
     .charts-row { display: flex; flex-direction: column; gap: 8px; }
     .chart-sublabel { display: none; }
     @media (max-width: 767px) {
@@ -513,7 +498,8 @@
       .charts-row { flex-direction: row; align-items: center; gap: 16px; }
       .charts-area-wrap { flex: 5; min-width: 0; display: flex; flex-direction: column; }
       .charts-area-wrap canvas { flex: 1; min-height: 0; }
-      .charts-donut-wrap { flex: 1.4; min-width: 0; max-width: 182px; }
+      .charts-donut-wrap { flex: 2; min-width: 0; }
+      #chartDonut { max-width: 150px; margin: 0 auto; display: block; }
     }
 
     /* MOBILE SNAP SCROLL (dashboard only) */
@@ -551,20 +537,21 @@
         display: flex; flex-direction: column; justify-content: flex-start;
       }
       /* Page 2 : total + légende plus grands */
-      #dashboard .dash-section-charts #sharedTotalLabel { font-size: 26px !important; white-space: nowrap; overflow: hidden; }
-      #dashboard .dash-section-charts #sharedGainsLabel { font-size: 16px !important; }
-      #dashboard .dash-section-charts .chart-shared-top { margin-bottom: 0; }
       /* charts-row devient transparent pour le flex → courbe et donut sont enfants directs */
       #dashboard .dash-section-charts .charts-row { display: contents; }
       /* Donut : margin-top auto (prend la moitié de l'espace libre) */
       #dashboard .dash-section-charts .charts-donut-wrap {
         margin-top: auto;
         margin-bottom: 24px;
-        margin-left: auto;
-        margin-right: auto;
-        max-width: 138px;
+        max-width: 100%;
+        width: 100%;
         position: relative; top: 8px;
+        gap: 4px;
       }
+      #dashboard .dash-section-charts #chartDonut { max-width: 120px; flex-shrink: 0; }
+      #dashboard .dash-section-charts #sharedTotalLabel { font-size: 18px !important; white-space: nowrap; }
+      #dashboard .dash-section-charts #sharedGainsLabel { font-size: 12px !important; }
+      #dashboard .dash-section-charts #sharedDateLabel { font-size: 10px !important; }
       /* Légende : margin-top auto (prend l'autre moitié → donut centré) */
       #legendShared {
         display: grid !important;
@@ -710,26 +697,19 @@
       <!-- Ligne des graphiques -->
       <div class="charts-row">
         <div class="charts-area-wrap">
-          <!-- Total partagé : au-dessus de la courbe uniquement -->
-          <div class="chart-shared-top">
-            <span class="chart-visible-total" id="sharedTotalLabel" style="font-size:18px;font-weight:700"></span>
-            <span id="sharedGainsLabel" style="font-size:14px;font-weight:600;text-align:right"></span>
-          </div>
-          <div class="chart-sublabel">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-            Progression
-          </div>
           <div style="position:relative">
             <canvas id="chartArea"></canvas>
-            <div id="chartTooltipBox"></div>
           </div>
         </div>
         <div class="charts-donut-wrap">
-          <div class="chart-sublabel">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-            Répartition
+          <div class="donut-side donut-side-l">
+            <div id="sharedDateLabel" class="di-date"></div>
+            <div id="sharedTotalLabel" class="chart-visible-total di-total"></div>
           </div>
           <canvas id="chartDonut"></canvas>
+          <div class="donut-side donut-side-r">
+            <div id="sharedGainsLabel" class="di-gains"></div>
+          </div>
         </div>
       </div>
       <!-- Légende partagée -->
@@ -1581,13 +1561,12 @@ Chart.register({
 
     ctx.save();
 
-    // Trait vertical pointillé
+    // Trait vertical fin et discret
     ctx.beginPath();
     ctx.moveTo(x, top);
     ctx.lineTo(x, bottom);
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(148,163,184,0.35)';
-    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(148,163,184,0.22)';
     ctx.stroke();
 
     // Halo extérieur (glow)
@@ -1602,7 +1581,6 @@ Chart.register({
     ctx.arc(x, y, 5, 0, Math.PI * 2);
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = 2;
-    ctx.setLineDash([]);
     ctx.stroke();
 
     // Centre sombre
@@ -1615,43 +1593,58 @@ Chart.register({
   }
 });
 
-// ── Handler tooltip externe pour la courbe progression ──────────────────────
-function areaTooltipHandler(context) {
-  const { chart, tooltip } = context;
-  const box = document.getElementById('chartTooltipBox');
-  if (!box) return;
+// ── Sélection d'un point : met à jour le donut + labels ─────────────────────
+let selectedDataIdx = null;
 
-  if (!tooltip.dataPoints?.length || tooltip.opacity === 0) {
-    box.classList.remove('tt-visible');
-    return;
+function selectDataPoint(idx) {
+  if (!allData.length || !chartDonut) return;
+  const i = (idx === null || idx === undefined) ? allData.length - 1 : idx;
+  selectedDataIdx = i;
+  const row = allData[i];
+  const label = chartArea ? chartArea.data.labels[i] : '';
+
+  // Mise à jour données donut
+  const newData = ACCOUNTS.map(a => parseFloat(row[a.idx]) || 0);
+  const crist = cristinaData[i] || 0;
+  if (chartDonut.data.labels.includes('Cristina')) newData.push(crist);
+  chartDonut.data.datasets[0].data = newData;
+  chartDonut.update({ duration: 280, easing: 'easeInOutCubic' });
+
+  // Calcul total visible + gain
+  let total = 0, visInv = 0;
+  chartDonut.data.labels.forEach((lbl, j) => {
+    if (donutVisibility['shared' + j] !== false) {
+      const v = newData[j] || 0;
+      total += v;
+      const acc = ACCOUNTS.find(a => a.name === lbl);
+      if (acc) {
+        if (acc.key === 'cash') visInv += v;
+        else visInv += (investedAmounts[acc.key] || 0) + (totalInjections[acc.key] || 0);
+      } else visInv += v;
+    }
+  });
+  const gain = total - visInv;
+  const pct  = visInv > 0 ? ((gain / visInv) * 100).toFixed(1) : null;
+  const sign = gain >= 0 ? '+' : '';
+  const gc   = gain >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Mise à jour labels
+  const dateEl  = document.getElementById('sharedDateLabel');
+  const totalEl = document.getElementById('sharedTotalLabel');
+  const gainsEl = document.getElementById('sharedGainsLabel');
+  if (dateEl)  dateEl.textContent  = label || '';
+  if (totalEl) totalEl.textContent = fmt(total);
+  if (gainsEl && pct !== null) {
+    gainsEl.innerHTML = `${sign}${fmt(gain)}<br><span style="font-size:11px">${sign}${pct}%</span>`;
+    gainsEl.style.color  = gc;
+    gainsEl.style.filter = privacyMode ? 'blur(7px)' : 'none';
   }
+}
 
-  const dp    = tooltip.dataPoints[0];
-  const idx   = dp.dataIndex;
-  const val   = dp.raw;
-  const prevVal = idx > 0 ? chart.data.datasets[0].data[idx - 1] : null;
-  const delta   = prevVal !== null ? val - prevVal : null;
-  const pos     = delta === null ? 0 : delta;
-  const dColor  = pos >= 0 ? '#4ade80' : '#f87171';
-  const dSign   = pos >= 0 ? '+' : '';
-
-  box.innerHTML =
-    `<div class="tt-date">${dp.label}</div>` +
-    `<div class="tt-value">${fmt(val)}</div>` +
-    (delta !== null
-      ? `<div class="tt-delta" style="color:${dColor}">${dSign}${fmt(delta)}</div>`
-      : '');
-
-  // Positionnement : reste dans les bords du canvas
-  const ca    = chart.chartArea;
-  const boxW  = 148; // largeur estimée
-  const elX   = dp.element.x;
-  const left  = elX + 12 + boxW > ca.right ? elX - boxW - 12 : elX + 12;
-  const top   = ca.top + 4;
-
-  box.style.left = left + 'px';
-  box.style.top  = top  + 'px';
-  box.classList.add('tt-visible');
+function areaTooltipHandler(context) {
+  const { tooltip } = context;
+  if (!tooltip.dataPoints?.length || tooltip.opacity === 0) return;
+  selectDataPoint(tooltip.dataPoints[0].dataIndex);
 }
 
 // Positionneur tooltip clampé : ne dépasse jamais les bords du canvas
@@ -1720,6 +1713,7 @@ function getChartOptions(type) {
   return {
     responsive: type !== 'doughnut' || undefined,
     cutout: '65%',
+    animation: { animateRotate: true, animateScale: false, duration: 600, easing: 'easeInOutCubic' },
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -1768,13 +1762,10 @@ function renderCharts() {
     data: { labels, datasets },
     options: getChartOptions('line')
   });
-  // Masquer le tooltip custom quand le doigt/souris quitte le canvas
+  // Retour au dernier point quand doigt/souris quitte le canvas
   const areaCanvas = document.getElementById('chartArea');
   ['mouseleave','touchend','touchcancel'].forEach(ev =>
-    areaCanvas.addEventListener(ev, () => {
-      const box = document.getElementById('chartTooltipBox');
-      if (box) box.classList.remove('tt-visible');
-    }, { passive: true })
+    areaCanvas.addEventListener(ev, () => selectDataPoint(null), { passive: true })
   );
 
   // Donut
@@ -1789,18 +1780,25 @@ function renderCharts() {
     donutLabels.push('Cristina');
   }
 
-  if (chartDonut) chartDonut.destroy();
-  chartDonut = new Chart(document.getElementById('chartDonut'), {
-    type: 'doughnut',
-    data: {
-      labels: donutLabels,
-      datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '33'), borderColor: donutColors, borderWidth: 3 }]
-    },
-    options: getChartOptions('doughnut')
-  });
+  if (chartDonut && chartDonut.data.labels.length === donutLabels.length) {
+    // Même structure : mise à jour sans ré-animation
+    chartDonut.data.datasets[0].data = donutValues;
+    chartDonut.update('none');
+  } else {
+    if (chartDonut) chartDonut.destroy();
+    chartDonut = new Chart(document.getElementById('chartDonut'), {
+      type: 'doughnut',
+      data: {
+        labels: donutLabels,
+        datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '33'), borderColor: donutColors, borderWidth: 3 }]
+      },
+      options: getChartOptions('doughnut')
+    });
+  }
 
   // Légende et total partagés
   buildSharedLegend(chartArea, chartDonut);
+  selectDataPoint(null); // initialise avec le dernier point
 }
 
 function buildSharedLegend(areaChart, donutChart) {
@@ -1832,33 +1830,7 @@ function buildSharedLegend(areaChart, donutChart) {
 }
 
 function updateSharedTotal() {
-  const el = document.getElementById('sharedTotalLabel');
-  if (!el || !chartDonut) return;
-  const values = chartDonut.data.datasets[0].data;
-  const labels = chartDonut.data.labels;
-  let total = 0, visibleInvested = 0;
-  labels.forEach((label, i) => {
-    if (donutVisibility['shared' + i] !== false) {
-      const val = parseFloat(values[i]) || 0;
-      total += val;
-      const acc = ACCOUNTS.find(a => a.name === label);
-      if (acc) {
-        if (acc.key === 'cash') visibleInvested += val;
-        else visibleInvested += (investedAmounts[acc.key] || 0) + (totalInjections[acc.key] || 0);
-      } else { visibleInvested += val; } // Cristina
-    }
-  });
-  const gain = total - visibleInvested;
-  const pct = visibleInvested > 0 ? ((gain / visibleInvested) * 100).toFixed(1) : null;
-  const sign = gain >= 0 ? '+' : '';
-  const gainColor = gain >= 0 ? 'var(--green)' : 'var(--red)';
-  el.textContent = fmt(total);
-  const gainsEl = document.getElementById('sharedGainsLabel');
-  if (gainsEl && pct !== null) {
-    gainsEl.textContent = `${sign}${fmt(gain)} · ${sign}${pct}%`;
-    gainsEl.style.color = gainColor;
-    gainsEl.style.filter = privacyMode ? 'blur(7px)' : 'none';
-  }
+  selectDataPoint(selectedDataIdx);
 }
 
 function recomputeAreaLine() {
@@ -2868,13 +2840,12 @@ document.getElementById('btcModal').addEventListener('click', function(e) {
 
 // ── Réinitialise la sélection crosshair au dernier point (aujourd'hui) ───────
 function resetChartToToday() {
-  const box = document.getElementById('chartTooltipBox');
-  if (box) box.classList.remove('tt-visible');
   if (chartArea) {
     chartArea.setActiveElements([]);
     chartArea.tooltip.setActiveElements([], { x: 0, y: 0 });
     chartArea.update('none');
   }
+  selectDataPoint(null);
 }
 
 // ============== NAVIGATION ==============
@@ -2897,8 +2868,16 @@ document.addEventListener('visibilitychange', () => {
 (function() {
   const chartsSection = document.querySelector('#dashboard .dash-section-charts');
   if (!chartsSection || !('IntersectionObserver' in window)) return;
+  let donutEntranceTriggered = false;
   new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting) resetChartToToday();
+    if (entries[0].isIntersecting) {
+      resetChartToToday();
+      if (!donutEntranceTriggered && chartDonut) {
+        donutEntranceTriggered = true;
+        chartDonut.reset();
+        chartDonut.update();
+      }
+    }
   }, { threshold: 0.8 }).observe(chartsSection);
 })();
 
