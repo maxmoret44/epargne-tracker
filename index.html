@@ -510,7 +510,7 @@
       .chart-shared-top .chart-expand-btn { display: none; }
     }
     @media (max-width: 767px) and (orientation: portrait) {
-      #chartArea { min-height: 270px; max-height: 480px; }
+      #chartArea { min-height: 270px; max-height: 490px; }
       /* Chart déborde à gauche et droite pour remplir les paddings du parent */
       #dashboard .dash-section-charts .charts-area-wrap {
         margin-left: calc(-16px - 3vw);
@@ -728,6 +728,7 @@
         <div class="charts-area-wrap">
           <div style="position:relative">
             <canvas id="chartArea"></canvas>
+            <div style="position:absolute;top:0;right:0;width:72px;height:100%;background:linear-gradient(to right,transparent,#0f172a);pointer-events:none;z-index:1"></div>
           </div>
         </div>
         <div class="charts-donut-wrap">
@@ -1963,7 +1964,7 @@ function getChartOptions(type) {
       responsive: true,
       maintainAspectRatio: true,
       aspectRatio: IS_TOUCH ? 1.05 : 2.27,
-      layout: { padding: { left: IS_TOUCH ? 30 : 0, right: IS_TOUCH ? 31 : 0 } },
+      layout: { padding: { left: IS_TOUCH ? 30 : 0, right: IS_TOUCH ? 18 : 0 } },
       animation: { duration: 400, easing: 'easeInOutQuart' },
       animations: {
         colors: { type: 'color', properties: ['borderColor', 'backgroundColor'], duration: 400 }
