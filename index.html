@@ -2260,6 +2260,46 @@ async function refreshPeaModal() {
   st.innerHTML = `Formules écrites ✓ — ${sheetLink} une fois pour activer les cours, puis cliquez Rafraîchir. ${retryBtn}`;
 }
 
+// Mapping ticker → domaine pour logos Clearbit
+const TICKER_DOMAIN = {
+  'AI.PA':    'airliquide.com',
+  'BNP.PA':   'bnpparibas.com',
+  'SAN.PA':   'sanofi.com',
+  'TTE.PA':   'totalenergies.com',
+  'VIE.PA':   'veolia.com',
+  'TE.PA':    'technipenergies.com',
+  'ML.PA':    'michelin.com',
+  'BVI.PA':   'bureauveritas.com',
+  'FDJU.PA':  'groupefdj.com',
+  'GALP.LS':  'galp.com',
+  'DSY.PA':   'dassaultsystemes.com',
+  'CA.PA':    'carrefour.com',
+  'FRVIA.PA': 'forvia.com',
+  'PAEEM.PA': 'amundi.com',
+  'OR.PA':    'loreal.com',
+  'MC.PA':    'lvmh.com',
+  'SU.PA':    'se.com',
+  'CS.PA':    'axaim.fr',
+  'ACA.PA':   'credit-agricole.com',
+  'GLE.PA':   'societegenerale.com',
+  'SGO.PA':   'saint-gobain.com',
+  'RI.PA':    'pernod-ricard.com',
+  'EN.PA':    'bouygues.com',
+  'KER.PA':   'kering.com',
+  'CAP.PA':   'capgemini.com',
+  'SAF.PA':   'safran.com',
+  'HO.PA':    'thalesgroup.com',
+  'PUB.PA':   'publicis.com',
+  'ORA.PA':   'orange.com',
+};
+function getTickerLogo(ticker) {
+  const domain = TICKER_DOMAIN[ticker];
+  if (!domain) return '';
+  return `<img src="https://logo.clearbit.com/${domain}" width="16" height="16"
+    style="border-radius:3px;vertical-align:middle;margin-left:5px;flex-shrink:0"
+    onerror="this.style.display='none'" loading="lazy">`;
+}
+
 function renderPeaTable(listEl, holdings, prices) {
   const cols = '1fr 72px 80px 80px 24px';
   // En-tête sticky (hors du scroll)
@@ -2280,7 +2320,7 @@ function renderPeaTable(listEl, holdings, prices) {
     const gc  = gain == null ? 'var(--text2)' : (gain >= 0 ? 'var(--green)' : 'var(--red)');
     const gs  = gain == null ? '—' : `${gain >= 0 ? '+' : ''}${fmt(gain)}<br><span style="font-size:10px">${gain >= 0 ? '+' : ''}${gainPct}%</span>`;
     rows += `
-      <div style="padding:8px 0"><div style="font-weight:500">${h.name}</div><div style="font-size:10px;color:var(--text2)">${h.ticker} · ${h.qty} parts${h.purchasePrice > 0 ? ` · px: ${h.purchasePrice.toFixed(2)}€` : ''}</div></div>
+      <div style="padding:8px 0"><div style="font-weight:500;display:flex;align-items:center">${h.name}${getTickerLogo(h.ticker)}</div><div style="font-size:10px;color:var(--text2)">${h.ticker} · ${h.qty} parts${h.purchasePrice > 0 ? ` · px: ${h.purchasePrice.toFixed(2)}€` : ''}</div></div>
       <span style="text-align:right;white-space:nowrap;padding:8px 0">${price != null ? price.toFixed(2)+'€' : '—'}</span>
       <span style="text-align:right;color:${gc};white-space:nowrap;line-height:1.4;padding:8px 0">${gs}</span>
       <span style="text-align:right;font-weight:600;white-space:nowrap;padding:8px 0">${val != null ? fmt(val) : '—'}</span>
