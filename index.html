@@ -510,12 +510,12 @@
       .chart-shared-top .chart-expand-btn { display: none; }
     }
     @media (max-width: 767px) and (orientation: portrait) {
-      #chartArea { min-height: 270px; max-height: 465px; }
-      /* Chart déborde légèrement des 2 côtés pour centrer ; droite modérée pour garder le dernier point sélectionnable */
+      #chartArea { min-height: 270px; max-height: 480px; }
+      /* Chart déborde à gauche seulement ; droite conserve son espace pour sélectionner le dernier point */
       #dashboard .dash-section-charts .charts-area-wrap {
         margin-left: calc(-16px - 3vw);
-        margin-right: calc(-8px - 1.5vw);
-        width: calc(100% + 16px + 3vw + 8px + 1.5vw);
+        margin-right: 0;
+        width: calc(100% + 16px + 3vw);
       }
     }
     @media (min-width: 768px) {
@@ -1963,7 +1963,7 @@ function getChartOptions(type) {
       responsive: true,
       maintainAspectRatio: true,
       aspectRatio: IS_TOUCH ? 1.05 : 2.27,
-      layout: { padding: { left: IS_TOUCH ? 30 : 0 } },
+      layout: { padding: { left: IS_TOUCH ? 30 : 0, right: IS_TOUCH ? 15 : 0 } },
       animation: { duration: 400, easing: 'easeInOutQuart' },
       animations: {
         colors: { type: 'color', properties: ['borderColor', 'backgroundColor'], duration: 400 }
