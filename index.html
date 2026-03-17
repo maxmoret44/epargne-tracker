@@ -511,11 +511,11 @@
     }
     @media (max-width: 767px) and (orientation: portrait) {
       #chartArea { min-height: 270px; max-height: 440px; }
-      /* Chart déborde légèrement des 2 côtés (+3vw chaque côté) */
+      /* Chart déborde à gauche seulement ; droite conserve son espace pour sélectionner le dernier point */
       #dashboard .dash-section-charts .charts-area-wrap {
         margin-left: calc(-16px - 3vw);
-        margin-right: -3vw;
-        width: calc(100% + 32px + 6vw);
+        margin-right: 0;
+        width: calc(100% + 16px + 3vw);
       }
     }
     @media (min-width: 768px) {
@@ -1963,6 +1963,7 @@ function getChartOptions(type) {
       responsive: true,
       maintainAspectRatio: true,
       aspectRatio: IS_TOUCH ? 1.05 : 2.27,
+      layout: { padding: { left: IS_TOUCH ? 30 : 0 } },
       animation: { duration: 400, easing: 'easeInOutQuart' },
       animations: {
         colors: { type: 'color', properties: ['borderColor', 'backgroundColor'], duration: 400 }
