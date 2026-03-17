@@ -1116,7 +1116,7 @@ async function sheetsRead(sheetId, range) {
     url += `&key=${cfg.apiKey}`;
   }
 
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers, cache: 'no-store' });
   if (!res.ok) {
     const body = await res.text();
     console.error(`Sheets API ${res.status}:`, body);
@@ -1262,8 +1262,15 @@ async function loadData() {
     const raw = (targetRows || []).filter(r => r[0]);
     // Déduplication : garder la dernière entrée par date
     const dateMap = new Map();
-    raw.forEach(r => dateMap.set(r[0], r));
-    const tgtFiltered = Array.from(dateMap.values());
+    raw.forEach(r => dateMap.set(String(r[0]).trim(), r));
+    // Re-trier chronologiquement (formats mixtes DD/MM/YYYY ou YYYY-MM-DD)
+    const parseDateStr = s => {
+      const p = String(s).split('/');
+      if (p.length === 3) return new Date(`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`);
+      return new Date(s);
+    };
+    const tgtFiltered = Array.from(dateMap.values())
+      .sort((a, b) => parseDateStr(a[0]) - parseDateStr(b[0]));
 
     allData = tgtFiltered.map(r => [r[0], r[1], r[2], r[3], r[4], r[5], r[6]]);
     cristinaData = tgtFiltered.map(r => parseFloat(r[7]) || 0);
