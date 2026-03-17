@@ -1945,7 +1945,7 @@ async function submitForm() {
       injections.boursovie || '', injections.cto || '', injections.pea || '', injections.livret || '', ''
     ];
 
-    await sheetsAppend(`'${cfg.targetTab}'!A:M`, [newRow]);
+    await sheetsAppend(`'${cfg.targetTab}'!A1`, [newRow]);
 
     status.className = 'status success';
     status.textContent = `Données ajoutées ! Total Max: ${fmt(total)}`;
