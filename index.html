@@ -479,7 +479,7 @@
     .donut-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
     .donut-side-l { align-items: flex-end; text-align: right; }
     .donut-side-r { align-items: flex-start; text-align: left; }
-    .di-date { font-size: 13px; color: var(--text2); font-weight: 500; }
+    .di-date { font-size: 13px; color: var(--text2); font-weight: 700; }
     .di-total { font-size: 20px; font-weight: 700;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
@@ -510,12 +510,11 @@
       .chart-shared-top .chart-expand-btn { display: none; }
     }
     @media (max-width: 767px) and (orientation: portrait) {
-      #chartArea { min-height: 270px; max-height: 380px; }
-      /* Chart pleine largeur sur mobile */
+      #chartArea { min-height: 270px; max-height: 400px; }
+      /* Chart collé à gauche, axe Y à droite avec un peu d'air */
       #dashboard .dash-section-charts .charts-area-wrap {
         margin-left: -16px;
-        margin-right: -16px;
-        width: calc(100% + 32px);
+        width: calc(100% + 16px);
       }
     }
     @media (min-width: 768px) {
@@ -571,7 +570,7 @@
         max-width: 100%;
         width: 100%;
         position: relative; top: 8px;
-        gap: 4px;
+        gap: 10px;
       }
       #dashboard .dash-section-charts #chartDonut { max-width: 120px; }
       #dashboard .dash-section-charts .donut-center-wrap { max-width: 120px; flex-shrink: 0; }
@@ -1550,7 +1549,20 @@ let rangeEndIdx = 0;
 let draggingBar = null;
 let rangeAlpha = 0;          // 0→1 : opacité animée des barres/zone
 let _rangeAnimFrame = null;
-let rangeGainPositive = true; // contrôle la couleur cyan/orange
+let rangeColorT = 1;         // 0=orange, 1=cyan, animé en douceur
+let _rangeColorAnimFrame = null;
+
+function _animateRangeColor(target) {
+  if (_rangeColorAnimFrame) cancelAnimationFrame(_rangeColorAnimFrame);
+  function step() {
+    const diff = target - rangeColorT;
+    if (Math.abs(diff) < 0.008) { rangeColorT = target; chartArea?.update('none'); _rangeColorAnimFrame = null; return; }
+    rangeColorT += diff * 0.10;
+    chartArea?.update('none');
+    _rangeColorAnimFrame = requestAnimationFrame(step);
+  }
+  _rangeColorAnimFrame = requestAnimationFrame(step);
+}
 
 function _animateRangeAlpha(target) {
   if (_rangeAnimFrame) cancelAnimationFrame(_rangeAnimFrame);
@@ -1647,10 +1659,14 @@ Chart.register({
     const w = ex - sx; if (w <= 0) return;
     ctx.save();
 
-    // Couleur dynamique : cyan (gain) ↔ orange (perte)
-    const rgb  = rangeGainPositive ? '6,182,212'   : '249,115,22';
-    const barC = rangeGainPositive ? '#06b6d4'      : '#f97316';
-    const glow = rangeGainPositive ? 'rgba(6,182,212,0.7)' : 'rgba(249,115,22,0.7)';
+    // Couleur dynamique : interpolation fluide cyan (t=1) ↔ orange (t=0)
+    const t = rangeColorT;
+    const cr = Math.round(249 + (6   - 249) * t);
+    const cg = Math.round(115 + (182 - 115) * t);
+    const cb = Math.round(22  + (212 - 22)  * t);
+    const rgb  = `${cr},${cg},${cb}`;
+    const barC = `rgb(${rgb})`;
+    const glow = `rgba(${rgb},0.7)`;
 
     // Gradient inversé : 0% au centre → 18% proche des barres
     const fw = Math.min(72, w * 0.28);
@@ -1718,9 +1734,13 @@ function updateRangeDisplay() {
   // Gain pur = variation du portefeuille - nouvelles injections (performance marché uniquement)
   const investedDelta = totalInvestEnd - totalInvestStart;
   const pureGain = (totalEnd - totalStart) - investedDelta;
-  const pctBase  = totalStart > 0 ? totalStart : (investedDelta > 0 ? investedDelta : 1);
+  // Base % = capital total déployé sur la période (initial + injections)
+  const totalDeployed = totalStart + Math.max(0, investedDelta);
+  const pctBase = totalDeployed > 0 ? totalDeployed : (totalStart > 0 ? totalStart : 1);
   const pct  = ((pureGain / pctBase) * 100).toFixed(1);
-  rangeGainPositive = pureGain >= 0; // met à jour la couleur du plugin
+  // Couleur : ratio -1..+1, animé en douceur (0% = neutre)
+  const gainRatio = Math.max(-1, Math.min(1, pureGain / pctBase * 5));
+  _animateRangeColor(gainRatio >= 0 ? 1 : 0);
   const sign = pureGain >= 0 ? '+' : '';
   const gc   = pureGain >= 0 ? 'var(--green)' : 'var(--red)';
 
@@ -1950,8 +1970,6 @@ function getChartOptions(type) {
         y: {
           position: 'right',
           ticks: {
-            mirror: IS_TOUCH,   // labels à l'intérieur du canvas sur mobile
-            padding: IS_TOUCH ? -2 : 4,
             color: '#64748b', font: { size: 10 },
             callback: v => {
               if (privacyMode) return '—';
