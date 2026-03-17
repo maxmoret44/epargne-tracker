@@ -26,7 +26,7 @@
       --grey: #94a3b8;
       --text: #f1f5f9;
       --text2: #94a3b8;
-      --radius: 12px;
+      --radius: 9px;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -459,7 +459,7 @@
       pointer-events: none;
       background: rgba(15,23,42,0.92);
       border: 1px solid #334155;
-      border-radius: 12px;
+      border-radius: 9px;
       padding: 8px 12px;
       min-width: 130px;
       backdrop-filter: blur(10px);
@@ -577,7 +577,7 @@
         font-size: 13px; gap: 8px;
         padding: 10px 8px;
         background: var(--surface);
-        border-radius: 10px;
+        border-radius: 8px;
         justify-content: flex-start;
       }
       #legendShared .legend-item input[type="checkbox"] { width: 16px; height: 16px; }
@@ -1567,15 +1567,21 @@ function updateAreaTotal(chart, labelId) {
 
 const IS_TOUCH = 'ontouchstart' in window;
 
-// ── Plugin crosshair : trait vertical animé sur le point actif ──────────────
+// ── Plugin crosshair : trait vertical + point lumineux sur le point actif ────
 Chart.register({
   id: 'crosshair',
   afterDraw(chart) {
     const active = chart.getActiveElements();
     if (!active.length) return;
     const { ctx, chartArea: { top, bottom } } = chart;
-    const x = active[0].element.x;
+    const el = active[0].element;
+    const x = el.x;
+    const y = el.y;
+    const lineColor = chart.data.datasets[0]?.borderColor || '#4ade80';
+
     ctx.save();
+
+    // Trait vertical pointillé
     ctx.beginPath();
     ctx.moveTo(x, top);
     ctx.lineTo(x, bottom);
@@ -1583,6 +1589,28 @@ Chart.register({
     ctx.strokeStyle = 'rgba(148,163,184,0.35)';
     ctx.setLineDash([4, 4]);
     ctx.stroke();
+
+    // Halo extérieur (glow)
+    ctx.beginPath();
+    ctx.arc(x, y, 9, 0, Math.PI * 2);
+    ctx.fillStyle = typeof lineColor === 'string'
+      ? lineColor + '30' : 'rgba(74,222,128,0.19)';
+    ctx.fill();
+
+    // Anneau coloré
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.stroke();
+
+    // Centre sombre
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#0f172a';
+    ctx.fill();
+
     ctx.restore();
   }
 });
@@ -2838,6 +2866,17 @@ document.getElementById('btcModal').addEventListener('click', function(e) {
   if (e.target === this) closeBtcModal();
 });
 
+// ── Réinitialise la sélection crosshair au dernier point (aujourd'hui) ───────
+function resetChartToToday() {
+  const box = document.getElementById('chartTooltipBox');
+  if (box) box.classList.remove('tt-visible');
+  if (chartArea) {
+    chartArea.setActiveElements([]);
+    chartArea.tooltip.setActiveElements([], { x: 0, y: 0 });
+    chartArea.update('none');
+  }
+}
+
 // ============== NAVIGATION ==============
 document.querySelectorAll('.nav button').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -2845,8 +2884,23 @@ document.querySelectorAll('.nav button').forEach(btn => {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(btn.dataset.page).classList.add('active');
+    if (btn.dataset.page === 'dashboard') resetChartToToday();
   });
 });
+
+// Retour sur l'app (depuis une autre app) → reset crosshair
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') resetChartToToday();
+});
+
+// Mobile scroll-snap : reset quand on revient sur la page graphiques
+(function() {
+  const chartsSection = document.querySelector('#dashboard .dash-section-charts');
+  if (!chartsSection || !('IntersectionObserver' in window)) return;
+  new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) resetChartToToday();
+  }, { threshold: 0.8 }).observe(chartsSection);
+})();
 
 // ============== PRIVACY MODE ==============
 const PRIVACY_KEY = 'epargne_privacy';
