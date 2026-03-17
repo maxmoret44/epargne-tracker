@@ -485,6 +485,19 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text; line-height: 1.1; }
     .di-gains { font-size: 13px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
+
+    /* Donut center toggle button */
+    .donut-center-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+    .donut-center-btn {
+      position: absolute; width: 28px; height: 28px; border-radius: 50%;
+      background: var(--surface); border: 1.5px solid var(--surface2);
+      color: var(--text2); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, border-color 0.2s, color 0.2s; z-index: 2;
+    }
+    .donut-center-btn:hover { background: var(--surface2); border-color: var(--accent); color: var(--text); }
+    .donut-center-btn.active { background: rgba(99,102,241,0.18); border-color: #6366f1; color: #6366f1; }
+
     .charts-row { display: flex; flex-direction: column; gap: 8px; }
     .chart-sublabel { display: none; }
     @media (max-width: 767px) {
@@ -499,7 +512,8 @@
       .charts-area-wrap { flex: 5; min-width: 0; display: flex; flex-direction: column; }
       .charts-area-wrap canvas { flex: 1; min-height: 0; }
       .charts-donut-wrap { flex: 2; min-width: 0; }
-      #chartDonut { max-width: 150px; margin: 0 auto; display: block; }
+      #chartDonut { max-width: 150px; display: block; }
+      .donut-center-wrap { max-width: 150px; margin: 0 auto; }
     }
 
     /* MOBILE SNAP SCROLL (dashboard only) */
@@ -548,7 +562,8 @@
         position: relative; top: 8px;
         gap: 4px;
       }
-      #dashboard .dash-section-charts #chartDonut { max-width: 120px; flex-shrink: 0; }
+      #dashboard .dash-section-charts #chartDonut { max-width: 120px; }
+      #dashboard .dash-section-charts .donut-center-wrap { max-width: 120px; flex-shrink: 0; }
       #dashboard .dash-section-charts #sharedTotalLabel { font-size: 18px !important; white-space: nowrap; }
       #dashboard .dash-section-charts #sharedGainsLabel { font-size: 12px !important; }
       #dashboard .dash-section-charts #sharedDateLabel { font-size: 10px !important; }
@@ -706,7 +721,16 @@
             <div id="sharedDateLabel" class="di-date"></div>
             <div id="sharedTotalLabel" class="chart-visible-total di-total"></div>
           </div>
-          <canvas id="chartDonut"></canvas>
+          <div class="donut-center-wrap">
+            <canvas id="chartDonut"></canvas>
+            <button id="rangeModeBtn" class="donut-center-btn" onclick="toggleRangeMode()" title="Mode plage">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="4" y1="3" x2="4" y2="21"/><line x1="20" y1="3" x2="20" y2="21"/>
+                <line x1="7" y1="12" x2="17" y2="12"/>
+                <polyline points="10 9 7 12 10 15"/><polyline points="14 9 17 12 14 15"/>
+              </svg>
+            </button>
+          </div>
           <div class="donut-side donut-side-r">
             <div id="sharedGainsLabel" class="di-gains"></div>
           </div>
@@ -1547,10 +1571,17 @@ function updateAreaTotal(chart, labelId) {
 
 const IS_TOUCH = 'ontouchstart' in window;
 
+// ── Range mode state ─────────────────────────────────────────────────────────
+let rangeMode = false;
+let rangeStartIdx = 0;
+let rangeEndIdx = 0;
+let draggingBar = null;
+
 // ── Plugin crosshair : trait vertical + point lumineux sur le point actif ────
 Chart.register({
   id: 'crosshair',
   afterDraw(chart) {
+    if (rangeMode) return;
     const active = chart.getActiveElements();
     if (!active.length) return;
     const { ctx, chartArea: { top, bottom } } = chart;
@@ -1593,10 +1624,211 @@ Chart.register({
   }
 });
 
+// ── Range mode : interpolation couleur + plugin + handlers ───────────────────
+function lerpColor(a, b, t) {
+  const ah = parseInt(a.slice(1), 16), bh = parseInt(b.slice(1), 16);
+  const ar = (ah >> 16) & 0xff, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
+  const br = (bh >> 16) & 0xff, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
+  const r = Math.round(ar + (br - ar) * t).toString(16).padStart(2,'0');
+  const g = Math.round(ag + (bg - ag) * t).toString(16).padStart(2,'0');
+  const b2 = Math.round(ab + (bb - ab) * t).toString(16).padStart(2,'0');
+  return `#${r}${g}${b2}`;
+}
+
+function rangeColor(pct) {
+  const t = Math.max(-1, Math.min(1, pct / 20));
+  const neutral = '#475569';
+  return t >= 0 ? lerpColor(neutral, '#10b981', t) : lerpColor(neutral, '#ef4444', -t);
+}
+
+Chart.register({
+  id: 'rangeSelector',
+  afterDraw(chart) {
+    if (!rangeMode) return;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta.data.length) return;
+    const si = Math.max(0, Math.min(rangeStartIdx, meta.data.length - 1));
+    const ei = Math.max(0, Math.min(rangeEndIdx, meta.data.length - 1));
+    const { ctx, chartArea: { top, bottom } } = chart;
+    const sx = meta.data[si].x, ex = meta.data[ei].x;
+    const w = ex - sx; if (w <= 0) return;
+    ctx.save();
+    const clr = 'rgba(99,102,241,';
+    // Fill
+    ctx.fillStyle = clr + '0.10)';
+    ctx.fillRect(sx, top, w, bottom - top);
+    // Fade edges
+    const fw = Math.min(36, w * 0.25);
+    const gL = ctx.createLinearGradient(sx, 0, sx + fw, 0);
+    gL.addColorStop(0, clr + '0)'); gL.addColorStop(1, clr + '0.10)');
+    ctx.fillStyle = gL; ctx.fillRect(sx, top, fw, bottom - top);
+    const gR = ctx.createLinearGradient(ex - fw, 0, ex, 0);
+    gR.addColorStop(0, clr + '0.10)'); gR.addColorStop(1, clr + '0)');
+    ctx.fillStyle = gR; ctx.fillRect(ex - fw, top, fw, bottom - top);
+    // Bars
+    [sx, ex].forEach(x => {
+      ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom);
+      ctx.lineWidth = 2; ctx.strokeStyle = '#6366f1'; ctx.stroke();
+      // Handle dots
+      [top + 7, bottom - 7].forEach(y => {
+        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#6366f1'; ctx.fill();
+      });
+    });
+    ctx.restore();
+  }
+});
+
+function updateRangeDisplay() {
+  if (!allData.length || !chartDonut) return;
+  const si = Math.max(0, Math.min(rangeStartIdx, allData.length - 1));
+  const ei = Math.max(0, Math.min(rangeEndIdx, allData.length - 1));
+  const startRow = allData[si], endRow = allData[ei];
+
+  const endData = ACCOUNTS.map(a => parseFloat(endRow[a.idx]) || 0);
+  if (chartDonut.data.labels.includes('Cristina')) endData.push(cristinaData[ei] || 0);
+
+  const newBorderColors = chartDonut.data.labels.map((lbl, j) => {
+    const acc = ACCOUNTS.find(a => a.name === lbl);
+    const sv = acc ? (parseFloat(startRow[acc.idx]) || 0) : (cristinaData[si] || 0);
+    const ev = acc ? (parseFloat(endRow[acc.idx]) || 0) : (cristinaData[ei] || 0);
+    const pct = sv > 0 ? ((ev - sv) / sv * 100) : 0;
+    return rangeColor(pct);
+  });
+
+  chartDonut.data.datasets[0].data = endData;
+  chartDonut.data.datasets[0].borderColor = newBorderColors;
+  chartDonut.data.datasets[0].backgroundColor = newBorderColors.map(c => c + '33');
+  chartDonut.update({ duration: 220, easing: 'easeInOutCubic' });
+
+  let totalEnd = 0, totalStart = 0;
+  chartDonut.data.labels.forEach((lbl, j) => {
+    if (donutVisibility['shared' + j] === false) return;
+    const acc = ACCOUNTS.find(a => a.name === lbl);
+    totalEnd += endData[j] || 0;
+    totalStart += acc ? (parseFloat(startRow[acc.idx]) || 0) : (cristinaData[si] || 0);
+  });
+
+  const gain = totalEnd - totalStart;
+  const pct = totalStart > 0 ? ((gain / totalStart) * 100).toFixed(1) : null;
+  const sign = gain >= 0 ? '+' : '';
+  const gc = gain >= 0 ? 'var(--green)' : 'var(--red)';
+
+  const startLbl = chartArea ? chartArea.data.labels[si] : '';
+  const endLbl   = chartArea ? chartArea.data.labels[ei] : '';
+
+  const dateEl  = document.getElementById('sharedDateLabel');
+  const totalEl = document.getElementById('sharedTotalLabel');
+  const gainsEl = document.getElementById('sharedGainsLabel');
+  if (dateEl)  { dateEl.style.fontSize = '9px'; dateEl.innerHTML = `${startLbl} <span style="opacity:0.4">→</span> ${endLbl}`; }
+  if (totalEl) totalEl.textContent = fmt(totalEnd);
+  if (gainsEl && pct !== null) {
+    gainsEl.innerHTML = `${sign}${fmt(gain)}<br><span style="font-size:11px">${sign}${pct}%</span>`;
+    gainsEl.style.color = gc;
+    gainsEl.style.filter = privacyMode ? 'blur(7px)' : 'none';
+  }
+  chartArea?.update('none');
+}
+
+function toggleRangeMode() {
+  rangeMode = !rangeMode;
+  const btn = document.getElementById('rangeModeBtn');
+  if (btn) btn.classList.toggle('active', rangeMode);
+  if (rangeMode) {
+    rangeStartIdx = 0;
+    rangeEndIdx = allData.length - 1;
+    updateRangeDisplay();
+  } else {
+    // Restore original donut colors
+    const origColors = ACCOUNTS.map(a => a.color);
+    if (chartDonut && chartDonut.data.labels.includes('Cristina')) origColors.push('#f48fb1');
+    if (chartDonut) {
+      chartDonut.data.datasets[0].borderColor = origColors;
+      chartDonut.data.datasets[0].backgroundColor = origColors.map(c => c + '33');
+      chartDonut.update({ duration: 220, easing: 'easeInOutCubic' });
+    }
+    const dateEl = document.getElementById('sharedDateLabel');
+    if (dateEl) dateEl.style.fontSize = '';
+    selectDataPoint(null);
+  }
+}
+
+let rangeDragSetup = false;
+function setupRangeDrag() {
+  if (rangeDragSetup) return;
+  rangeDragSetup = true;
+  const canvas = document.getElementById('chartArea');
+  if (!canvas) return;
+
+  function getLogicalX(e) {
+    const r = canvas.getBoundingClientRect();
+    return (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+  }
+  function getBarLogicalX(idx) {
+    if (!chartArea) return 0;
+    const meta = chartArea.getDatasetMeta(0);
+    if (!meta.data[idx]) return 0;
+    const dpr = canvas.width / canvas.getBoundingClientRect().width;
+    return meta.data[idx].x / dpr;
+  }
+  function nearestIdx(lx) {
+    if (!chartArea) return 0;
+    const dpr = canvas.width / canvas.getBoundingClientRect().width;
+    const cx = lx * dpr;
+    const meta = chartArea.getDatasetMeta(0);
+    let best = 0, bd = Infinity;
+    meta.data.forEach((pt, i) => { const d = Math.abs(pt.x - cx); if (d < bd) { bd = d; best = i; } });
+    return best;
+  }
+
+  canvas.addEventListener('mousedown', e => {
+    if (!rangeMode) return;
+    const lx = getLogicalX(e);
+    if (Math.abs(lx - getBarLogicalX(rangeStartIdx)) < 18) draggingBar = 'start';
+    else if (Math.abs(lx - getBarLogicalX(rangeEndIdx)) < 18) draggingBar = 'end';
+    if (draggingBar) e.stopPropagation();
+  });
+
+  canvas.addEventListener('mousemove', e => {
+    if (!rangeMode) return;
+    const lx = getLogicalX(e);
+    if (draggingBar) {
+      const idx = nearestIdx(lx);
+      if (draggingBar === 'start') rangeStartIdx = Math.min(idx, rangeEndIdx - 1);
+      else rangeEndIdx = Math.max(idx, rangeStartIdx + 1);
+      updateRangeDisplay();
+    }
+    const ns = Math.abs(lx - getBarLogicalX(rangeStartIdx)) < 18;
+    const ne = Math.abs(lx - getBarLogicalX(rangeEndIdx)) < 18;
+    canvas.style.cursor = (ns || ne || draggingBar) ? 'ew-resize' : '';
+  });
+
+  canvas.addEventListener('mouseup', () => { draggingBar = null; });
+
+  canvas.addEventListener('touchstart', e => {
+    if (!rangeMode) return;
+    const lx = getLogicalX(e);
+    if (Math.abs(lx - getBarLogicalX(rangeStartIdx)) < 24) { draggingBar = 'start'; e.preventDefault(); }
+    else if (Math.abs(lx - getBarLogicalX(rangeEndIdx)) < 24) { draggingBar = 'end'; e.preventDefault(); }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', e => {
+    if (!rangeMode || !draggingBar) return;
+    e.preventDefault();
+    const idx = nearestIdx(getLogicalX(e));
+    if (draggingBar === 'start') rangeStartIdx = Math.min(idx, rangeEndIdx - 1);
+    else rangeEndIdx = Math.max(idx, rangeStartIdx + 1);
+    updateRangeDisplay();
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', () => { draggingBar = null; });
+}
+
 // ── Sélection d'un point : met à jour le donut + labels ─────────────────────
 let selectedDataIdx = null;
 
 function selectDataPoint(idx) {
+  if (rangeMode) return;
   if (!allData.length || !chartDonut) return;
   const i = (idx === null || idx === undefined) ? allData.length - 1 : idx;
   selectedDataIdx = i;
@@ -1765,7 +1997,7 @@ function renderCharts() {
   // Retour au dernier point quand doigt/souris quitte le canvas
   const areaCanvas = document.getElementById('chartArea');
   ['mouseleave','touchend','touchcancel'].forEach(ev =>
-    areaCanvas.addEventListener(ev, () => selectDataPoint(null), { passive: true })
+    areaCanvas.addEventListener(ev, () => { if (!rangeMode) selectDataPoint(null); }, { passive: true })
   );
 
   // Donut
@@ -1799,6 +2031,7 @@ function renderCharts() {
   // Légende et total partagés
   buildSharedLegend(chartArea, chartDonut);
   selectDataPoint(null); // initialise avec le dernier point
+  setupRangeDrag();
 }
 
 function buildSharedLegend(areaChart, donutChart) {
@@ -1830,6 +2063,7 @@ function buildSharedLegend(areaChart, donutChart) {
 }
 
 function updateSharedTotal() {
+  if (rangeMode) { updateRangeDisplay(); return; }
   selectDataPoint(selectedDataIdx);
 }
 
@@ -2840,6 +3074,7 @@ document.getElementById('btcModal').addEventListener('click', function(e) {
 
 // ── Réinitialise la sélection crosshair au dernier point (aujourd'hui) ───────
 function resetChartToToday() {
+  if (rangeMode) { updateRangeDisplay(); return; }
   if (chartArea) {
     chartArea.setActiveElements([]);
     chartArea.tooltip.setActiveElements([], { x: 0, y: 0 });
