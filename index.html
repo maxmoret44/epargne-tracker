@@ -503,7 +503,7 @@
       box-shadow: 0 0 10px rgba(99,102,241,0.45);
     }
 
-    .chart-mode-tabs { display: flex; gap: 14px; margin-bottom: 6px; padding-left: 12px; margin-top: -5px; }
+    .chart-mode-tabs { display: flex; gap: 14px; margin-bottom: 6px; padding-left: 42px; margin-top: -5px; }
     .chart-mode-tab {
       padding: 2px 0; border: none; background: none;
       color: var(--text2); opacity: 0.38;
@@ -769,7 +769,7 @@
         </div>
       </div>
       <!-- Légende partagée -->
-      <div class="chart-legend" id="legendShared" style="margin-top:12px"></div>
+      <div class="chart-legend" id="legendShared" style="margin-top:8px"></div>
     </div>
 
     <div class="loading" id="dashLoading">
@@ -1959,13 +1959,10 @@ function switchChartMode(mode) {
   chartMode = mode;
   document.querySelectorAll('.chart-mode-tab').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
 
-  const labels = chartArea.data.labels;
-  const currentColor = chartArea.data.datasets[0].borderColor;
   const donutLabels = chartDonut ? chartDonut.data.labels : [];
-  let newData, opts;
 
   if (mode === 'perf') {
-    newData = allData.map((_, i) => {
+    const newData = allData.map((_, i) => {
       let val = 0, inv = 0;
       donutLabels.forEach((lbl, j) => {
         if (donutVisibility['shared' + j] === false) return;
@@ -1978,11 +1975,11 @@ function switchChartMode(mode) {
       return inv > 0 ? (val - inv) / inv * 100 : 0;
     });
     const maxAbs = Math.max(...newData.map(v => Math.abs(v)), 1);
-    opts = getChartOptions('line');
-    opts.scales.y.min = -(maxAbs * 1.15);
-    opts.scales.y.max = maxAbs * 1.15;
+    chartArea.data.datasets[0].data = newData;
+    chartArea.options.scales.y.min = -(maxAbs * 1.15);
+    chartArea.options.scales.y.max = maxAbs * 1.15;
   } else {
-    newData = allData.map((row, rowIdx) => {
+    const newData = allData.map((row, rowIdx) => {
       let sum = 0;
       donutLabels.forEach((lbl, j) => {
         if (donutVisibility['shared' + j] !== false) {
@@ -1992,37 +1989,11 @@ function switchChartMode(mode) {
       });
       return sum;
     });
-    opts = getChartOptions('line');
+    chartArea.data.datasets[0].data = newData;
+    chartArea.options.scales.y.min = undefined;
+    chartArea.options.scales.y.max = undefined;
   }
-
-  chartArea.destroy();
-  chartArea = new Chart(document.getElementById('chartArea'), {
-    type: 'line',
-    data: { labels, datasets: [{
-      label: 'Total',
-      data: newData,
-      borderColor: currentColor,
-      backgroundColor: 'rgba(0,0,0,0)',
-      fill: 'origin',
-      tension: 0.4,
-      borderWidth: 2.5,
-      pointRadius: 0,
-      pointHoverRadius: 4,
-      segment: {
-        borderColor: ctx => {
-          if (chartMode !== 'perf') return undefined;
-          const y0 = ctx.p0.parsed.y, y1 = ctx.p1.parsed.y;
-          const c0 = y0 >= 0 ? '#4ade80' : '#f87171';
-          const c1 = y1 >= 0 ? '#4ade80' : '#f87171';
-          if (c0 === c1) return c0;
-          const grad = ctx.chart.ctx.createLinearGradient(ctx.p0.x, 0, ctx.p1.x, 0);
-          grad.addColorStop(0, c0); grad.addColorStop(1, c1);
-          return grad;
-        }
-      }
-    }]},
-    options: opts
-  });
+  chartArea.update();
 }
 
 let rangeDragSetup = false;
@@ -2340,7 +2311,7 @@ function buildSharedLegend(areaChart, donutChart) {
       donutVisibility['shared' + i] = vis;
       donutChart.toggleDataVisibility(i);
       donutChart.update();
-      recomputeAreaLine();
+      if (chartMode === 'perf') switchChartMode('perf'); else recomputeAreaLine();
       updateSharedTotal();
     });
     container.appendChild(item);
