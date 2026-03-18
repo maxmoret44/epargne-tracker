@@ -1505,6 +1505,7 @@ function buildDonutLegend(chart, containerId) {
       chart.toggleDataVisibility(i);
       chart.update();
       updateDonutTotal(totalLabelId, data, containerId);
+      if (window.chartArea) chartArea.update('none');
     });
     container.appendChild(item);
   });
@@ -1683,6 +1684,28 @@ Chart.register({
     ctx.fillStyle = 'rgba(15,23,42,1)';
     ctx.fillRect(rEnd, 0, width - rEnd, height);
     ctx.restore();
+  },
+  afterDatasetsDraw(chart) {
+    if (!IS_TOUCH || chart.canvas.id !== 'chartArea') return;
+    const { ctx, chartArea } = chart;
+    const pts = chart.getDatasetMeta(0)?.data;
+    if (!pts || !pts.length) return;
+    const fadeH = (chartArea.bottom - chartArea.top) * 0.15;
+    ctx.save();
+    // Clip au-dessous de la courbe (zone aire uniquement, pas la ligne)
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, chartArea.bottom);
+    pts.forEach(pt => ctx.lineTo(pt.x, pt.y));
+    ctx.lineTo(pts[pts.length - 1].x, chartArea.bottom);
+    ctx.closePath();
+    ctx.clip();
+    // Fondu bas : 0% opacité à 15% de hauteur → 100% à l'axe des abscisses
+    const bgrad = ctx.createLinearGradient(0, chartArea.bottom - fadeH, 0, chartArea.bottom);
+    bgrad.addColorStop(0, 'rgba(15,23,42,0)');
+    bgrad.addColorStop(1, 'rgba(15,23,42,1)');
+    ctx.fillStyle = bgrad;
+    ctx.fillRect(chartArea.left, chartArea.bottom - fadeH, chartArea.right - chartArea.left, fadeH);
+    ctx.restore();
   }
 });
 
@@ -1826,6 +1849,11 @@ function toggleRangeMode() {
   rangeMode = !rangeMode;
   const btn = document.getElementById('rangeModeBtn');
   if (btn) btn.classList.toggle('active', rangeMode);
+  // Fondu des labels au changement de mode
+  const _fadeEls = ['sharedDateLabel','sharedTotalLabel','sharedGainsLabel']
+    .map(id => document.getElementById(id)).filter(Boolean);
+  _fadeEls.forEach(el => { el.style.transition = 'opacity 0.18s'; el.style.opacity = '0'; });
+  setTimeout(() => { _fadeEls.forEach(el => { el.style.opacity = '1'; }); }, 180);
   if (rangeMode) {
     rangeStartIdx = 0;
     rangeEndIdx = allData.length - 1;
