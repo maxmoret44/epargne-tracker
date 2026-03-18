@@ -2858,11 +2858,18 @@ function renderPeaTable(listEl, holdings, prices) {
   // Setter l'input liquidités avec la valeur courante
   const cashInput = document.getElementById('peaCashInput');
   if (cashInput && cashInput !== document.activeElement) cashInput.value = cash > 0 ? cash : '';
-  const tgc = totalGain >= 0 ? 'var(--green)' : 'var(--red)';
+  // Plus-value globale = total actuel − capital investi PEA (inclut les PV réalisées)
+  const invPea = (investedAmounts && investedAmounts.pea > 0) ? investedAmounts.pea : null;
+  const realGain = (invPea && total > 0) ? total - invPea : null;
+  const displayGain = realGain !== null ? realGain : totalGain;
+  const tgc = displayGain >= 0 ? 'var(--green)' : 'var(--red)';
+  const gainLabel = realGain !== null
+    ? `${displayGain >= 0 ? '+' : ''}${fmt(displayGain)}`
+    : `${totalGain >= 0 ? '+' : ''}${fmt(totalGain)}`;
   document.getElementById('peaTotalLine').innerHTML =
     `<span style="color:var(--text2);font-weight:400;font-size:13px">Total PEA</span>
      &nbsp; ${fmt(total)} &nbsp;
-     <span style="font-size:13px;color:${tgc}">${totalGain >= 0 ? '+' : ''}${fmt(totalGain)}</span>`;
+     <span style="font-size:13px;color:${tgc}">${gainLabel}</span>`;
 }
 
 // Close PEA modal on overlay click
