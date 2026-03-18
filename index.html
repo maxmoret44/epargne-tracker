@@ -1654,13 +1654,13 @@ Chart.register({
   beforeDatasetsDraw(chart) {
     if (!IS_TOUCH || chart.canvas.id !== 'chartArea') return;
     const { ctx, chartArea, width, height } = chart;
-    // Gradient horizontal de l'aire : 20% opacité à gauche → 0% à droite
+    // Gradient vertical de l'aire : 30% opacité en haut (près de la courbe) → 0% en bas
     const ds = chart.data.datasets[0];
     if (ds?.fill !== undefined) {
       const lc = ds.borderColor || '#4ade80';
       const [r, g, b] = lc === '#f87171' ? [248, 113, 113] : [74, 222, 128];
-      const ag = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
-      ag.addColorStop(0, `rgba(${r},${g},${b},0.20)`);
+      const ag = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+      ag.addColorStop(0, `rgba(${r},${g},${b},0.30)`);
       ag.addColorStop(1, `rgba(${r},${g},${b},0.00)`);
       ds.backgroundColor = ag;
     }
