@@ -1505,7 +1505,7 @@ function buildDonutLegend(chart, containerId) {
       chart.toggleDataVisibility(i);
       chart.update();
       updateDonutTotal(totalLabelId, data, containerId);
-      if (window.chartArea) { chartArea.data.datasets[0].backgroundColor = null; chartArea.update('none'); }
+      if (window.chartArea) chartArea.update('none');
     });
     container.appendChild(item);
   });
@@ -1655,16 +1655,6 @@ Chart.register({
   beforeDatasetsDraw(chart) {
     if (!IS_TOUCH || chart.canvas.id !== 'chartArea') return;
     const { ctx, chartArea, width, height } = chart;
-    // Gradient vertical de l'aire : 30% opacité en haut (près de la courbe) → 0% en bas
-    const ds = chart.data.datasets[0];
-    if (ds?.fill !== undefined) {
-      const lc = ds.borderColor || '#4ade80';
-      const [r, g, b] = lc === '#f87171' ? [248, 113, 113] : [74, 222, 128];
-      const ag = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
-      ag.addColorStop(0, `rgba(${r},${g},${b},0.20)`);
-      ag.addColorStop(1, `rgba(${r},${g},${b},0.00)`);
-      ds.backgroundColor = ag;
-    }
     ctx.save();
     // Fondu gauche : opaque → transparent sur la zone de padding gauche
     const lgrad = ctx.createLinearGradient(0, 0, chartArea.left, 0);
@@ -1690,16 +1680,26 @@ Chart.register({
     const { ctx, chartArea } = chart;
     const pts = chart.getDatasetMeta(0)?.data;
     if (!pts || !pts.length) return;
+    const lc = chart.data.datasets[0]?.borderColor || '#4ade80';
+    const [r, g, b] = lc === '#f87171' ? [248, 113, 113] : [74, 222, 128];
     const fadeH = (chartArea.bottom - chartArea.top) * 0.30;
     ctx.save();
-    // Clip au-dessous de la courbe (zone aire uniquement, pas la ligne)
+    // Clip au-dessous de la courbe (aire uniquement)
     ctx.beginPath();
     ctx.moveTo(pts[0].x, chartArea.bottom);
     pts.forEach(pt => ctx.lineTo(pt.x, pt.y));
     ctx.lineTo(pts[pts.length - 1].x, chartArea.bottom);
     ctx.closePath();
     ctx.clip();
-    // Fondu bas : 0% opacité à 15% de hauteur → 100% à l'axe des abscisses
+    // Gradient horizontal : destination-over → derrière la courbe, jamais au-dessus
+    ctx.globalCompositeOperation = 'destination-over';
+    const hgrad = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+    hgrad.addColorStop(0, `rgba(${r},${g},${b},0.20)`);
+    hgrad.addColorStop(1, `rgba(${r},${g},${b},0.00)`);
+    ctx.fillStyle = hgrad;
+    ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+    // Fondu bas : source-over → par-dessus le gradient, 0% à 30% de hauteur → 100% à l'axe
+    ctx.globalCompositeOperation = 'source-over';
     const bgrad = ctx.createLinearGradient(0, chartArea.bottom - fadeH, 0, chartArea.bottom);
     bgrad.addColorStop(0, 'rgba(15,23,42,0)');
     bgrad.addColorStop(1, 'rgba(15,23,42,1)');
@@ -1852,7 +1852,7 @@ function toggleRangeMode() {
   // Fondu des labels : fade-out immédiat, mise à jour du contenu après 180ms
   const _fadeEls = ['sharedDateLabel','sharedTotalLabel','sharedGainsLabel']
     .map(id => document.getElementById(id)).filter(Boolean);
-  _fadeEls.forEach(el => { el.style.transition = 'opacity 0.18s'; el.style.opacity = '0'; });
+  _fadeEls.forEach(el => { el.style.transition = 'opacity 0.3s'; el.style.opacity = '0'; });
   _animateRangeAlpha(rangeMode ? 1 : 0);
   setTimeout(() => {
     if (rangeMode) {
@@ -1884,7 +1884,7 @@ function toggleRangeMode() {
       selectDataPoint(null);
     }
     _fadeEls.forEach(el => { el.style.opacity = '1'; });
-  }, 180);
+  }, 300);
 }
 
 let rangeDragSetup = false;
@@ -2116,7 +2116,7 @@ function renderCharts() {
     label: 'Total',
     data: totals,
     borderColor: lineColor,
-    backgroundColor: portfolioGainPositive ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)',
+    backgroundColor: 'rgba(0,0,0,0)',
     fill: 'origin',
     tension: 0.4,
     borderWidth: 2.5,
@@ -2235,7 +2235,7 @@ function recomputeAreaLine() {
   const lineColor = isGain ? '#4ade80' : '#f87171';
   chartArea.data.datasets[0].data = newTotals;
   chartArea.data.datasets[0].borderColor = lineColor;
-  chartArea.data.datasets[0].backgroundColor = isGain ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)';
+  chartArea.data.datasets[0].backgroundColor = 'rgba(0,0,0,0)';
   chartArea.update();
 }
 
