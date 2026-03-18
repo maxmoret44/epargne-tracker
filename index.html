@@ -2811,8 +2811,8 @@ function getTickerLogo(ticker, size = 16) {
   return `<a href="${tvUrl}" target="_blank" rel="noopener"
     style="display:inline-flex;align-items:center;margin-left:${size > 16 ? 7 : 5}px;flex-shrink:0;padding:${size > 16 ? 2 : 0}px"
     onclick="event.stopPropagation()" title="Voir sur TradingView">
-    <img src="https://logo.clearbit.com/${domain}" width="${size}" height="${size}"
-      style="border-radius:${size > 16 ? 4 : 3}px;vertical-align:middle"
+    <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" width="${size}" height="${size}"
+      style="border-radius:${size > 16 ? 4 : 3}px;vertical-align:middle;object-fit:contain"
       onerror="this.style.display='none'" loading="lazy">
   </a>`;
 }
