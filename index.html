@@ -1659,7 +1659,7 @@ Chart.register({
     if (ds?.fill !== undefined) {
       const lc = ds.borderColor || '#4ade80';
       const [r, g, b] = lc === '#f87171' ? [248, 113, 113] : [74, 222, 128];
-      const ag = ctx.createLinearGradient(chartArea.left, chartArea.top, chartArea.right, chartArea.bottom);
+      const ag = ctx.createLinearGradient(chartArea.left, chartArea.top, (chartArea.left + chartArea.right) / 2, (chartArea.top + chartArea.bottom) / 2);
       ag.addColorStop(0, `rgba(${r},${g},${b},0.30)`);
       ag.addColorStop(1, `rgba(${r},${g},${b},0.00)`);
       ds.backgroundColor = ag;
