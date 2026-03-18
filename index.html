@@ -503,6 +503,14 @@
       box-shadow: 0 0 10px rgba(99,102,241,0.45);
     }
 
+    .chart-mode-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+    .chart-mode-tab {
+      flex: 1; padding: 5px 0; border: none; border-radius: 6px;
+      background: var(--surface2); color: var(--text2);
+      font-size: 11px; font-weight: 600; cursor: pointer; letter-spacing: 0.04em;
+      transition: background 0.2s, color 0.2s;
+    }
+    .chart-mode-tab.active { background: rgba(99,102,241,0.18); color: var(--accent); }
     .charts-row { display: flex; flex-direction: column; gap: 8px; }
     .chart-sublabel { display: none; }
     @media (max-width: 767px) {
@@ -729,6 +737,10 @@
 
     <!-- Section 2 : graphiques mutualisés -->
     <div class="dash-section-charts">
+      <div class="chart-mode-tabs">
+        <button class="chart-mode-tab active" data-mode="cumul" onclick="switchChartMode('cumul')">Cumul</button>
+        <button class="chart-mode-tab" data-mode="perf" onclick="switchChartMode('perf')">Performance</button>
+      </div>
       <!-- Ligne des graphiques -->
       <div class="charts-row">
         <div class="charts-area-wrap">
@@ -1563,6 +1575,7 @@ const IS_TOUCH = 'ontouchstart' in window;
 // ── Range mode state ─────────────────────────────────────────────────────────
 let rangeMode = false;
 let rangeStartIdx = 0;
+let chartMode = 'cumul';
 let rangeEndIdx = 0;
 let draggingBar = null;
 let rangeAlpha = 0;          // 0→1 : opacité animée des barres/zone
@@ -1693,25 +1706,54 @@ Chart.register({
     const { ctx, chartArea } = chart;
     const pts = chart.getDatasetMeta(0)?.data;
     if (!pts || !pts.length) return;
+
+    if (chartMode === 'perf') {
+      const zeroY = chart.scales.y.getPixelForValue(0);
+      // Fill vert : au-dessus du zéro
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, zeroY);
+      pts.forEach(pt => ctx.lineTo(pt.x, Math.min(pt.y, zeroY)));
+      ctx.lineTo(pts[pts.length - 1].x, zeroY);
+      ctx.closePath(); ctx.clip();
+      ctx.globalCompositeOperation = 'destination-over';
+      const gh = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+      gh.addColorStop(0, 'rgba(74,222,128,0.25)'); gh.addColorStop(1, 'rgba(74,222,128,0.00)');
+      ctx.fillStyle = gh;
+      ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+      ctx.restore();
+      // Fill rouge : en-dessous du zéro
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, zeroY);
+      pts.forEach(pt => ctx.lineTo(pt.x, Math.max(pt.y, zeroY)));
+      ctx.lineTo(pts[pts.length - 1].x, zeroY);
+      ctx.closePath(); ctx.clip();
+      ctx.globalCompositeOperation = 'destination-over';
+      const rh = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+      rh.addColorStop(0, 'rgba(248,113,113,0.25)'); rh.addColorStop(1, 'rgba(248,113,113,0.00)');
+      ctx.fillStyle = rh;
+      ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+      ctx.restore();
+      return;
+    }
+
+    // Mode cumul (existant)
     const lc = chart.data.datasets[0]?.borderColor || '#4ade80';
     const [r, g, b] = lc === '#f87171' ? [248, 113, 113] : [74, 222, 128];
     const fadeH = (chartArea.bottom - chartArea.top) * 0.30;
     ctx.save();
-    // Clip au-dessous de la courbe (aire uniquement)
     ctx.beginPath();
     ctx.moveTo(pts[0].x, chartArea.bottom);
     pts.forEach(pt => ctx.lineTo(pt.x, pt.y));
     ctx.lineTo(pts[pts.length - 1].x, chartArea.bottom);
-    ctx.closePath();
-    ctx.clip();
-    // Gradient horizontal : destination-over → derrière la courbe, jamais au-dessus
+    ctx.closePath(); ctx.clip();
     ctx.globalCompositeOperation = 'destination-over';
     const hgrad = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
     hgrad.addColorStop(0, `rgba(${r},${g},${b},0.20)`);
     hgrad.addColorStop(1, `rgba(${r},${g},${b},0.00)`);
     ctx.fillStyle = hgrad;
     ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
-    // Fondu bas : source-over → par-dessus le gradient, 0% à 30% de hauteur → 100% à l'axe
     ctx.globalCompositeOperation = 'source-over';
     const bgrad = ctx.createLinearGradient(0, chartArea.bottom - fadeH, 0, chartArea.bottom);
     bgrad.addColorStop(0, 'rgba(15,23,42,0)');
@@ -1837,7 +1879,19 @@ function updateRangeDisplay() {
   }
   const startGainPct = gainPctAt(si);
   const endGainPct   = gainPctAt(ei);
-  const rangePct     = endGainPct - startGainPct;
+  // Calcul pondéré : endGain − (startGain × valeurDébut / valeurFin)
+  function totalValAt(rowIdx) {
+    let v = 0;
+    chartDonut.data.labels.forEach((lbl, j) => {
+      if (donutVisibility['shared' + j] === false) return;
+      const acc = ACCOUNTS.find(a => a.name === lbl);
+      const row = allData[rowIdx]; if (!row) return;
+      v += !acc ? (cristinaData[rowIdx] || 0) : (parseFloat(row[acc.idx]) || 0);
+    });
+    return v;
+  }
+  const startVal = totalValAt(si), endVal = totalValAt(ei);
+  const rangePct = endGainPct - (startGainPct * (endVal > 0 ? startVal / endVal : 1));
   _animateRangeColor(rangePct >= 0 ? 1 : 0);
   const sign = rangePct >= 0 ? '+' : '';
   const gc   = rangePct >= 0 ? 'var(--green)' : 'var(--red)';
@@ -1898,6 +1952,36 @@ function toggleRangeMode() {
     }
     _fadeEls.forEach(el => { el.style.opacity = '1'; });
   }, 300);
+}
+
+function switchChartMode(mode) {
+  if (chartMode === mode || !chartArea || !allData.length) return;
+  chartMode = mode;
+  document.querySelectorAll('.chart-mode-tab').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  if (mode === 'perf') {
+    const perfData = allData.map((_, i) => {
+      let val = 0, inv = 0;
+      ACCOUNTS.forEach(acc => {
+        const row = allData[i]; if (!row) return;
+        if (acc.key === 'cash') { const v = parseFloat(row[acc.idx]) || 0; val += v; inv += v; }
+        else { val += parseFloat(row[acc.idx]) || 0; inv += getInvestedAt(i, acc.key); }
+      });
+      const crv = cristinaData[i] || 0; val += crv; inv += crv;
+      return inv > 0 ? (val - inv) / inv * 100 : 0;
+    });
+    const maxAbs = Math.max(...perfData.map(v => Math.abs(v)), 1);
+    chartArea.data.datasets[0].data = perfData;
+    chartArea.options.scales.y.min = -(maxAbs * 1.15);
+    chartArea.options.scales.y.max = maxAbs * 1.15;
+  } else {
+    const totals = allData.map((row, i) =>
+      ACCOUNTS.reduce((s, a) => s + (parseFloat(row[a.idx]) || 0), 0) + (cristinaData[i] || 0)
+    );
+    chartArea.data.datasets[0].data = totals;
+    delete chartArea.options.scales.y.min;
+    delete chartArea.options.scales.y.max;
+  }
+  chartArea.update();
 }
 
 let rangeDragSetup = false;
@@ -2085,7 +2169,7 @@ function getChartOptions(type) {
         x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, callback: function(val) { const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']; const lbl = this.getLabelForValue(val); if (!lbl) return ''; let d = new Date(lbl); if (isNaN(d.getTime())) { const p = lbl.split('/'); if (p.length===3) d = new Date(`${p[2]}-${p[1]}-${p[0]}`); else if (p.length===2) { const dd=parseInt(p[0]),mm=parseInt(p[1]); let yr=new Date().getFullYear(); for(const row of allData){const fp=String(row[0]).split('/');if(fp.length===3){const ry=parseInt(fp[2]),rm=parseInt(fp[1]);yr=mm>rm?ry-1:ry;break;}} d=new Date(`${yr}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`); } } if (isNaN(d.getTime())) return lbl; return MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } }, grid: { display: false } },
         y: {
           ticks: { display: false },
-          grid: { color: 'rgba(30,41,59,0.8)' }
+          grid: { color: ctx => (chartMode === 'perf' && Math.abs(ctx.tick.value) < 0.001) ? 'rgba(100,116,139,0.55)' : 'rgba(30,41,59,0.8)' }
         }
       }
     };
@@ -2125,6 +2209,8 @@ function renderCharts() {
     ACCOUNTS.reduce((s, a) => s + (parseFloat(row[a.idx]) || 0), 0) + (cristinaData[i] || 0)
   );
   const lineColor = portfolioGainPositive ? '#4ade80' : '#f87171';
+  chartMode = 'cumul';
+  document.querySelectorAll('.chart-mode-tab').forEach(b => b.classList.toggle('active', b.dataset.mode === 'cumul'));
   const datasets = [{
     label: 'Total',
     data: totals,
@@ -2135,6 +2221,17 @@ function renderCharts() {
     borderWidth: 2.5,
     pointRadius: 0,
     pointHoverRadius: 4,
+    segment: {
+      borderColor: ctx => {
+        if (chartMode !== 'perf') return undefined;
+        const y0 = ctx.p0.parsed.y, y1 = ctx.p1.parsed.y;
+        const max = Math.abs(ctx.chart.scales.y?.max || 1);
+        const col = y => { const t = Math.min(1, Math.abs(y) / max); return y >= 0 ? lerpColor('#64748b','#4ade80',t) : lerpColor('#64748b','#f87171',t); };
+        const grad = ctx.chart.ctx.createLinearGradient(ctx.p0.x, 0, ctx.p1.x, 0);
+        grad.addColorStop(0, col(y0)); grad.addColorStop(1, col(y1));
+        return grad;
+      }
+    }
   }];
 
   if (chartArea) chartArea.destroy();
