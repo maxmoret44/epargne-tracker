@@ -1659,11 +1659,8 @@ Chart.register({
     if (ds?.fill !== undefined) {
       const lc = ds.borderColor || '#4ade80';
       const [r, g, b] = lc === '#f87171' ? [248, 113, 113] : [74, 222, 128];
-      const cx = (chartArea.left + chartArea.right) / 2;
-      const cy = (chartArea.top + chartArea.bottom) / 2;
-      const radius = Math.min((chartArea.right - chartArea.left) / 2, (chartArea.bottom - chartArea.top) / 2);
-      const ag = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      ag.addColorStop(0, `rgba(${r},${g},${b},0.30)`);
+      const ag = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+      ag.addColorStop(0, `rgba(${r},${g},${b},0.20)`);
       ag.addColorStop(1, `rgba(${r},${g},${b},0.00)`);
       ds.backgroundColor = ag;
     }
