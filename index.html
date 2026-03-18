@@ -1505,7 +1505,7 @@ function buildDonutLegend(chart, containerId) {
       chart.toggleDataVisibility(i);
       chart.update();
       updateDonutTotal(totalLabelId, data, containerId);
-      if (window.chartArea) chartArea.update('none');
+      if (window.chartArea) { chartArea.data.datasets[0].backgroundColor = null; chartArea.update('none'); }
     });
     container.appendChild(item);
   });
@@ -1690,7 +1690,7 @@ Chart.register({
     const { ctx, chartArea } = chart;
     const pts = chart.getDatasetMeta(0)?.data;
     if (!pts || !pts.length) return;
-    const fadeH = (chartArea.bottom - chartArea.top) * 0.15;
+    const fadeH = (chartArea.bottom - chartArea.top) * 0.30;
     ctx.save();
     // Clip au-dessous de la courbe (zone aire uniquement, pas la ligne)
     ctx.beginPath();
@@ -1849,41 +1849,42 @@ function toggleRangeMode() {
   rangeMode = !rangeMode;
   const btn = document.getElementById('rangeModeBtn');
   if (btn) btn.classList.toggle('active', rangeMode);
-  // Fondu des labels au changement de mode
+  // Fondu des labels : fade-out immédiat, mise à jour du contenu après 180ms
   const _fadeEls = ['sharedDateLabel','sharedTotalLabel','sharedGainsLabel']
     .map(id => document.getElementById(id)).filter(Boolean);
   _fadeEls.forEach(el => { el.style.transition = 'opacity 0.18s'; el.style.opacity = '0'; });
-  setTimeout(() => { _fadeEls.forEach(el => { el.style.opacity = '1'; }); }, 180);
-  if (rangeMode) {
-    rangeStartIdx = 0;
-    rangeEndIdx = allData.length - 1;
-    updateRangeDisplay();
-    _animateRangeAlpha(1); // fondu entrant des barres/zone
-  } else {
-    // Restore original donut colors
-    const origColors = ACCOUNTS.map(a => a.color);
-    if (chartDonut && chartDonut.data.labels.includes('Cristina')) origColors.push('#f48fb1');
-    if (chartDonut) {
-      chartDonut.data.datasets[0].borderColor = origColors;
-      chartDonut.data.datasets[0].backgroundColor = origColors.map(c => c + '33');
-      chartDonut.update({ duration: 220, easing: 'easeInOutCubic' });
+  _animateRangeAlpha(rangeMode ? 1 : 0);
+  setTimeout(() => {
+    if (rangeMode) {
+      rangeStartIdx = 0;
+      rangeEndIdx = allData.length - 1;
+      updateRangeDisplay();
+    } else {
+      // Restore original donut colors
+      const origColors = ACCOUNTS.map(a => a.color);
+      if (chartDonut && chartDonut.data.labels.includes('Cristina')) origColors.push('#f48fb1');
+      if (chartDonut) {
+        chartDonut.data.datasets[0].borderColor = origColors;
+        chartDonut.data.datasets[0].backgroundColor = origColors.map(c => c + '33');
+        chartDonut.update({ duration: 220, easing: 'easeInOutCubic' });
+      }
+      // Restaurer les couleurs de la légende
+      const _legendEl = document.getElementById('legendShared');
+      if (_legendEl && chartDonut) {
+        const lblColors = chartDonut.data.labels.map(lbl => {
+          const acc = ACCOUNTS.find(a => a.name === lbl);
+          return acc ? acc.color : '#f48fb1';
+        });
+        _legendEl.querySelectorAll('input[type="checkbox"]').forEach((cb, j) => {
+          styledCheckbox(cb, lblColors[j] || '#475569', cb.checked);
+        });
+      }
+      const dateEl = document.getElementById('sharedDateLabel');
+      if (dateEl) { dateEl.style.fontSize = ''; dateEl.textContent = ''; }
+      selectDataPoint(null);
     }
-    // Restaurer les couleurs de la légende
-    const _legendEl = document.getElementById('legendShared');
-    if (_legendEl && chartDonut) {
-      const lblColors = chartDonut.data.labels.map(lbl => {
-        const acc = ACCOUNTS.find(a => a.name === lbl);
-        return acc ? acc.color : '#f48fb1';
-      });
-      _legendEl.querySelectorAll('input[type="checkbox"]').forEach((cb, j) => {
-        styledCheckbox(cb, lblColors[j] || '#475569', cb.checked);
-      });
-    }
-    const dateEl = document.getElementById('sharedDateLabel');
-    if (dateEl) { dateEl.style.fontSize = ''; dateEl.textContent = ''; }
-    selectDataPoint(null);
-    _animateRangeAlpha(0); // fondu sortant des barres/zone
-  }
+    _fadeEls.forEach(el => { el.style.opacity = '1'; });
+  }, 180);
 }
 
 let rangeDragSetup = false;
