@@ -2485,23 +2485,25 @@ const PEA_DEFAULTS = [
   { name: 'Air Liquide',           ticker: 'AI.PA',    qty: 2,  purchasePrice: 166.50, sector: 'Industrie',    geo: 'France'    },
   { name: 'BNP Paribas',           ticker: 'BNP.PA',   qty: 1,  purchasePrice: 75.99,  sector: 'Finance',      geo: 'France'    },
   { name: 'Sanofi',                ticker: 'SAN.PA',   qty: 2,  purchasePrice: 88.08,  sector: 'Santé',        geo: 'France'    },
-  { name: 'TotalEnergies',         ticker: 'TTE.PA',   qty: 5,  purchasePrice: 55.74,  sector: 'Énergie',      geo: 'France'    },
+  { name: 'TotalEnergies',         ticker: 'TTE.PA',   qty: 5,  purchasePrice: 75.66,  sector: 'Énergie',      geo: 'France'    },
   { name: 'Veolia',                ticker: 'VIE.PA',   qty: 4,  purchasePrice: 31.03,  sector: 'Services',     geo: 'France'    },
   { name: 'Technip Energies',      ticker: 'TE.PA',    qty: 4,  purchasePrice: 32.16,  sector: 'Industrie',    geo: 'France'    },
   { name: 'Amundi PEA Em MSCI ESG',ticker: 'PAEEM.PA', qty: 4,  purchasePrice: 31.26,  sector: 'ETF Diversifié', geo: 'Émergents' },
   { name: 'Michelin',              ticker: 'ML.PA',    qty: 5,  purchasePrice: 32.93,  sector: 'Industrie',    geo: 'France'    },
   { name: 'Bureau Veritas',        ticker: 'BVI.PA',   qty: 4,  purchasePrice: 28.66,  sector: 'Services',     geo: 'France'    },
   { name: 'FDJ United',            ticker: 'FDJU.PA',  qty: 4,  purchasePrice: 30.80,  sector: 'Consommation', geo: 'France'    },
-  { name: 'Galp',                  ticker: 'GALP.LS',  qty: 10, purchasePrice: 19.43,  sector: 'Énergie',      geo: 'Europe'    },
-  { name: 'Dassault Systèmes',     ticker: 'DSY.PA',   qty: 2,  purchasePrice: 28.27,  sector: 'Technologie',  geo: 'France'    },
   { name: 'Carrefour',             ticker: 'CA.PA',    qty: 10, purchasePrice: 13.31,  sector: 'Distribution', geo: 'France'    },
-  { name: 'Forvia',                ticker: 'FRVIA.PA', qty: 10, purchasePrice: 8.30,   sector: 'Industrie',    geo: 'France'    },
+  { name: 'Forvia',                ticker: 'FRVIA.PA', qty: 5,  purchasePrice: 8.30,   sector: 'Industrie',    geo: 'France'    },
+  { name: 'Schneider Electric',    ticker: 'SU.PA',    qty: 1,  purchasePrice: 260.38, sector: 'Industrie',    geo: 'France'    },
 ];
+const PEA_DEFAULTS_VERSION = '2026-03-18';
 
 function getPeaHoldings() {
-  const stored = localStorage.getItem('epargne_pea_holdings');
-  if (!stored) {
+  const stored    = localStorage.getItem('epargne_pea_holdings');
+  const storedVer = localStorage.getItem('epargne_pea_holdings_version');
+  if (!stored || storedVer !== PEA_DEFAULTS_VERSION) {
     savePeaHoldings(PEA_DEFAULTS);
+    localStorage.setItem('epargne_pea_holdings_version', PEA_DEFAULTS_VERSION);
     return PEA_DEFAULTS;
   }
   // Backfill purchasePrice from defaults for any holding missing it (older stored versions)
@@ -2515,6 +2517,7 @@ function getPeaHoldings() {
 }
 function savePeaHoldings(h) {
   localStorage.setItem('epargne_pea_holdings', JSON.stringify(h));
+  localStorage.setItem('epargne_pea_holdings_version', PEA_DEFAULTS_VERSION);
 }
 
 async function openPeaModal() {
