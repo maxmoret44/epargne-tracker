@@ -503,14 +503,14 @@
       box-shadow: 0 0 10px rgba(99,102,241,0.45);
     }
 
-    .chart-mode-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+    .chart-mode-tabs { display: flex; gap: 14px; margin-bottom: 6px; padding-left: 2px; }
     .chart-mode-tab {
-      flex: 1; padding: 5px 0; border: none; border-radius: 6px;
-      background: var(--surface2); color: var(--text2);
-      font-size: 11px; font-weight: 600; cursor: pointer; letter-spacing: 0.04em;
-      transition: background 0.2s, color 0.2s;
+      padding: 2px 0; border: none; background: none;
+      color: var(--text2); opacity: 0.38;
+      font-size: 11px; font-weight: 600; cursor: pointer; letter-spacing: 0.05em;
+      transition: opacity 0.2s, color 0.2s;
     }
-    .chart-mode-tab.active { background: rgba(99,102,241,0.18); color: var(--accent); }
+    .chart-mode-tab.active { opacity: 1; color: var(--accent); }
     .charts-row { display: flex; flex-direction: column; gap: 8px; }
     .chart-sublabel { display: none; }
     @media (max-width: 767px) {
@@ -737,13 +737,13 @@
 
     <!-- Section 2 : graphiques mutualisés -->
     <div class="dash-section-charts">
-      <div class="chart-mode-tabs">
-        <button class="chart-mode-tab active" data-mode="cumul" onclick="switchChartMode('cumul')">Cumul</button>
-        <button class="chart-mode-tab" data-mode="perf" onclick="switchChartMode('perf')">Performance</button>
-      </div>
       <!-- Ligne des graphiques -->
       <div class="charts-row">
         <div class="charts-area-wrap">
+          <div class="chart-mode-tabs">
+            <button class="chart-mode-tab active" data-mode="cumul" onclick="switchChartMode('cumul')">Cumul</button>
+            <button class="chart-mode-tab" data-mode="perf" onclick="switchChartMode('perf')">Performance</button>
+          </div>
           <div style="position:relative">
             <canvas id="chartArea"></canvas>
           </div>
@@ -1530,7 +1530,7 @@ function buildDonutLegend(chart, containerId) {
       chart.toggleDataVisibility(i);
       chart.update();
       updateDonutTotal(totalLabelId, data, containerId);
-      if (window.chartArea) chartArea.update('none');
+      if (window.chartArea) { if (chartMode === 'perf') switchChartMode('perf'); else chartArea.update('none'); }
     });
     container.appendChild(item);
   });
@@ -1955,7 +1955,7 @@ function toggleRangeMode() {
 }
 
 function switchChartMode(mode) {
-  if (chartMode === mode || !chartArea || !allData.length) return;
+  if (!chartArea || !allData.length) return;
   chartMode = mode;
   document.querySelectorAll('.chart-mode-tab').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
   if (mode === 'perf') {
