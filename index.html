@@ -2837,7 +2837,7 @@ function renderPeaTable(listEl, holdings, prices) {
     const gc  = gain == null ? 'var(--text2)' : (gain >= 0 ? 'var(--green)' : 'var(--red)');
     const gs  = gain == null ? '—' : `${gain >= 0 ? '+' : ''}${fmt(gain)}<br><span style="font-size:10px">${gain >= 0 ? '+' : ''}${gainPct}%</span>`;
     rows += `
-      <div style="padding:8px 0"><div style="font-weight:500;display:flex;align-items:center">${h.name}${getTickerLogo(h.ticker, 20)}</div><div style="font-size:10px;color:var(--text2)">${h.ticker} · ${h.qty} parts${h.purchasePrice > 0 ? ` · px: ${h.purchasePrice.toFixed(2)}€` : ''}</div></div>
+      <div style="padding:8px 0"><div style="font-weight:500;display:flex;align-items:center;justify-content:space-between">${h.name}${getTickerLogo(h.ticker, 20)}</div><div style="font-size:10px;color:var(--text2)">${h.ticker} · ${h.qty} parts${h.purchasePrice > 0 ? ` · px: ${h.purchasePrice.toFixed(2)}€` : ''}</div></div>
       <span style="text-align:right;white-space:nowrap;padding:8px 0">${price != null ? price.toFixed(2)+'€' : '—'}</span>
       <span style="text-align:right;color:${gc};white-space:nowrap;line-height:1.4;padding:8px 0">${gs}</span>
       <span style="text-align:right;font-weight:600;white-space:nowrap;padding:8px 0">${val != null ? fmt(val) : '—'}</span>
