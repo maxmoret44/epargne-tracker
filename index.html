@@ -335,6 +335,59 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* CLAUDE CHAT */
+    #claude { padding: 0; }
+    .claude-msg {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.5;
+      word-wrap: break-word;
+    }
+    .claude-msg.user {
+      align-self: flex-end;
+      background: var(--accent);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .claude-msg.assistant {
+      align-self: flex-start;
+      background: var(--surface);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+    .claude-msg.system {
+      align-self: center;
+      background: var(--surface2);
+      color: var(--text2);
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 12px;
+    }
+    .claude-typing {
+      align-self: flex-start;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--text2);
+      display: flex;
+      align-items: center;
+    }
+    #claudeMessages::-webkit-scrollbar { width: 4px; }
+    #claudeMessages::-webkit-scrollbar-track { background: transparent; }
+    #claudeMessages::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+    #claudeMessages { scrollbar-width: thin; scrollbar-color: var(--surface2) transparent; }
+    #claudeMicBtn.recording {
+      background: #7f1d1d;
+      border-color: var(--red);
+      animation: micPulse 1s ease-in-out infinite;
+    }
+    #claudeMicBtn.recording svg { stroke: var(--red); }
+    @keyframes micPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+      50%       { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+    }
+
     /* INJECTION TOGGLE */
     .injection-section { margin: 16px 0; }
     .injection-toggle {
@@ -720,6 +773,12 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         <span class="nav-label">Config</span>
       </button>
+      <button data-page="claude">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
+        </svg>
+        <span class="nav-label">Claude</span>
+      </button>
     </div>
   </nav>
 
@@ -916,6 +975,13 @@
       <input type="text" id="cfgTargetTab" value="Feuille 1" placeholder="Feuille 1">
     </div>
 
+    <div class="setting-item">
+      <label>Clé API Claude (Anthropic)</label>
+      <p>Obtenir une clé sur <a href="https://console.anthropic.com/" target="_blank" style="color:var(--accent)">console.anthropic.com</a></p>
+      <input type="password" id="claudeApiKey" placeholder="sk-ant-api03-...">
+      <div id="claudeKeyStatus" style="font-size:12px; margin-top:6px; color:var(--text2);">Non configurée</div>
+    </div>
+
     <button class="btn" onclick="saveConfig()">Sauvegarder</button>
     <button class="btn btn-secondary" onclick="connectGoogle()">Connecter Google</button>
 
@@ -926,6 +992,43 @@
       <div id="connectionStatus" style="padding: 8px 0; font-size: 14px; color: var(--text2);">Non connecté</div>
     </div>
 
+  </div>
+
+  <!-- CLAUDE CHAT -->
+  <div id="claude" class="page">
+    <div style="display:flex; flex-direction:column; height:calc(100dvh - 80px);">
+      <!-- Header -->
+      <div style="padding:16px 16px 12px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; border-bottom:1px solid var(--surface2);">
+        <div>
+          <h1 style="font-size:18px; font-weight:600;">Assistant Claude</h1>
+          <p style="color:var(--text2); font-size:12px; margin-top:2px;">Parle naturellement pour gérer ton épargne</p>
+        </div>
+        <button onclick="resetClaudeConversation()" style="background:var(--surface2); border:none; border-radius:8px; color:var(--text2); font-size:12px; padding:6px 10px; cursor:pointer; font-family:inherit;">Nouvelle conv.</button>
+      </div>
+
+      <!-- Messages -->
+      <div id="claudeMessages" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px;">
+      </div>
+
+      <!-- Input -->
+      <div style="flex-shrink:0; padding:12px 16px; display:flex; gap:8px; border-top:1px solid var(--surface2);">
+        <input type="text" id="claudeInput" placeholder="Ex: Mon Livret A est à 15 200€..."
+          style="flex:1; padding:12px 16px; background:var(--surface); border:1px solid var(--surface2); border-radius:24px; color:var(--text); font-size:14px; font-family:inherit; outline:none;"
+          onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); handleClaudeSend(); }"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--surface2)'"
+        />
+        <button id="claudeMicBtn" onclick="toggleVoiceInput()" title="Dicter vocalement" style="background:var(--surface); border:1px solid var(--surface2); border-radius:50%; width:44px; height:44px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background 0.2s, border-color 0.2s;">
+          <svg id="claudeMicIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2">
+            <rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+        <button onclick="handleClaudeSend()" style="background:var(--accent); border:none; border-radius:50%; width:44px; height:44px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- BOURSOVIE / ASSURANCE VIE MODAL -->
@@ -1142,6 +1245,10 @@ function saveConfig() {
   };
   localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
   if (cfg.clientId) localStorage.setItem('epargne_client_id', cfg.clientId);
+  const claudeKey = document.getElementById('claudeApiKey').value.trim();
+  if (claudeKey) localStorage.setItem('claudeApiKey', claudeKey);
+  else localStorage.removeItem('claudeApiKey');
+  updateClaudeKeyStatus();
   document.getElementById('syncStatus').textContent = 'Configuration sauvegardée !';
   loadData();
 }
@@ -1152,6 +1259,22 @@ function loadConfig() {
   document.getElementById('cfgApiKey').value = cfg.apiKey;
   document.getElementById('cfgClientId').value = cfg.clientId;
   document.getElementById('cfgTargetTab').value = cfg.targetTab;
+  const claudeKey = localStorage.getItem('claudeApiKey') || '';
+  document.getElementById('claudeApiKey').value = claudeKey;
+  updateClaudeKeyStatus();
+}
+
+function updateClaudeKeyStatus() {
+  const el = document.getElementById('claudeKeyStatus');
+  if (!el) return;
+  const key = localStorage.getItem('claudeApiKey');
+  if (key) {
+    el.textContent = 'Clé Claude configurée ✓';
+    el.style.color = 'var(--green)';
+  } else {
+    el.textContent = 'Non configurée';
+    el.style.color = 'var(--text2)';
+  }
 }
 
 // ============== GOOGLE SHEETS API ==============
@@ -3476,6 +3599,7 @@ document.querySelectorAll('.nav button').forEach(btn => {
     btn.classList.add('active');
     document.getElementById(btn.dataset.page).classList.add('active');
     if (btn.dataset.page === 'dashboard') resetChartToToday();
+    if (btn.dataset.page === 'claude') initClaudeTab();
   });
 });
 
@@ -3560,6 +3684,374 @@ window.addEventListener('load', () => {
     }).catch(() => {});
   }
 });
+
+// ============== CLAUDE CHAT ==============
+
+const CLAUDE_SYSTEM_PROMPT = `Tu es l'assistant financier intégré à l'app Épargne Tracker de Max. Tu parles en français, de façon concise et directe.
+
+Contexte financier de Max :
+- PEA chez Trade Republic (actions européennes, pas de fractions)
+- Assurance-vie BoursoVie chez Boursobank
+- Livret A à la Caisse d'Épargne
+- Bitcoin (CTO) chez Trade Republic
+- Cash (compte courant) chez Trade Republic
+- Plan DCA : 400€/mois répartis sur les enveloppes
+
+Tu peux lire le portfolio, mettre à jour les soldes, lister les actifs PEA, voir l'historique, calculer l'avancement DCA.
+
+Quand Max donne un nouveau solde, utilise epargne_update_balance. Si un seul compte change, ne modifie que celui-là.
+
+Pour les analyses d'actions : P/E, ROE, marge opérationnelle, dette/fonds propres, croissance bénéfices 5 ans, dividendes, opinion objective dans le cadre du PEA.
+
+Sois concis. Pas de formules de politesse. Va droit au but.`;
+
+const CLAUDE_TOOLS_DEFINITIONS = [
+  {
+    name: "epargne_get_portfolio",
+    description: "Récupère le résumé complet du patrimoine : soldes (BoursoVie, Bitcoin, TR PEA, CE Livret A, TR Cash), total, date de mise à jour, plus-values. Utilise quand l'utilisateur demande un bilan, résumé, ou 'où j'en suis'.",
+    input_schema: { type: "object", properties: {}, required: [] }
+  },
+  {
+    name: "epargne_update_balance",
+    description: "Met à jour les soldes d'une ou plusieurs enveloppes. Ajoute une nouvelle ligne dans le Google Sheet avec la date du jour et les nouveaux soldes. Utilise quand l'utilisateur dit 'mon Livret A est à X€' ou 'met à jour mes soldes'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        boursoVie: { type: "number", description: "Solde BoursoVie. Omettre si inchangé." },
+        bitcoin:   { type: "number", description: "Solde Bitcoin CTO en euros. Omettre si inchangé." },
+        trPea:     { type: "number", description: "Solde TR PEA. Omettre si inchangé." },
+        livretA:   { type: "number", description: "Solde CE Livret A. Omettre si inchangé." },
+        trCash:    { type: "number", description: "Solde TR Cash. Omettre si inchangé." },
+        cristina:  { type: "number", description: "Total épargne Cristina. Omettre si inchangé." }
+      },
+      required: []
+    }
+  },
+  {
+    name: "epargne_list_pea_assets",
+    description: "Liste tous les actifs dans le PEA avec ticker, quantité, prix d'achat. Utilise quand l'utilisateur demande 'qu'est-ce que j'ai dans mon PEA' ou 'mes actions'.",
+    input_schema: { type: "object", properties: {}, required: [] }
+  },
+  {
+    name: "epargne_get_history",
+    description: "Récupère l'historique des soldes sur une période. Utilise quand l'utilisateur demande l'évolution, tendance, ou historique.",
+    input_schema: {
+      type: "object",
+      properties: {
+        last_n: { type: "number", description: "Nombre de dernières entrées (défaut: 10)" }
+      },
+      required: []
+    }
+  },
+  {
+    name: "epargne_get_dca_status",
+    description: "Calcule l'état du DCA pour le mois en cours (objectif 400€/mois). Utilise quand l'utilisateur demande 'où j'en suis sur mon DCA' ou 'combien il me reste à investir ce mois'.",
+    input_schema: { type: "object", properties: {}, required: [] }
+  }
+];
+
+const TOOL_EXECUTORS = {
+  epargne_get_portfolio: async () => {
+    if (!allData.length) return { error: 'Pas de données disponibles. Connecte-toi à Google d\'abord.' };
+    const last = allData[allData.length - 1];
+    const cristina = cristinaData[cristinaData.length - 1] || 0;
+    const boursoVie = parseFloat(last[1]) || 0;
+    const bitcoin   = parseFloat(last[2]) || 0;
+    const trPea     = parseFloat(last[3]) || 0;
+    const livretA   = parseFloat(last[4]) || 0;
+    const trCash    = parseFloat(last[5]) || 0;
+    const totalMax  = boursoVie + bitcoin + trPea + livretA + trCash;
+    const invested  = (investedAmounts.boursovie || 0) + (investedAmounts.cto || 0)
+                    + (investedAmounts.pea || 0) + (investedAmounts.livret || 0);
+    const gainAbs   = invested > 0 ? totalMax - invested : null;
+    const gainPct   = invested > 0 ? ((totalMax - invested) / invested * 100).toFixed(2) : null;
+    return {
+      date: last[0],
+      boursoVie, bitcoin, trPea, livretA, trCash,
+      totalMax,
+      cristina,
+      totalEpargne: totalMax + cristina,
+      investiMax: invested,
+      plusValueAbs: gainAbs,
+      plusValuePct: gainPct ? `${gainPct}%` : null
+    };
+  },
+
+  epargne_update_balance: async (params) => {
+    if (!accessToken) return { error: 'Non connecté à Google. Va dans Config > Connecter Google.' };
+    if (!allData.length) return { error: 'Pas de données disponibles.' };
+    const last = allData[allData.length - 1];
+    const prev = {
+      boursoVie: parseFloat(last[1]) || 0,
+      bitcoin:   parseFloat(last[2]) || 0,
+      trPea:     parseFloat(last[3]) || 0,
+      livretA:   parseFloat(last[4]) || 0,
+      trCash:    parseFloat(last[5]) || 0,
+      cristina:  cristinaData[cristinaData.length - 1] || 0
+    };
+    const newVals = {
+      boursoVie: params.boursoVie !== undefined ? params.boursoVie : prev.boursoVie,
+      bitcoin:   params.bitcoin   !== undefined ? params.bitcoin   : prev.bitcoin,
+      trPea:     params.trPea     !== undefined ? params.trPea     : prev.trPea,
+      livretA:   params.livretA   !== undefined ? params.livretA   : prev.livretA,
+      trCash:    params.trCash    !== undefined ? params.trCash    : prev.trCash,
+      cristina:  params.cristina  !== undefined ? params.cristina  : prev.cristina
+    };
+    const total = newVals.boursoVie + newVals.bitcoin + newVals.trPea + newVals.livretA + newVals.trCash;
+    const today = new Date().toLocaleDateString('fr-FR');
+    const cfg   = getConfig();
+    const newRow = [today, newVals.boursoVie, newVals.bitcoin, newVals.trPea, newVals.livretA, newVals.trCash, total, newVals.cristina, '', '', '', '', ''];
+    await sheetsAppend(`'${cfg.targetTab}'!A1`, [newRow]);
+    await loadData();
+    return { success: true, date: today, newVals, totalMax: total, totalEpargne: total + newVals.cristina };
+  },
+
+  epargne_list_pea_assets: async () => {
+    const holdings = getPeaHoldings();
+    const cash     = getPeaCash();
+    const peaVal   = allData.length ? (parseFloat(allData[allData.length - 1][3]) || 0) : null;
+    return {
+      holdings: holdings.map(h => ({
+        name: h.name, ticker: h.ticker, qty: h.qty,
+        purchasePrice: h.purchasePrice,
+        purchaseValue: +(h.qty * h.purchasePrice).toFixed(2),
+        sector: h.sector, geo: h.geo
+      })),
+      liquidites: cash,
+      totalPEA: peaVal
+    };
+  },
+
+  epargne_get_history: async (params) => {
+    if (!allData.length) return { error: 'Pas de données.' };
+    const n    = params.last_n || 10;
+    const rows = allData.slice(-n);
+    return {
+      entries: rows.map((r, i) => ({
+        date:      r[0],
+        boursoVie: parseFloat(r[1]) || 0,
+        bitcoin:   parseFloat(r[2]) || 0,
+        trPea:     parseFloat(r[3]) || 0,
+        livretA:   parseFloat(r[4]) || 0,
+        trCash:    parseFloat(r[5]) || 0,
+        totalMax:  parseFloat(r[6]) || 0,
+        cristina:  cristinaData[allData.length - rows.length + i] || 0
+      }))
+    };
+  },
+
+  epargne_get_dca_status: async () => {
+    if (!allData.length) return { error: 'Pas de données.' };
+    const DCA_OBJECTIF = 400;
+    const now       = new Date();
+    const thisMonth = now.getMonth();
+    const thisYear  = now.getFullYear();
+    const parseDateStr = s => {
+      const p = String(s).split('/');
+      if (p.length === 3) return new Date(`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`);
+      return new Date(s);
+    };
+    const monthRows = allData.filter(r => {
+      const d = parseDateStr(r[0]);
+      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+    });
+    if (monthRows.length < 2) {
+      return { objectif: DCA_OBJECTIF, investiCeMois: 0, resteAInvestir: DCA_OBJECTIF, message: 'Pas assez de données pour ce mois.' };
+    }
+    const first = monthRows[0];
+    const last  = monthRows[monthRows.length - 1];
+    const deltaTotal = (parseFloat(last[6]) || 0) - (parseFloat(first[6]) || 0);
+    const resteAInvestir = Math.max(0, DCA_OBJECTIF - deltaTotal);
+    return {
+      objectif: DCA_OBJECTIF,
+      investiCeMois: Math.round(deltaTotal),
+      resteAInvestir: Math.round(resteAInvestir),
+      progressPct: Math.min(100, Math.round(deltaTotal / DCA_OBJECTIF * 100))
+    };
+  }
+};
+
+// ---- Conversation state ----
+let conversationHistory = [];
+let claudeTabInitialized = false;
+
+function initClaudeTab() {
+  if (claudeTabInitialized) return;
+  claudeTabInitialized = true;
+  const msg = document.createElement('div');
+  msg.className = 'claude-msg system';
+  msg.innerHTML = 'Salut Max ! Je peux t\'aider à :<br><br>💰 Mettre à jour tes soldes<br>📊 Voir ton portfolio et tes plus-values<br>📈 Analyser tes actions PEA<br>🎯 Suivre ton DCA mensuel<br>📅 Consulter ton historique<br><br>Tape ou <strong>dicte vocalement</strong> (bouton 🎤) ce que tu veux faire.';
+  document.getElementById('claudeMessages').appendChild(msg);
+}
+
+function resetClaudeConversation() {
+  conversationHistory = [];
+  claudeTabInitialized = false;
+  document.getElementById('claudeMessages').innerHTML = '';
+  initClaudeTab();
+}
+
+function displayUserMessage(text) {
+  const container = document.getElementById('claudeMessages');
+  const div = document.createElement('div');
+  div.className = 'claude-msg user';
+  div.textContent = text;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function displayAssistantMessage(text) {
+  const typing = document.querySelector('.claude-typing');
+  if (typing) typing.remove();
+  const container = document.getElementById('claudeMessages');
+  const div = document.createElement('div');
+  div.className = 'claude-msg assistant';
+  div.innerHTML = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTypingIndicator() {
+  const container = document.getElementById('claudeMessages');
+  const div = document.createElement('div');
+  div.className = 'claude-typing';
+  div.innerHTML = '<span class="spinner" style="width:16px;height:16px;margin-right:8px;border-width:2px;"></span>Claude réfléchit...';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+async function sendClaudeMessage(userMessage) {
+  const apiKey = localStorage.getItem('claudeApiKey');
+  if (!apiKey) {
+    displayAssistantMessage('Configure ta clé API Claude dans l\'onglet Config → "Clé API Claude (Anthropic)".');
+    return;
+  }
+
+  conversationHistory.push({ role: 'user', content: userMessage });
+
+  let wroteData = false;
+  let continueLoop = true;
+  while (continueLoop) {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        system: CLAUDE_SYSTEM_PROMPT,
+        tools: CLAUDE_TOOLS_DEFINITIONS,
+        messages: conversationHistory
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Erreur API ${response.status}`);
+    }
+
+    const data = await response.json();
+    conversationHistory.push({ role: 'assistant', content: data.content });
+
+    if (data.stop_reason === 'tool_use') {
+      const toolResults = [];
+      for (const block of data.content) {
+        if (block.type !== 'tool_use') continue;
+        try {
+          const executor = TOOL_EXECUTORS[block.name];
+          if (!executor) throw new Error(`Tool inconnu : ${block.name}`);
+          const result = await executor(block.input || {});
+          if (block.name === 'epargne_update_balance' && result.success) wroteData = true;
+          toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
+        } catch (err) {
+          toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify({ error: err.message }), is_error: true });
+        }
+      }
+      conversationHistory.push({ role: 'user', content: toolResults });
+    } else {
+      continueLoop = false;
+      const finalText = data.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
+      displayAssistantMessage(finalText);
+      if (wroteData) {
+        // dashboard already refreshed by loadData() inside update_balance executor
+      }
+    }
+  }
+}
+
+// ---- Voice input ----
+let voiceRecognition = null;
+let voiceRecording   = false;
+
+function toggleVoiceInput() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert('La dictée vocale n\'est pas supportée sur ce navigateur. Essaie Chrome ou Safari.');
+    return;
+  }
+
+  if (voiceRecording) {
+    voiceRecognition.stop();
+    return;
+  }
+
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.lang = 'fr-FR';
+  voiceRecognition.interimResults = true;
+  voiceRecognition.maxAlternatives = 1;
+
+  const btn   = document.getElementById('claudeMicBtn');
+  const input = document.getElementById('claudeInput');
+
+  voiceRecognition.onstart = () => {
+    voiceRecording = true;
+    btn.classList.add('recording');
+    input.placeholder = 'Écoute en cours...';
+  };
+
+  voiceRecognition.onresult = (e) => {
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+    input.value = transcript;
+    if (e.results[e.results.length - 1].isFinal) {
+      voiceRecognition.stop();
+    }
+  };
+
+  voiceRecognition.onerror = () => { voiceRecognition.stop(); };
+
+  voiceRecognition.onend = () => {
+    voiceRecording = false;
+    btn.classList.remove('recording');
+    input.placeholder = 'Ex: Mon Livret A est à 15 200€...';
+    if (input.value.trim()) handleClaudeSend();
+  };
+
+  voiceRecognition.start();
+}
+
+async function handleClaudeSend() {
+  const input = document.getElementById('claudeInput');
+  const text  = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  displayUserMessage(text);
+  showTypingIndicator();
+  try {
+    await sendClaudeMessage(text);
+  } catch (err) {
+    const typing = document.querySelector('.claude-typing');
+    if (typing) typing.remove();
+    displayAssistantMessage('Erreur : ' + err.message);
+  }
+}
 </script>
 
 
