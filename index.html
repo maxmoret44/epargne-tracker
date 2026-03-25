@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="apple-touch-icon" href="logo.png">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     :root {
@@ -167,6 +167,8 @@
       display: flex; align-items: center; gap: 6px;
       cursor: pointer; font-size: 12px; color: var(--text2);
       user-select: none; padding: 2px 0;
+      font-family: 'Noto Sans', sans-serif;
+      border-radius: 0;
     }
     @media (max-width: 767px) {
       .legend-item { font-size: 13px; gap: 8px; padding: 5px 0; }
@@ -518,6 +520,7 @@
       padding: 2px 0; border: none; background: none;
       color: var(--text2); opacity: 0.38;
       font-size: 14px; font-weight: 600; cursor: pointer; letter-spacing: 0.05em;
+      font-family: 'Noto Sans', sans-serif;
       transition: opacity 0.2s, color 0.2s;
     }
     .chart-mode-tab.active { opacity: 1; color: var(--accent); }
@@ -617,7 +620,7 @@
         font-size: 13px; gap: 8px;
         padding: 10px 8px;
         background: var(--surface);
-        border-radius: 8px;
+        border-radius: 0;
         justify-content: flex-start;
       }
       #legendShared .legend-item input[type="checkbox"] { width: 16px; height: 16px; }
@@ -751,8 +754,8 @@
       <div class="charts-row">
         <div class="charts-area-wrap">
           <div class="chart-mode-tabs">
-            <button class="chart-mode-tab active" data-mode="cumul" onclick="switchChartMode('cumul')">Cumul</button>
-            <button class="chart-mode-tab" data-mode="perf" onclick="switchChartMode('perf')">Performance</button>
+            <button class="chart-mode-tab active" data-mode="perf" onclick="switchChartMode('perf')">Performance</button>
+            <button class="chart-mode-tab" data-mode="cumul" onclick="switchChartMode('cumul')">Cumul</button>
           </div>
           <div style="position:relative">
             <canvas id="chartArea"></canvas>
@@ -1641,13 +1644,16 @@ Chart.register({
   id: 'crosshair',
   afterDraw(chart) {
     if (rangeMode) return;
+    if (chart.config.type === 'doughnut') return;
     const active = chart.getActiveElements();
     if (!active.length) return;
     const { ctx, chartArea: { top, bottom } } = chart;
     const el = active[0].element;
     const x = el.x;
     const y = el.y;
-    const lineColor = chart.data.datasets[0]?.borderColor || '#4ade80';
+    const dataValue = chart.data.datasets[0]?.data[active[0].index] ?? 0;
+    const perfTarget = dataValue >= 0 ? '#4ade80' : '#f87171';
+    const dotColor = lerpColor('#f5b731', perfTarget, chartModeT);
 
     ctx.save();
 
@@ -1662,14 +1668,13 @@ Chart.register({
     // Halo extérieur (glow)
     ctx.beginPath();
     ctx.arc(x, y, 9, 0, Math.PI * 2);
-    ctx.fillStyle = typeof lineColor === 'string'
-      ? lineColor + '30' : 'rgba(74,222,128,0.19)';
+    ctx.fillStyle = dotColor + '30';
     ctx.fill();
 
     // Anneau coloré
     ctx.beginPath();
     ctx.arc(x, y, 5, 0, Math.PI * 2);
-    ctx.strokeStyle = lineColor;
+    ctx.strokeStyle = dotColor;
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -1731,10 +1736,34 @@ Chart.register({
     const pts = chart.getDatasetMeta(0)?.data;
     if (!pts || !pts.length) return;
 
-    if (chartMode === 'perf') {
-      const zeroY = chart.scales.y.getPixelForValue(0);
-      // Fill vert : au-dessus du zéro
+    const t = chartModeT; // 0=cumul, 1=perf
+
+    // Fill cumul (gold) — seul le dégradé horizontal fond via globalAlpha = 1-t
+    if (t < 1) {
+      const lc = chart.data.datasets[0]?.borderColor || '#f5b731';
+      const [r, g, b] = lc === '#f87171' ? [248, 113, 113] : lc === '#f5b731' ? [245, 183, 49] : [74, 222, 128];
       ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, chartArea.bottom);
+      pts.forEach(pt => ctx.lineTo(pt.x, pt.y));
+      ctx.lineTo(pts[pts.length - 1].x, chartArea.bottom);
+      ctx.closePath(); ctx.clip();
+      ctx.globalAlpha = 1 - t;
+      ctx.globalCompositeOperation = 'destination-over';
+      const hgrad = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+      hgrad.addColorStop(0, `rgba(${r},${g},${b},0.20)`);
+      hgrad.addColorStop(1, `rgba(${r},${g},${b},0.00)`);
+      ctx.fillStyle = hgrad;
+      ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+      ctx.restore();
+    }
+
+    // Fill perf (vert/rouge) — tout le bloc suit globalAlpha = t
+    if (t > 0) {
+      const zeroY = chart.scales.y.getPixelForValue(0);
+      // Vert au-dessus du zéro
+      ctx.save();
+      ctx.globalAlpha = t;
       ctx.beginPath();
       ctx.moveTo(pts[0].x, zeroY);
       pts.forEach(pt => ctx.lineTo(pt.x, Math.min(pt.y, zeroY)));
@@ -1746,8 +1775,9 @@ Chart.register({
       ctx.fillStyle = gh;
       ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
       ctx.restore();
-      // Fill rouge : en-dessous du zéro
+      // Rouge en-dessous du zéro
       ctx.save();
+      ctx.globalAlpha = t;
       ctx.beginPath();
       ctx.moveTo(pts[0].x, zeroY);
       pts.forEach(pt => ctx.lineTo(pt.x, Math.max(pt.y, zeroY)));
@@ -1759,25 +1789,11 @@ Chart.register({
       ctx.fillStyle = rh;
       ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
       ctx.restore();
-      return;
     }
 
-    // Mode cumul (existant)
-    const lc = chart.data.datasets[0]?.borderColor || '#4ade80';
-    const [r, g, b] = lc === '#f87171' ? [248, 113, 113] : [74, 222, 128];
+    // Fondu sombre bas — toujours présent, indépendant de la transition
     const fadeH = (chartArea.bottom - chartArea.top) * 0.30;
     ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, chartArea.bottom);
-    pts.forEach(pt => ctx.lineTo(pt.x, pt.y));
-    ctx.lineTo(pts[pts.length - 1].x, chartArea.bottom);
-    ctx.closePath(); ctx.clip();
-    ctx.globalCompositeOperation = 'destination-over';
-    const hgrad = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
-    hgrad.addColorStop(0, `rgba(${r},${g},${b},0.20)`);
-    hgrad.addColorStop(1, `rgba(${r},${g},${b},0.00)`);
-    ctx.fillStyle = hgrad;
-    ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
     ctx.globalCompositeOperation = 'source-over';
     const bgrad = ctx.createLinearGradient(0, chartArea.bottom - fadeH, 0, chartArea.bottom);
     bgrad.addColorStop(0, 'rgba(15,23,42,0)');
@@ -2259,7 +2275,7 @@ function renderCharts() {
   const totals = allData.map((row, i) =>
     ACCOUNTS.reduce((s, a) => s + (parseFloat(row[a.idx]) || 0), 0) + (cristinaData[i] || 0)
   );
-  const lineColor = portfolioGainPositive ? '#4ade80' : '#f87171';
+  const lineColor = '#f5b731';
   chartMode = 'cumul';
   chartModeT = 0;
   document.querySelectorAll('.chart-mode-tab').forEach(b => b.classList.toggle('active', b.dataset.mode === 'cumul'));
@@ -2276,7 +2292,7 @@ function renderCharts() {
     segment: {
       borderColor: ctx => {
         if (chartModeT === 0) return undefined;
-        const base = ctx.chart.data.datasets[0].borderColor || '#4ade80';
+        const base = ctx.chart.data.datasets[0].borderColor || '#f5b731';
         const y0 = ctx.p0.parsed.y, y1 = ctx.p1.parsed.y;
         const c0 = lerpColor(base, y0 >= 0 ? '#4ade80' : '#f87171', chartModeT);
         const c1 = lerpColor(base, y1 >= 0 ? '#4ade80' : '#f87171', chartModeT);
@@ -2330,6 +2346,8 @@ function renderCharts() {
   buildSharedLegend(chartArea, chartDonut);
   selectDataPoint(null); // initialise avec le dernier point
   setupRangeDrag();
+  chartModeT = 1;
+  switchChartMode('perf');
 }
 
 function buildSharedLegend(areaChart, donutChart) {
@@ -2395,8 +2413,7 @@ function recomputeAreaLine() {
       }
     }
   });
-  const isGain = (newTotals[lastIdx] || 0) >= visibleInvested;
-  const lineColor = isGain ? '#4ade80' : '#f87171';
+  const lineColor = '#f5b731';
   chartArea.data.datasets[0].data = newTotals;
   chartArea.data.datasets[0].borderColor = lineColor;
   chartArea.data.datasets[0].backgroundColor = 'rgba(0,0,0,0)';
