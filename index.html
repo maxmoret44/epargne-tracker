@@ -502,6 +502,16 @@
       transform: scale(1.1);
       box-shadow: 0 0 10px rgba(99,102,241,0.45);
     }
+    /* Donut external tooltip (HTML, z-index > bouton) */
+    #donut-ext-tooltip {
+      position: absolute; pointer-events: none; z-index: 10;
+      background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+      padding: 8px 12px; font-family: Inter, sans-serif; font-size: 13px;
+      white-space: nowrap; opacity: 0; transition: opacity 0.15s;
+      transform: translate(-50%, calc(-100% - 8px));
+    }
+    #donut-ext-tooltip .dtt-title { color: #f1f5f9; font-weight: 600; margin-bottom: 2px; }
+    #donut-ext-tooltip .dtt-body  { color: #94a3b8; }
 
     .chart-mode-tabs { display: flex; gap: 14px; margin-bottom: 6px; padding-left: 42px; margin-top: -5px; }
     .chart-mode-tab {
@@ -2159,6 +2169,24 @@ Chart.Tooltip.positioners.clamped = function(items, eventPos) {
   return { x, y };
 };
 
+function donutTooltipHandler(context) {
+  const { chart, tooltip } = context;
+  let el = document.getElementById('donut-ext-tooltip');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'donut-ext-tooltip';
+    document.body.appendChild(el);
+  }
+  if (tooltip.opacity === 0) { el.style.opacity = '0'; return; }
+  const title = tooltip.title?.[0] || '';
+  const body  = tooltip.body?.[0]?.lines?.[0] || '';
+  el.innerHTML = `<div class="dtt-title">${title}</div><div class="dtt-body">${body}</div>`;
+  const rect = chart.canvas.getBoundingClientRect();
+  el.style.left   = (window.scrollX + rect.left + tooltip.caretX) + 'px';
+  el.style.top    = (window.scrollY + rect.top  + tooltip.caretY) + 'px';
+  el.style.opacity = '1';
+}
+
 function getChartOptions(type) {
   const tooltipDefaults = {
     backgroundColor: '#1e293b',
@@ -2209,12 +2237,8 @@ function getChartOptions(type) {
     plugins: {
       legend: { display: false },
       tooltip: {
-        ...tooltipDefaults,
-        displayColors: false,
-        callbacks: {
-          title: ctx => ctx[0].label,
-          label: ctx => fmt(ctx.raw)
-        }
+        enabled: false,
+        external: donutTooltipHandler,
       }
     }
   };
