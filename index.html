@@ -2673,11 +2673,10 @@ const PEA_DEFAULTS = [
   { name: 'Michelin',              ticker: 'ML.PA',    qty: 5,  purchasePrice: 32.93,  sector: 'Industrie',    geo: 'France'    },
   { name: 'Bureau Veritas',        ticker: 'BVI.PA',   qty: 4,  purchasePrice: 28.66,  sector: 'Services',     geo: 'France'    },
   { name: 'FDJ United',            ticker: 'FDJU.PA',  qty: 4,  purchasePrice: 30.80,  sector: 'Consommation', geo: 'France'    },
-  { name: 'Carrefour',             ticker: 'CA.PA',    qty: 10, purchasePrice: 13.31,  sector: 'Distribution', geo: 'France'    },
-  { name: 'Forvia',                ticker: 'FRVIA.PA', qty: 5,  purchasePrice: 8.30,   sector: 'Industrie',    geo: 'France'    },
+  { name: 'Galp Energia',          ticker: 'GALP.LS',  qty: 12, purchasePrice: 20.71,  sector: 'Énergie',      geo: 'Portugal'  },
   { name: 'Schneider Electric',    ticker: 'SU.PA',    qty: 1,  purchasePrice: 260.38, sector: 'Industrie',    geo: 'France'    },
 ];
-const PEA_DEFAULTS_VERSION = '2026-03-18';
+const PEA_DEFAULTS_VERSION = '2026-03-25';
 
 function getPeaHoldings() {
   const stored    = localStorage.getItem('epargne_pea_holdings');
@@ -3174,21 +3173,19 @@ function switchAvTab(tab) {
   if (!isPositions) renderAvRepartition(avPricesCache);
 }
 
+const AV_PROXY = 'https://api.allorigins.win/raw?url=';
+
 async function fetchAvPrices() {
   return Promise.all(AV_HOLDINGS.map(async h => {
     try {
-      const sr = await fetch(
-        `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(h.isin)}&quotesCount=1&newsCount=0`,
-        { signal: AbortSignal.timeout(6000) }
-      );
+      const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(h.isin)}&quotesCount=1&newsCount=0`;
+      const sr = await fetch(AV_PROXY + encodeURIComponent(searchUrl), { signal: AbortSignal.timeout(8000) });
       if (!sr.ok) return null;
       const sd = await sr.json();
       const sym = sd.quotes?.[0]?.symbol;
       if (!sym) return null;
-      const pr = await fetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1d`,
-        { signal: AbortSignal.timeout(6000) }
-      );
+      const priceUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1d`;
+      const pr = await fetch(AV_PROXY + encodeURIComponent(priceUrl), { signal: AbortSignal.timeout(8000) });
       if (!pr.ok) return null;
       const pd = await pr.json();
       return pd.chart?.result?.[0]?.meta?.regularMarketPrice || null;
@@ -3201,20 +3198,16 @@ async function refreshAvModal() {
   const st     = document.getElementById('avFetchStatus');
   const retryBtn = `<button onclick="refreshAvModal()" style="background:var(--surface2);border:none;color:var(--text);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px;margin-left:8px">↻ Rafraîchir</button>`;
 
-  // Show fallback prices immediately
   renderAvTable(listEl, AV_HOLDINGS.map(h => h.lastPrice));
   st.textContent = 'Mise à jour des cours…';
 
-  // Try live prices
   const live = await fetchAvPrices();
   const anyLive = live.some(p => p != null);
   avPricesCache = live.map((p, i) => p ?? AV_HOLDINGS[i].lastPrice);
   renderAvTable(listEl, avPricesCache);
 
   const now = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
-  st.innerHTML = (anyLive
-    ? `Cours en direct · ${now}`
-    : 'Cours indicatifs (13/03/2026)') + retryBtn;
+  st.innerHTML = (anyLive ? `Cours en direct · ${now}` : 'Cours indicatifs') + retryBtn;
 }
 
 function renderAvTable(listEl, prices) {
