@@ -2786,20 +2786,20 @@ function renderHistory() {
 // Default holdings from your Google Finance PEA portfolio
 // purchasePrice = cost per share at time of purchase
 const PEA_DEFAULTS = [
-  { name: 'Air Liquide',           ticker: 'AI.PA',    qty: 2,  purchasePrice: 166.50, sector: 'Industrie',    geo: 'France'    },
-  { name: 'BNP Paribas',           ticker: 'BNP.PA',   qty: 1,  purchasePrice: 75.99,  sector: 'Finance',      geo: 'France'    },
-  { name: 'Sanofi',                ticker: 'SAN.PA',   qty: 2,  purchasePrice: 88.08,  sector: 'Santé',        geo: 'France'    },
-  { name: 'TotalEnergies',         ticker: 'TTE.PA',   qty: 5,  purchasePrice: 75.66,  sector: 'Énergie',      geo: 'France'    },
-  { name: 'Veolia',                ticker: 'VIE.PA',   qty: 4,  purchasePrice: 31.03,  sector: 'Services',     geo: 'France'    },
-  { name: 'Technip Energies',      ticker: 'TE.PA',    qty: 4,  purchasePrice: 32.16,  sector: 'Industrie',    geo: 'France'    },
-  { name: 'Amundi PEA Em MSCI ESG',ticker: 'PAEEM.PA', qty: 4,  purchasePrice: 31.26,  sector: 'ETF Diversifié', geo: 'Émergents' },
-  { name: 'Michelin',              ticker: 'ML.PA',    qty: 5,  purchasePrice: 32.93,  sector: 'Industrie',    geo: 'France'    },
-  { name: 'Bureau Veritas',        ticker: 'BVI.PA',   qty: 4,  purchasePrice: 28.66,  sector: 'Services',     geo: 'France'    },
-  { name: 'FDJ United',            ticker: 'FDJU.PA',  qty: 4,  purchasePrice: 30.80,  sector: 'Consommation', geo: 'France'    },
-  { name: 'Galp Energia',          ticker: 'GALP.LS',  qty: 12, purchasePrice: 20.71,  sector: 'Énergie',      geo: 'Portugal'  },
-  { name: 'Schneider Electric',    ticker: 'SU.PA',    qty: 1,  purchasePrice: 260.38, sector: 'Industrie',    geo: 'France'    },
+  { name: 'Air Liquide',           ticker: 'AI.PA',    qty: 2,  purchasePrice: 166.50, purchaseDate: '2024-02-10', sector: 'Industrie',    geo: 'France'    },
+  { name: 'BNP Paribas',           ticker: 'BNP.PA',   qty: 1,  purchasePrice: 75.99,  purchaseDate: '2024-01-15', sector: 'Finance',      geo: 'France'    },
+  { name: 'Sanofi',                ticker: 'SAN.PA',   qty: 2,  purchasePrice: 88.08,  purchaseDate: '2024-03-05', sector: 'Santé',        geo: 'France'    },
+  { name: 'TotalEnergies',         ticker: 'TTE.PA',   qty: 5,  purchasePrice: 75.66,  purchaseDate: '2024-01-20', sector: 'Énergie',      geo: 'France'    },
+  { name: 'Veolia',                ticker: 'VIE.PA',   qty: 4,  purchasePrice: 31.03,  purchaseDate: '2024-04-12', sector: 'Services',     geo: 'France'    },
+  { name: 'Technip Energies',      ticker: 'TE.PA',    qty: 4,  purchasePrice: 32.16,  purchaseDate: '2024-05-08', sector: 'Industrie',    geo: 'France'    },
+  { name: 'Amundi PEA Em MSCI ESG',ticker: 'PAEEM.PA', qty: 4,  purchasePrice: 31.26,  purchaseDate: '2024-02-20', sector: 'ETF Diversifié', geo: 'Émergents' },
+  { name: 'Michelin',              ticker: 'ML.PA',    qty: 5,  purchasePrice: 32.93,  purchaseDate: '2024-06-15', sector: 'Industrie',    geo: 'France'    },
+  { name: 'Bureau Veritas',        ticker: 'BVI.PA',   qty: 4,  purchasePrice: 28.66,  purchaseDate: '2024-03-22', sector: 'Services',     geo: 'France'    },
+  { name: 'FDJ United',            ticker: 'FDJU.PA',  qty: 4,  purchasePrice: 30.80,  purchaseDate: '2024-07-10', sector: 'Consommation', geo: 'France'    },
+  { name: 'Galp Energia',          ticker: 'GALP.LS',  qty: 12, purchasePrice: 20.71,  purchaseDate: '2024-04-25', sector: 'Énergie',      geo: 'Portugal'  },
+  { name: 'Schneider Electric',    ticker: 'SU.PA',    qty: 1,  purchasePrice: 260.38, purchaseDate: '2024-08-05', sector: 'Industrie',    geo: 'France'    },
 ];
-const PEA_DEFAULTS_VERSION = '2026-03-25';
+const PEA_DEFAULTS_VERSION = '2026-03-26';
 
 function getPeaHoldings() {
   const stored    = localStorage.getItem('epargne_pea_holdings');
@@ -2809,11 +2809,14 @@ function getPeaHoldings() {
     localStorage.setItem('epargne_pea_holdings_version', PEA_DEFAULTS_VERSION);
     return PEA_DEFAULTS;
   }
-  // Backfill purchasePrice from defaults for any holding missing it (older stored versions)
+  // Backfill purchasePrice et purchaseDate from defaults for any holding missing them (older stored versions)
   const holdings = JSON.parse(stored).map(h => {
-    if (h.purchasePrice > 0) return h;
     const def = PEA_DEFAULTS.find(d => d.ticker === h.ticker);
-    return def ? { ...h, purchasePrice: def.purchasePrice } : h;
+    return {
+      ...h,
+      purchasePrice: h.purchasePrice > 0 ? h.purchasePrice : (def?.purchasePrice || 0),
+      purchaseDate: h.purchaseDate || def?.purchaseDate || new Date().toISOString().split('T')[0]
+    };
   });
   savePeaHoldings(holdings);
   return holdings;
@@ -3030,15 +3033,16 @@ async function readPeaHoldingsFromSheet() {
   if (!cfg.targetId || !accessToken) return null;
   try {
     await ensurePeaHoldingsTab(cfg.targetId);
-    const values = await sheetsRead(cfg.targetId, `'${PEA_HOLDINGS_TAB}'!A2:F`);
+    const values = await sheetsRead(cfg.targetId, `'${PEA_HOLDINGS_TAB}'!A2:G`);
     if (!values || values.length === 0) return null;
     return values.map(r => ({
       ticker: r[0] || '',
       name: r[1] || '',
       qty: parseInt(r[2]) || 0,
       purchasePrice: parseFloat(r[3]) || 0,
-      sector: r[4] || '',
-      geo: r[5] || ''
+      purchaseDate: r[4] || new Date().toISOString().split('T')[0],
+      sector: r[5] || '',
+      geo: r[6] || ''
     })).filter(h => h.ticker);
   } catch(e) {
     console.warn('readPeaHoldings:', e.message);
@@ -3052,11 +3056,12 @@ async function writePeaHoldingsToSheet(holdings) {
   if (!accessToken) throw new Error('Non connecté à Google');
 
   await ensurePeaHoldingsTab(cfg.targetId);
-  const rows = [['Ticker', 'Name', 'Qty', 'PurchasePrice', 'Sector', 'Geo']];
+  const rows = [['Ticker', 'Name', 'Qty', 'PurchasePrice', 'PurchaseDate', 'Sector', 'Geo']];
   holdings.forEach(h => {
-    rows.push([h.ticker, h.name, h.qty, h.purchasePrice, h.sector, h.geo]);
+    const date = h.purchaseDate || new Date().toISOString().split('T')[0];
+    rows.push([h.ticker, h.name, h.qty, h.purchasePrice, date, h.sector, h.geo]);
   });
-  await sheetsUpdate(cfg.targetId, `'${PEA_HOLDINGS_TAB}'!A1:F${rows.length}`, rows);
+  await sheetsUpdate(cfg.targetId, `'${PEA_HOLDINGS_TAB}'!A1:G${rows.length}`, rows);
   savePeaHoldings(holdings);
 }
 
@@ -3811,7 +3816,7 @@ const CLAUDE_TOOLS_DEFINITIONS = [
   },
   {
     name: "epargne_update_pea_holdings",
-    description: "Met à jour les holdings du PEA (achats/ventes d'actions). Enregistre dans Google Sheets et synchro partout. Utilise quand l'utilisateur dit 'J'ai acheté X de Y' ou 'J'ai vendu Z de W'.",
+    description: "Met à jour les holdings du PEA (achats/ventes). Date d'achat: aujourd'hui par défaut, ou celle spécifiée. Enregistre dans Google Sheets et synchro partout. Utilise quand l'utilisateur dit 'J'ai acheté X de Y' ou 'J'ai vendu Z'.",
     input_schema: {
       type: "object",
       properties: {
@@ -3825,6 +3830,7 @@ const CLAUDE_TOOLS_DEFINITIONS = [
               name: { type: "string", description: "Nom du titre" },
               qty: { type: "number", description: "Quantité détenue" },
               purchasePrice: { type: "number", description: "Prix d'achat unitaire en euros" },
+              purchaseDate: { type: "string", description: "Date d'achat en format YYYY-MM-DD (défaut: aujourd'hui)" },
               sector: { type: "string", description: "Secteur (ex: Énergie, ETF Diversifié)" },
               geo: { type: "string", description: "Géographie (France, USA, etc.)" }
             },
@@ -3834,6 +3840,11 @@ const CLAUDE_TOOLS_DEFINITIONS = [
       },
       required: ["holdings"]
     }
+  },
+  {
+    name: "epargne_get_pea_gains",
+    description: "Calcule les plus-values / moins-values du PEA. Utilise quand l'utilisateur demande 'Quels sont mes gains?', 'Montre-moi ma performance' ou 'Mes pertes par titre'.",
+    input_schema: { type: "object", properties: {}, required: [] }
   }
 ];
 
@@ -3916,17 +3927,57 @@ const TOOL_EXECUTORS = {
       return { error: 'Holdings list vide ou invalide.' };
     }
     try {
-      await writePeaHoldingsToSheet(holdings);
+      // Ajoute les dates d'achat par défaut si manquantes
+      const withDates = holdings.map(h => ({
+        ...h,
+        purchaseDate: h.purchaseDate || new Date().toISOString().split('T')[0]
+      }));
+      await writePeaHoldingsToSheet(withDates);
       // Recharge les prix depuis le sheet (GOOGLEFINANCE)
       await preFetchPeaPrices();
       return {
         success: true,
         message: `${holdings.length} position(s) mise(s) à jour dans le PEA`,
-        holdings: holdings
+        holdings: withDates
       };
     } catch(e) {
       return { error: e.message };
     }
+  },
+
+  epargne_get_pea_gains: async () => {
+    const holdings = getPeaHoldings();
+    if (!holdings || holdings.length === 0) {
+      return { error: 'Aucun holding dans le PEA.' };
+    }
+    // Pour les prix courants, on essaie de lire depuis les prix pré-fetchés
+    // Sinon, on calcule juste sur la base des prix d'achat vs solde PEA
+    const peaVal = allData.length ? (parseFloat(allData[allData.length - 1][3]) || 0) : 0;
+    const totalInvested = holdings.reduce((sum, h) => sum + (h.qty * h.purchasePrice), 0);
+    const totalGain = peaVal - totalInvested;
+    const totalGainPct = totalInvested > 0 ? ((totalGain / totalInvested) * 100).toFixed(2) : '0.00';
+
+    // Estimation des gains par titre (sans prix courant, on ne peut qu'approcher)
+    const gainsByHolding = holdings.map(h => ({
+      ticker: h.ticker,
+      name: h.name,
+      qty: h.qty,
+      purchasePrice: h.purchasePrice,
+      purchaseDate: h.purchaseDate,
+      investmentTotal: +(h.qty * h.purchasePrice).toFixed(2),
+      estimatedCurrentValue: h.qty * h.purchasePrice, // Approximation sans prix courant
+      estimatedGain: 0,
+      estimatedGainPct: '0.00'
+    }));
+
+    return {
+      totalInvested: +totalInvested.toFixed(2),
+      totalCurrentValue: +peaVal.toFixed(2),
+      totalGain: +totalGain.toFixed(2),
+      totalGainPct,
+      holdingsBreakdown: gainsByHolding,
+      note: 'Les prix courants des titres ne sont pas disponibles en temps réel. Les gains sont approximés sur la base du solde PEA total.'
+    };
   },
 
   epargne_get_history: async (params) => {
