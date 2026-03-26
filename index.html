@@ -720,16 +720,17 @@
     .donut-center-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
     .donut-center-btn {
       position: absolute; width: 34px; height: 34px; border-radius: 50%;
-      background: var(--bg); border: 1.5px solid var(--surface2);
-      color: var(--text2); cursor: pointer;
+      background: rgba(8,12,22,0.85); border: 1.5px solid rgba(51,65,85,0.5);
+      color: var(--text2); opacity: 0.6; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       transition: background 0.35s ease, border-color 0.35s ease, color 0.35s ease,
-                  transform 0.25s ease, box-shadow 0.35s ease; z-index: 2;
+                  transform 0.25s ease, box-shadow 0.35s ease, opacity 0.25s ease; z-index: 2;
     }
     .donut-center-btn:hover { background: var(--surface); border-color: rgba(59,130,246,0.4); color: var(--text); }
     .donut-center-btn.active {
       background: rgba(8,12,22,0.75);
       transform: scale(1.08);
+      opacity: 1;
     }
     /* Donut external tooltip (HTML, z-index > bouton) */
     #donut-ext-tooltip {
@@ -2462,10 +2463,25 @@ function toggleRangeMode() {
     if (rangeMode) {
       // Couleur neutre immédiate pour éviter tout flash bleu — sera remplacée par vert/rouge dans updateRangeDisplay
       btn.style.color = 'var(--text2)';
-      btn.style.borderColor = 'var(--surface2)';
+      btn.style.borderColor = 'rgba(51,65,85,0.5)';
       btn.style.boxShadow = 'none';
+      btn.style.opacity = '1';
+      btn.style.background = 'rgba(8,12,22,0.75)';
+      // Désactive les events Chart.js en range mode pour éviter que les touch/mouse re-settent le dot
+      if (chartArea) {
+        chartArea.options.events = [];
+        chartArea.setActiveElements([]);
+        chartArea.tooltip.setActiveElements([], {x:0,y:0});
+        chartArea.update('none');
+      }
     } else {
-      btn.style.color = ''; btn.style.borderColor = ''; btn.style.boxShadow = '';
+      btn.style.color = 'var(--text2)';
+      btn.style.borderColor = 'rgba(51,65,85,0.5)';
+      btn.style.boxShadow = 'none';
+      btn.style.opacity = '0.6';
+      btn.style.background = 'rgba(8,12,22,0.85)';
+      // Restaure les events Chart.js
+      if (chartArea) { chartArea.options.events = ['mousemove','mouseout','click','touchstart','touchmove','touchend']; chartArea.update('none'); }
     }
   }
   // Fondu des labels : fade-out immédiat, mise à jour du contenu après 180ms
