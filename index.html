@@ -1722,6 +1722,41 @@ async function loadData() {
     renderHistory();
     prefillForm();
     computeLiveValues();
+    // Précharger les valeurs live des modals en arrière-plan
+    (async () => {
+      try {
+        // Bitcoin live
+        const btcRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur');
+        const btcData = await btcRes.json();
+        liveBtcPrice = btcData.bitcoin.eur;
+        liveValues.cto = BTC_QTY * liveBtcPrice;
+
+        // BoursoVie live
+        const avPrices = await fetchAvPrices();
+        let avTotal = AV_CASH;
+        AV_HOLDINGS.forEach((h, i) => { avTotal += (avPrices[i] ?? h.lastPrice) * h.qty; });
+        liveValues.boursovie = avTotal;
+        avPricesCache = AV_HOLDINGS.map((h, i) => avPrices[i] ?? h.lastPrice);
+
+        // PEA live
+        if (accessToken) {
+          await preFetchPeaPrices();
+          const holdings = getPeaHoldings();
+          const peaPrices = await readPeaPricesFromSheet(holdings.length);
+          if (peaPrices) {
+            let peaTotal = getPeaCash();
+            holdings.forEach((h, i) => { if (peaPrices[i] != null) peaTotal += peaPrices[i] * h.qty; });
+            liveValues.pea = peaTotal;
+          }
+        }
+
+        // Mettre à jour après chargement
+        updateFormPlaceholders();
+        renderDashboard();
+      } catch(e) {
+        console.warn('Live values background load:', e.message);
+      }
+    })();
   } catch(e) {
     console.error('Load error:', e);
     const cached = localStorage.getItem(DATA_KEY);
@@ -1736,6 +1771,37 @@ async function loadData() {
       renderHistory();
       prefillForm();
       computeLiveValues();
+      // Même préchargement en arrière-plan pour le cache
+      (async () => {
+        try {
+          const btcRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur');
+          const btcData = await btcRes.json();
+          liveBtcPrice = btcData.bitcoin.eur;
+          liveValues.cto = BTC_QTY * liveBtcPrice;
+
+          const avPrices = await fetchAvPrices();
+          let avTotal = AV_CASH;
+          AV_HOLDINGS.forEach((h, i) => { avTotal += (avPrices[i] ?? h.lastPrice) * h.qty; });
+          liveValues.boursovie = avTotal;
+          avPricesCache = AV_HOLDINGS.map((h, i) => avPrices[i] ?? h.lastPrice);
+
+          if (accessToken) {
+            await preFetchPeaPrices();
+            const holdings = getPeaHoldings();
+            const peaPrices = await readPeaPricesFromSheet(holdings.length);
+            if (peaPrices) {
+              let peaTotal = getPeaCash();
+              holdings.forEach((h, i) => { if (peaPrices[i] != null) peaTotal += peaPrices[i] * h.qty; });
+              liveValues.pea = peaTotal;
+            }
+          }
+
+          updateFormPlaceholders();
+          renderDashboard();
+        } catch(e) {
+          console.warn('Live values background load (cache):', e.message);
+        }
+      })();
     } else {
       const msg = e.message.includes('403') || e.message.includes('401')
         ? 'Session expirée. Allez dans Config > Connecter Google'
