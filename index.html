@@ -11,6 +11,7 @@
   <link rel="apple-touch-icon" href="logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
   <style>
     :root {
       --bg: #0f172a;
@@ -1670,6 +1671,31 @@ function loadGIS() {
 // ============== DATA ==============
 let allData = [];
 let cristinaData = [];
+let allLabels = []; // libellés lisibles pour affichage (selectDataPoint, range)
+
+// Convertit une date brute (DD/MM ou DD/MM/YY/YYYY) en ISO YYYY-MM-DD pour Chart.js time scale
+function rawToISO(d) {
+  if (!d) return '';
+  const s = String(d);
+  if (s.includes('/')) {
+    const p = s.split('/');
+    const dd = p[0].padStart(2, '0');
+    const mm = p[1].padStart(2, '0');
+    let yr;
+    if (p.length >= 3) {
+      yr = p[2].length <= 2 ? '20' + p[2] : p[2];
+    } else {
+      yr = String(new Date().getFullYear());
+      for (const row of allData) {
+        const fp = String(row[0]).split('/');
+        if (fp.length >= 3) { yr = fp[2].length <= 2 ? '20' + fp[2] : fp[2]; break; }
+      }
+    }
+    return `${yr}-${mm}-${dd}`;
+  }
+  try { const dt = new Date(d); if (!isNaN(dt.getTime())) return dt.toISOString().split('T')[0]; } catch {}
+  return s;
+}
 let investedAmounts = { boursovie: 600, cto: 458.96, pea: 2067.03, livret: 1400, cash: 0 };
 let totalInjections = {};
 let cachedGainAbs = null, cachedGainPct = null;
@@ -2257,8 +2283,8 @@ Chart.register({
       ctx.closePath(); ctx.clip();
       ctx.globalCompositeOperation = 'destination-over';
       const greenGrad = ctx.createLinearGradient(0, chartArea.top, 0, zeroY);
-      greenGrad.addColorStop(0, 'rgba(0,230,118,0.02)');
-      greenGrad.addColorStop(1, 'rgba(0,230,118,0.46)');
+      greenGrad.addColorStop(0, 'rgba(0,230,118,0.01)');
+      greenGrad.addColorStop(1, 'rgba(0,230,118,0.30)');
       ctx.fillStyle = greenGrad;
       ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
       ctx.restore();
@@ -2272,8 +2298,8 @@ Chart.register({
       ctx.closePath(); ctx.clip();
       ctx.globalCompositeOperation = 'destination-over';
       const redGrad = ctx.createLinearGradient(0, zeroY, 0, chartArea.bottom);
-      redGrad.addColorStop(0, 'rgba(255,45,85,0.44)');
-      redGrad.addColorStop(1, 'rgba(255,45,85,0.02)');
+      redGrad.addColorStop(0, 'rgba(255,45,85,0.30)');
+      redGrad.addColorStop(1, 'rgba(255,45,85,0.01)');
       ctx.fillStyle = redGrad;
       ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
       ctx.restore();
@@ -2425,8 +2451,8 @@ function updateRangeDisplay() {
   const sign = rangePct >= 0 ? '+' : '';
   const gc   = rangePct >= 0 ? 'var(--green)' : 'var(--red)';
 
-  const startLbl = chartArea ? chartArea.data.labels[si] : '';
-  const endLbl   = chartArea ? chartArea.data.labels[ei] : '';
+  const startLbl = allLabels[si] || '';
+  const endLbl   = allLabels[ei] || '';
 
   const dateEl  = document.getElementById('sharedDateLabel');
   const totalEl = document.getElementById('sharedTotalLabel');
@@ -2617,7 +2643,7 @@ function selectDataPoint(idx) {
   const i = (idx === null || idx === undefined) ? allData.length - 1 : idx;
   selectedDataIdx = i;
   const row = allData[i];
-  const label = chartArea ? chartArea.data.labels[i] : '';
+  const label = allLabels[i] || '';
 
   // Mise à jour données donut
   const newData = ACCOUNTS.map(a => parseFloat(row[a.idx]) || 0);
@@ -2727,10 +2753,19 @@ function getChartOptions(type) {
         }
       },
       scales: {
-        x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, callback: function(val) { const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']; const lbl = this.getLabelForValue(val); if (!lbl) return ''; let d = new Date(lbl); if (isNaN(d.getTime())) { const p = lbl.split('/'); if (p.length===3) d = new Date(`${p[2]}-${p[1]}-${p[0]}`); else if (p.length===2) { const dd=parseInt(p[0]),mm=parseInt(p[1]); let yr=new Date().getFullYear(); for(const row of allData){const fp=String(row[0]).split('/');if(fp.length===3){const ry=parseInt(fp[2]),rm=parseInt(fp[1]);yr=mm>rm?ry-1:ry;break;}} d=new Date(`${yr}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`); } } if (isNaN(d.getTime())) return lbl; return MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } }, grid: { display: false } },
+        x: {
+          type: 'time',
+          time: {
+            tooltipFormat: 'dd/MM/yyyy',
+            displayFormats: { day: 'd MMM', week: 'd MMM', month: 'MMM yy', year: 'yyyy' }
+          },
+          adapters: { date: {} },
+          ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, source: 'auto' },
+          grid: { display: false }
+        },
         y: {
           ticks: { display: false },
-          grid: { color: ctx => (chartMode === 'perf' && Math.abs(ctx.tick.value) < 0.001) ? 'rgba(148,163,184,0.65)' : 'rgba(15,23,42,0)' }
+          grid: { color: ctx => (chartMode === 'perf' && Math.abs(ctx.tick.value) < 0.001) ? 'rgba(148,163,184,0.65)' : 'rgba(51,65,85,0.28)' }
         }
       }
     };
@@ -2753,11 +2788,12 @@ function getChartOptions(type) {
 function renderCharts() {
   if (!allData.length) return;
 
-  const labels = allData.map(r => {
-    const d = r[0];
-    if (typeof d === 'string' && d.includes('/')) return d;
-    try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }); }
-    catch { return d; }
+  const labels = allData.map(r => rawToISO(r[0]));
+  allLabels = allData.map(r => {
+    try {
+      const iso = rawToISO(r[0]);
+      return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' });
+    } catch { return String(r[0]); }
   });
 
   // Courbe totale unique
@@ -2931,14 +2967,7 @@ function expandChart(mode) {
   if (mode === 'area') {
     titleEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;opacity:0.7"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Progression';
     if (!allData.length) return;
-    const labels = allData.map(r => {
-      const d = r[0];
-      try {
-        const dt = new Date(typeof d === 'string' && d.includes('/') ? d.split('/').reverse().join('-') : d);
-        const s = dt.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
-        return s.replace(/\.$/, '').replace(/^./, c => c.toUpperCase());
-      } catch { return d; }
-    });
+    const labels = allData.map(r => rawToISO(r[0]));
     const datasets = ACCOUNTS.map(a => ({
       label: a.name,
       data: allData.map(r => parseFloat(r[a.idx]) || 0),
