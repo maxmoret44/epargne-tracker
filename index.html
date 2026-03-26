@@ -2993,8 +2993,12 @@ async function submitForm() {
   status.className = 'status';
   status.textContent = '';
 
-  const date = document.getElementById('fDate').value;
-  if (!date) { status.className = 'status error'; status.textContent = 'Veuillez saisir une date.'; return; }
+  const dateStr = document.getElementById('fDate').value;
+  if (!dateStr) { status.className = 'status error'; status.textContent = 'Veuillez saisir une date.'; return; }
+
+  // Format date as DD/MM/YYYY
+  const [y, m, d] = dateStr.split('-');
+  const dateFormatted = `${d}/${m}/${y}`;
 
   const readField = id => {
     const el = document.getElementById(id);
@@ -3043,13 +3047,13 @@ async function submitForm() {
     ];
     // Columns: Date|Bourso|CTO|PEA|Livret|Cash|Total|Cristina|InvCumBourso|InvCumCTO|InvCumPEA|InvCumLivret|_
     const newRow = [
-      date,
+      dateFormatted,
       donnees.boursovie, donnees.cto, donnees.pea, donnees.livret, donnees.cash,
       total, donnees.cristina,
       ...invRow
     ];
 
-    await sheetsAppend(`'${cfg.targetTab}'!A1`, [newRow]);
+    await sheetsAppend(`'${cfg.targetTab}'!A:A`, [newRow]);
 
     status.className = 'status success';
     status.textContent = `Données ajoutées ! Total Max: ${fmt(total)}`;
@@ -4220,7 +4224,7 @@ const TOOL_EXECUTORS = {
     const today = new Date().toLocaleDateString('fr-FR');
     const cfg   = getConfig();
     const newRow = [today, newVals.boursoVie, newVals.bitcoin, newVals.trPea, newVals.livretA, newVals.trCash, total, newVals.cristina, '', '', '', '', ''];
-    await sheetsAppend(`'${cfg.targetTab}'!A1`, [newRow]);
+    await sheetsAppend(`'${cfg.targetTab}'!A:A`, [newRow]);
     await loadData();
     return { success: true, date: today, newVals, totalMax: total, totalEpargne: total + newVals.cristina };
   },
