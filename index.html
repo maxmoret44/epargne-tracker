@@ -2664,6 +2664,15 @@ function selectDataPoint(idx) {
     gainsEl.style.color  = gc;
     gainsEl.style.filter = privacyMode ? 'blur(7px)' : 'none';
   }
+
+  // Synchronise le point actif sur chartArea pour afficher le curseur sans interaction
+  if (chartArea) {
+    const cur = chartArea.getActiveElements();
+    if (!cur.length || cur[0].index !== i) {
+      chartArea.setActiveElements([{ datasetIndex: 0, index: i }]);
+      chartArea.update('none');
+    }
+  }
 }
 
 function areaTooltipHandler(context) {
