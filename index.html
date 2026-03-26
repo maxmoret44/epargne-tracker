@@ -884,13 +884,13 @@
     /* PRIVACY MODE */
     .privacy-btn {
       position: fixed; top: 12px; right: 12px; z-index: 300;
-      background: var(--surface2); border: none; border-radius: 50%;
+      background: none; border: none; border-radius: 0;
       width: 34px; height: 34px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      color: var(--text2); transition: color 0.2s, background 0.2s;
+      transition: opacity 0.2s;
     }
-    .privacy-btn:hover { background: var(--surface); color: var(--text); }
-    .privacy-btn svg { width: 16px; height: 16px; }
+    .privacy-btn:hover { opacity: 0.75; }
+    .privacy-btn svg { width: 20px; height: 20px; opacity: 0.45; }
     @media (max-width: 767px) {
       .privacy-btn { position: absolute; top: 12px; right: 12px; z-index: 10; }
       .dash-section-data { position: relative; }
@@ -1823,8 +1823,8 @@ function renderDashboard() {
         ${isClickable ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px;color:var(--text2);opacity:0.4"><polyline points="9 18 15 12 9 6"/></svg>' : ''}
       </div>
       <div style="text-align:right">
-        <div class="amount">${fmt(val)}</div>
-        ${accountPct !== null ? `<div class="gain-badge ${accountGain >= 0 ? 'pos' : 'neg'}">${accountGain >= 0 ? '+' : ''}${accountPct}%</div>` : ''}
+        <div class="amount acval">${fmt(val)}</div>
+        ${accountPct !== null ? `<div class="gain-badge acval ${accountGain >= 0 ? 'pos' : 'neg'}">${accountGain >= 0 ? '+' : ''}${accountPct}%</div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -3965,8 +3965,8 @@ document.addEventListener('visibilitychange', () => {
 const PRIVACY_KEY = 'epargne_privacy';
 let privacyMode = localStorage.getItem(PRIVACY_KEY) === '1';
 
-const EYE_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-const EYE_OFF_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+const EYE_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="url(#privGrad)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><defs><linearGradient id="privGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_OFF_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="url(#privGrad)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><defs><linearGradient id="privGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
 
 function applyPrivacy() {
   document.body.classList.toggle('privacy', privacyMode);
