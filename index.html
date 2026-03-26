@@ -2315,11 +2315,11 @@ Chart.register({
     const w = ex - sx; if (w <= 0) return;
     ctx.save();
 
-    // Couleur dynamique : interpolation fluide cyan (t=1) ↔ orange (t=0)
+    // Couleur dynamique : interpolation fluide vert (#00e676, t=1) ↔ rouge (#ff2d55, t=0)
     const t = rangeColorT;
-    const cr = Math.round(249 + (6   - 249) * t);
-    const cg = Math.round(115 + (182 - 115) * t);
-    const cb = Math.round(22  + (212 - 22)  * t);
+    const cr = Math.round(255 + (0   - 255) * t);
+    const cg = Math.round(45  + (230 - 45)  * t);
+    const cb = Math.round(85  + (118 - 85)  * t);
     const rgb  = `${cr},${cg},${cb}`;
     const barC = `rgb(${rgb})`;
     const glow = `rgba(${rgb},0.7)`;
@@ -2341,7 +2341,7 @@ Chart.register({
       ctx.shadowBlur = 14;
       ctx.shadowColor = glow;
       ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom);
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 1.5;
       ctx.strokeStyle = barC;
       ctx.stroke();
       ctx.restore();
