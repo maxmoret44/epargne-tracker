@@ -109,19 +109,37 @@
     .card .value { font-size: 20px; font-weight: 700; }
 
     .account-card {
-      background: var(--surface);
-      border-radius: var(--radius);
-      padding: 12px 16px;
+      border-radius: 0;
+      padding: 13px 16px;
       display: flex; justify-content: space-between; align-items: center;
-      transition: border 0.2s;
-      border: 1px solid transparent;
+      transition: filter 0.2s;
+      border: none;
+      overflow: hidden;
     }
     .account-card.clickable { cursor: pointer; }
-    .account-card.clickable:hover { border-color: var(--accent); }
-    .account-card .left { display: flex; align-items: center; gap: 10px; }
-    .account-card .dot { width: 10px; height: 10px; border-radius: 50%; }
-    .account-card .name { font-size: 13px; font-weight: 500; }
-    .account-card .amount { font-size: 15px; font-weight: 600; }
+    .account-card.clickable:hover { filter: brightness(1.14); }
+    .account-card .left { display: flex; align-items: center; gap: 8px; }
+    .account-card .dot { display: none; }
+    .account-card .name { font-size: 13px; font-weight: 500; color: var(--text2); }
+    .account-card .amount { font-size: 16px; font-weight: 700; }
+
+    .gain-badge {
+      display: inline-flex; align-items: center;
+      font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 99px;
+      margin-top: 4px;
+    }
+    .gain-badge.pos { background: rgba(16,185,129,0.15); color: var(--green); }
+    .gain-badge.neg { background: rgba(239,68,68,0.15); color: var(--red); }
+
+    .card-max {
+      background: linear-gradient(135deg, rgba(59,130,246,0.13) 0%, rgba(139,92,246,0.06) 100%);
+      border: 1px solid rgba(59,130,246,0.22);
+    }
+    .card-cristina {
+      background: linear-gradient(135deg, rgba(236,72,153,0.11) 0%, rgba(139,92,246,0.05) 100%);
+      border: 1px solid rgba(236,72,153,0.18);
+    }
 
     /* CHART */
     .chart-container {
@@ -334,6 +352,10 @@
       margin-right: 10px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes scrollBounce {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(5px); }
+    }
 
     /* CLAUDE CHAT */
     #claude { padding: 0; }
@@ -794,17 +816,43 @@
         <div class="sub">Dernière mise à jour : <span id="lastUpdate">--</span></div>
       </div>
       <div class="split-cards">
-        <div class="card">
+        <div class="card card-max">
           <div class="label">Max</div>
           <div class="value" id="totalMax">--</div>
           <div class="gain" id="gainTotal" style="font-size:12px;margin-top:4px"></div>
         </div>
-        <div class="card">
+        <div class="card card-cristina">
           <div class="label">Cristina</div>
           <div class="value" id="totalCristina">--</div>
         </div>
       </div>
       <div class="cards" id="accountCards"></div>
+      <div id="scrollHint" style="display:flex; align-items:center; justify-content:center; gap:14px; padding:16px 0 6px;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="url(#hintGrad)" stroke-width="1.6" style="opacity:0.45;">
+          <defs>
+            <linearGradient id="hintGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#3b82f6"/>
+              <stop offset="100%" stop-color="#8b5cf6"/>
+            </linearGradient>
+          </defs>
+          <circle cx="12" cy="12" r="9"/>
+          <circle cx="12" cy="12" r="4.5"/>
+          <path d="M12 3 A9 9 0 0 1 21 12" stroke="url(#hintGrad)" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45; animation:scrollBounce 1.8s ease-in-out infinite;">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="url(#hintGrad2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45;">
+          <defs>
+            <linearGradient id="hintGrad2" x1="0%" y1="100%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#3b82f6"/>
+              <stop offset="100%" stop-color="#8b5cf6"/>
+            </linearGradient>
+          </defs>
+          <polyline points="3 17 8 11 13 14 21 6"/>
+          <line x1="3" y1="20" x2="21" y2="20"/>
+        </svg>
+      </div>
     </div>
 
     <!-- Section 2 : graphiques mutualisés -->
@@ -1555,15 +1603,15 @@ function renderDashboard() {
     const accountPct = ((investedAmounts[a.key] || 0) > 0 && a.key !== 'cash') ? ((accountGain / inv) * 100).toFixed(1) : null;
     const isClickable = a.key === 'pea' || a.key === 'cto' || a.key === 'boursovie';
     const clickFn = a.key === 'pea' ? 'openPeaModal()' : a.key === 'cto' ? 'openBtcModal()' : a.key === 'boursovie' ? 'openAvModal()' : '';
-    return `<div class="account-card${isClickable ? ' clickable' : ''}" ${isClickable ? `onclick="${clickFn}"` : ''}>
+    return `<div class="account-card${isClickable ? ' clickable' : ''}" ${isClickable ? `onclick="${clickFn}"` : ''}
+      style="border-left:3px solid ${a.color}; background:linear-gradient(to right, ${a.color}12 0%, #09111f 100%);">
       <div class="left">
-        <div class="dot" style="background:${a.color}"></div>
         <span class="name">${a.name}</span>
-        ${isClickable ? '<svg viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2" style="width:14px;height:14px;opacity:0.5"><polyline points="9 18 15 12 9 6"/></svg>' : ''}
+        ${isClickable ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px;color:var(--text2);opacity:0.4"><polyline points="9 18 15 12 9 6"/></svg>' : ''}
       </div>
-      <div class="acval" style="text-align:right">
-        <span class="amount">${fmt(val)}</span>
-        ${accountPct !== null ? `<div style="font-size:11px;color:${accountGain >= 0 ? 'var(--green)' : 'var(--red)'}">${accountGain >= 0 ? '+' : ''}${accountPct}%</div>` : ''}
+      <div style="text-align:right">
+        <div class="amount">${fmt(val)}</div>
+        ${accountPct !== null ? `<div class="gain-badge ${accountGain >= 0 ? 'pos' : 'neg'}">${accountGain >= 0 ? '+' : ''}${accountPct}%</div>` : ''}
       </div>
     </div>`;
   }).join('');
