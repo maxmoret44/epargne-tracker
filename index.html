@@ -2323,19 +2323,8 @@ Chart.register({
     ctx.fillRect(rEnd, 0, width - rEnd, height);
     ctx.restore();
   },
-  afterDatasetsDraw(chart) {
-    if (chart.canvas.id !== 'chartArea') return;
-    const { ctx, chartArea } = chart;
-    // Fondu sombre bas — sur la ligne
-    const fadeH = (chartArea.bottom - chartArea.top) * 0.22;
-    ctx.save();
-    const bgrad = ctx.createLinearGradient(0, chartArea.bottom - fadeH, 0, chartArea.bottom);
-    bgrad.addColorStop(0, 'rgba(15,23,42,0)');
-    bgrad.addColorStop(1, 'rgba(15,23,42,1)');
-    ctx.fillStyle = bgrad;
-    ctx.fillRect(chartArea.left, chartArea.bottom - fadeH, chartArea.right - chartArea.left, fadeH);
-    ctx.restore();
-  }
+  afterDatasetsDraw() {}
+
 });
 
 Chart.register({
@@ -2839,8 +2828,32 @@ function renderCharts() {
       borderColor: ctx => {
         if (chartModeT === 0) return undefined;
         const base = ctx.chart.data.datasets[0].borderColor || '#f5b731';
-        const avgY = (ctx.p0.parsed.y + ctx.p1.parsed.y) / 2;
-        return lerpColor(base, avgY >= 0 ? '#00e676' : '#ff2d55', chartModeT);
+        const green = lerpColor(base, '#00e676', chartModeT);
+        const red   = lerpColor(base, '#ff2d55', chartModeT);
+        const y0 = ctx.p0.parsed.y, y1 = ctx.p1.parsed.y;
+        if (y0 >= 0 && y1 >= 0) return green;
+        if (y0 <  0 && y1 <  0) return red;
+        // Segment franchit zéro : gradient avec fondu ~20px autour du point de franchissement
+        const x0 = ctx.p0.x, x1 = ctx.p1.x;
+        const segW = Math.abs(x1 - x0);
+        if (segW < 1) return y0 >= 0 ? green : red;
+        const frac = Math.max(0, Math.min(1, y0 / (y0 - y1)));
+        const blend = Math.min(frac, 1 - frac, 20 / segW);
+        const lo = Math.max(0, frac - blend);
+        const hi = Math.min(1, frac + blend);
+        const grad = ctx.chart.ctx.createLinearGradient(x0, 0, x1, 0);
+        if (y0 >= 0) {
+          grad.addColorStop(0, green);
+          if (lo > 0.001) grad.addColorStop(lo, green);
+          if (hi < 0.999) grad.addColorStop(hi, red);
+          grad.addColorStop(1, red);
+        } else {
+          grad.addColorStop(0, red);
+          if (lo > 0.001) grad.addColorStop(lo, red);
+          if (hi < 0.999) grad.addColorStop(hi, green);
+          grad.addColorStop(1, green);
+        }
+        return grad;
       }
     }
   }];
