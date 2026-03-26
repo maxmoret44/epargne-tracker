@@ -769,6 +769,8 @@
       opacity: 1; color: var(--text);
     }
     .chart-mode-tab:active::before { opacity: 1; transform: scale(1.05); transition: opacity 1.15s ease-in, transform 1.15s ease-in; }
+    .chart-mode-tab[data-mode="perf"].active { color: #00e676; }
+    .chart-mode-tab[data-mode="cumul"].active { color: #f5b731; }
     .charts-row { display: flex; flex-direction: column; gap: 8px; }
     .chart-sublabel { display: none; }
     @media (max-width: 767px) {
