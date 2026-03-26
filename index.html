@@ -201,7 +201,7 @@
       background: var(--surface);
       transition: opacity 0.2s, filter 0.2s;
     }
-    .legend-item.dimmed { opacity: 0.38; filter: grayscale(0.4); }
+    .legend-item.dimmed { opacity: 0.30; filter: grayscale(0.6); }
     @media (max-width: 767px) {
       .legend-item { font-size: 12px; gap: 7px; padding: 5px 11px 5px 9px; }
       .chart-container { margin-top: 20px; }
@@ -1774,6 +1774,30 @@ function renderDashboard() {
 }
 
 // ============== CHARTS ==============
+
+// Plugin : gradient radial par segment sur le donut
+const donutGradientPlugin = {
+  id: 'donutGradient',
+  beforeDatasetsDraw(chart) {
+    if (chart.config.type !== 'doughnut') return;
+    const { ctx } = chart;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data.length) return;
+    const arc0 = meta.data[0];
+    if (!arc0 || !arc0.outerRadius) return;
+    const { x: cx, y: cy, outerRadius: outerR, innerRadius: innerR } = arc0;
+    const borderColors = chart.data.datasets[0].borderColor;
+    if (!Array.isArray(borderColors)) return;
+    borderColors.forEach((color, i) => {
+      if (!meta.data[i] || typeof color !== 'string' || !color.startsWith('#')) return;
+      const grad = ctx.createRadialGradient(cx, cy, innerR * 0.75, cx, cy, outerR);
+      grad.addColorStop(0,   color + '18');
+      grad.addColorStop(0.5, color + '88');
+      grad.addColorStop(1,   color + 'ee');
+      meta.data[i].options.backgroundColor = grad;
+    });
+  }
+};
 let chartArea = null;
 let chartDonut = null;
 let chartFs = null;
@@ -1825,7 +1849,7 @@ function styledCheckbox(cb, color, checked) {
     label.classList.remove('dimmed');
   } else {
     label.style.borderLeftColor = 'transparent';
-    label.style.background = 'var(--surface)';
+    label.style.background = '#080e1a';
     label.classList.add('dimmed');
   }
 }
@@ -2664,6 +2688,7 @@ function renderCharts() {
     if (chartDonut) chartDonut.destroy();
     chartDonut = new Chart(document.getElementById('chartDonut'), {
       type: 'doughnut',
+      plugins: [donutGradientPlugin],
       data: {
         labels: donutLabels,
         datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '33'), borderColor: donutColors, borderWidth: 3 }]
@@ -2827,6 +2852,7 @@ function expandChart(mode) {
     }
     chartFs = new Chart(fsCanvas, {
       type: 'doughnut',
+      plugins: [donutGradientPlugin],
       data: {
         labels: donutLabels,
         datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '33'), borderColor: donutColors, borderWidth: 3 }]
