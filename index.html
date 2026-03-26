@@ -3015,9 +3015,9 @@ async function submitForm() {
   const dateStr = document.getElementById('fDate').value;
   if (!dateStr) { status.className = 'status error'; status.textContent = 'Veuillez saisir une date.'; return; }
 
-  // Format date as DD/MM/YYYY
+  // Format date as DD/MM/YYYY (apostrophe forces text in Google Sheets)
   const [y, m, d] = dateStr.split('-');
-  const dateFormatted = `${d}/${m}/${y}`;
+  const dateFormatted = `'${d}/${m}/${y}`;
 
   const readField = id => {
     const el = document.getElementById(id);
@@ -4257,7 +4257,7 @@ const TOOL_EXECUTORS = {
       cristina:  params.cristina  !== undefined ? params.cristina  : prev.cristina
     };
     const total = newVals.boursoVie + newVals.bitcoin + newVals.trPea + newVals.livretA + newVals.trCash;
-    const today = new Date().toLocaleDateString('fr-FR');
+    const today = `'${new Date().toLocaleDateString('fr-FR')}`;
     const cfg   = getConfig();
     const newRow = [today, newVals.boursoVie, newVals.bitcoin, newVals.trPea, newVals.livretA, newVals.trCash, total, newVals.cristina, '', '', '', '', ''];
     await sheetsAppend(`'${cfg.targetTab}'!A2`, [newRow]);
