@@ -19,7 +19,7 @@
       --surface2: #334155;
       --accent: #3b82f6;
       --accent2: #8b5cf6;
-      --green: #10b981;
+      --green: #00e676;
       --red: #ef4444;
       --orange: #f59e0b;
       --pink: #ec4899;
@@ -145,7 +145,7 @@
       padding: 2px 8px; border-radius: 99px;
       margin-top: 4px;
     }
-    .gain-badge.pos { background: rgba(16,185,129,0.15); color: var(--green); }
+    .gain-badge.pos { background: rgba(0,230,118,0.15); color: var(--green); }
     .gain-badge.neg { background: rgba(239,68,68,0.15); color: var(--red); }
 
     .card-max {
@@ -1911,7 +1911,7 @@ function renderDashboard() {
     renderGainTotal();
     // Pass gain color to donut canvas for center text
     const donutCanvas = document.getElementById('chartDonut');
-    if (donutCanvas) donutCanvas.dataset.gainColor = gain >= 0 ? '#10b981' : '#ef4444';
+    if (donutCanvas) donutCanvas.dataset.gainColor = gain >= 0 ? '#00e676' : '#ef4444';
   }
 
   const dateStr = last[0];
@@ -2213,7 +2213,7 @@ function lerpColor(a, b, t) {
 function rangeColor(pct) {
   const t = Math.max(-1, Math.min(1, pct / 8)); // seuil ±8% pour rouge/vert vif
   const neutral = '#475569';
-  return t >= 0 ? lerpColor(neutral, '#10b981', t) : lerpColor(neutral, '#ef4444', -t);
+  return t >= 0 ? lerpColor(neutral, '#00e676', t) : lerpColor(neutral, '#ef4444', -t);
 }
 
 Chart.register({
@@ -4050,7 +4050,7 @@ async function loadBtcChart(days, btn) {
 
     if (chartBtc) { chartBtc.destroy(); chartBtc = null; }
     const isUp = values.length > 1 && values[values.length - 1] >= values[0];
-    const color = isUp ? '#10b981' : '#ef4444';
+    const color = isUp ? '#00e676' : '#ef4444';
 
     chartBtc = new Chart(canvas, {
       type: 'line',
