@@ -600,8 +600,8 @@
     }
     .modal-overlay.visible { display: flex; }
     .modal-box {
-      background: var(--surface);
-      border-radius: var(--radius) var(--radius) 0 0;
+      background: #09111f;
+      border-radius: 0;
       width: 100%; max-width: 600px;
       padding: 20px;
       padding-bottom: calc(20px + env(safe-area-inset-bottom));
@@ -937,7 +937,7 @@
       .page { padding: 80px 24px 24px; max-width: 960px; }
       .cards { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
       .header .total { font-size: 48px; }
-      .modal-box { border-radius: var(--radius); margin-bottom: 40px; }
+      .modal-box { border-radius: 0; margin-bottom: 40px; }
     }
   </style>
 </head>
@@ -1294,7 +1294,7 @@
 
   <!-- BOURSOVIE / ASSURANCE VIE MODAL -->
   <div id="avModal" class="modal-overlay">
-    <div class="modal-box">
+    <div class="modal-box" style="height:100dvh;max-height:100dvh">
       <div class="modal-header">
         <span>BoursoVie — Assurance Vie</span>
         <button class="modal-close-btn" onclick="closeAvModal()">✕</button>
@@ -1334,7 +1334,7 @@
 
   <!-- PEA MODAL -->
   <div id="peaModal" class="modal-overlay">
-    <div class="modal-box" style="height:100dvh;border-radius:0;max-height:100dvh">
+    <div class="modal-box" style="height:100dvh;max-height:100dvh">
       <div class="modal-header">
         <span>TR PEA</span>
         <button class="modal-close-btn" onclick="closePeaModal()">✕</button>
@@ -1376,7 +1376,7 @@
 
   <!-- BITCOIN MODAL -->
   <div id="btcModal" class="modal-overlay">
-    <div class="modal-box" style="max-width:660px">
+    <div class="modal-box" style="height:100dvh;max-height:100dvh;max-width:660px">
       <div class="modal-header" style="flex-shrink:0">
         <span>₿ Bitcoin — CTO</span>
         <button class="modal-close-btn" onclick="closeBtcModal()">✕</button>
