@@ -2230,7 +2230,7 @@ function updateRangeDisplay() {
   chartDonut.data.datasets[0].data = endData;
   chartDonut.data.datasets[0]._baseColors = newBorderColors;
   chartDonut.data.datasets[0].borderColor = newBorderColors.map(c => c + 'cc');
-  chartDonut.data.datasets[0].backgroundColor = newBorderColors.map(c => c + '70');
+  chartDonut.data.datasets[0].backgroundColor = newBorderColors.map(c => c + '3a');
   // Colorier les carrés de légende selon la perf range
   const _legendEl = document.getElementById('legendShared');
   if (_legendEl) _legendEl.querySelectorAll('input[type="checkbox"]').forEach((cb, j) => {
@@ -2324,7 +2324,7 @@ function toggleRangeMode() {
       if (chartDonut) {
         chartDonut.data.datasets[0]._baseColors = origColors;
         chartDonut.data.datasets[0].borderColor = origColors.map(c => c + 'cc');
-        chartDonut.data.datasets[0].backgroundColor = origColors.map(c => c + '70');
+        chartDonut.data.datasets[0].backgroundColor = origColors.map(c => c + '3a');
         chartDonut.update({ duration: 220, easing: 'easeInOutCubic' });
       }
       // Restaurer les couleurs de la légende
@@ -2689,7 +2689,7 @@ function renderCharts() {
       plugins: [donutGradientPlugin],
       data: {
         labels: donutLabels,
-        datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '70'), borderColor: donutColors.map(c => c + 'cc'), borderWidth: 2, _baseColors: donutColors }]
+        datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '3a'), borderColor: donutColors.map(c => c + 'cc'), borderWidth: 2, _baseColors: donutColors }]
       },
       options: getChartOptions('doughnut')
     });
@@ -2853,7 +2853,7 @@ function expandChart(mode) {
       plugins: [donutGradientPlugin],
       data: {
         labels: donutLabels,
-        datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '70'), borderColor: donutColors.map(c => c + 'cc'), borderWidth: 2, _baseColors: donutColors }]
+        datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '3a'), borderColor: donutColors.map(c => c + 'cc'), borderWidth: 2, _baseColors: donutColors }]
       },
       options: getChartOptions('doughnut')
     });
