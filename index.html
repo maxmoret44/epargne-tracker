@@ -2219,16 +2219,72 @@ function rangeColor(pct) {
 Chart.register({
   id: 'edgeFade',
   beforeDatasetsDraw(chart) {
-    if (!IS_TOUCH || chart.canvas.id !== 'chartArea') return;
+    if (chart.canvas.id !== 'chartArea') return;
     const { ctx, chartArea, width, height } = chart;
+    const pts = chart.getDatasetMeta(0)?.data;
+
+    // ── Aires remplies AVANT le tracé de la ligne (naturellement dessous) ──
+    if (pts && pts.length) {
+      const t = chartModeT;
+      // Fill cumul — dégradé vertical sous la courbe
+      if (t < 1) {
+        const lc = chart.data.datasets[0]?.borderColor || '#f5b731';
+        const [r, g, b] = lc === '#f5b731' ? [245, 183, 49] : [74, 222, 128];
+        ctx.save();
+        ctx.globalAlpha = 1 - t;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, chartArea.bottom);
+        pts.forEach(pt => ctx.lineTo(pt.x, pt.y));
+        ctx.lineTo(pts[pts.length - 1].x, chartArea.bottom);
+        ctx.closePath();
+        const vgrad = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        vgrad.addColorStop(0,    `rgba(${r},${g},${b},0.32)`);
+        vgrad.addColorStop(0.55, `rgba(${r},${g},${b},0.10)`);
+        vgrad.addColorStop(1,    `rgba(${r},${g},${b},0.00)`);
+        ctx.fillStyle = vgrad;
+        ctx.fill();
+        ctx.restore();
+      }
+      // Fill perf — dégradé ancré à la ligne zéro
+      if (t > 0) {
+        const zeroY = chart.scales.y.getPixelForValue(0);
+        ctx.save();
+        ctx.globalAlpha = t;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, zeroY);
+        pts.forEach(pt => ctx.lineTo(pt.x, Math.min(pt.y, zeroY)));
+        ctx.lineTo(pts[pts.length - 1].x, zeroY);
+        ctx.closePath();
+        const greenGrad = ctx.createLinearGradient(0, chartArea.top, 0, zeroY);
+        greenGrad.addColorStop(0, 'rgba(0,230,118,0.01)');
+        greenGrad.addColorStop(1, 'rgba(0,230,118,0.30)');
+        ctx.fillStyle = greenGrad;
+        ctx.fill();
+        ctx.restore();
+        ctx.save();
+        ctx.globalAlpha = t;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, zeroY);
+        pts.forEach(pt => ctx.lineTo(pt.x, Math.max(pt.y, zeroY)));
+        ctx.lineTo(pts[pts.length - 1].x, zeroY);
+        ctx.closePath();
+        const redGrad = ctx.createLinearGradient(0, zeroY, 0, chartArea.bottom);
+        redGrad.addColorStop(0, 'rgba(255,45,85,0.30)');
+        redGrad.addColorStop(1, 'rgba(255,45,85,0.01)');
+        ctx.fillStyle = redGrad;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // ── Fondus latéraux mobile ──
+    if (!IS_TOUCH) return;
     ctx.save();
-    // Fondu gauche : opaque → transparent sur la zone de padding gauche
     const lgrad = ctx.createLinearGradient(0, 0, chartArea.left, 0);
     lgrad.addColorStop(0, 'rgba(15,23,42,1)');
     lgrad.addColorStop(1, 'rgba(15,23,42,0)');
     ctx.fillStyle = lgrad;
     ctx.fillRect(0, 0, chartArea.left, height);
-    // Fondu droit : transparent → opaque avant la fin de la zone de données
     const rStart = chartArea.right - 80;
     const rEnd   = chartArea.right + 8;
     const rgrad = ctx.createLinearGradient(rStart, 0, rEnd, 0);
@@ -2236,7 +2292,6 @@ Chart.register({
     rgrad.addColorStop(1, 'rgba(15,23,42,1)');
     ctx.fillStyle = rgrad;
     ctx.fillRect(rStart, 0, rEnd - rStart, height);
-    // Zone de padding droite : opaque plein
     ctx.fillStyle = 'rgba(15,23,42,1)';
     ctx.fillRect(rEnd, 0, width - rEnd, height);
     ctx.restore();
@@ -2244,71 +2299,9 @@ Chart.register({
   afterDatasetsDraw(chart) {
     if (chart.canvas.id !== 'chartArea') return;
     const { ctx, chartArea } = chart;
-    const pts = chart.getDatasetMeta(0)?.data;
-    if (!pts || !pts.length) return;
-
-    const t = chartModeT; // 0=cumul, 1=perf
-
-    // Fill cumul (gold) — dégradé horizontal sous la courbe
-    if (t < 1) {
-      const lc = chart.data.datasets[0]?.borderColor || '#f5b731';
-      const [r, g, b] = lc === '#ff2d55' ? [255, 45, 85] : lc === '#00e676' ? [0, 230, 118] : lc === '#f5b731' ? [245, 183, 49] : [74, 222, 128];
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, chartArea.bottom);
-      pts.forEach(pt => ctx.lineTo(pt.x, pt.y));
-      ctx.lineTo(pts[pts.length - 1].x, chartArea.bottom);
-      ctx.closePath(); ctx.clip();
-      ctx.globalAlpha = 1 - t;
-      ctx.globalCompositeOperation = 'destination-over';
-      const vgrad = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-      vgrad.addColorStop(0,    `rgba(${r},${g},${b},0.32)`);
-      vgrad.addColorStop(0.55, `rgba(${r},${g},${b},0.10)`);
-      vgrad.addColorStop(1,    `rgba(${r},${g},${b},0.00)`);
-      ctx.fillStyle = vgrad;
-      ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
-      ctx.restore();
-    }
-
-    // Fill perf (vert/rouge) — dégradé vertical ancré à la ligne zéro
-    if (t > 0) {
-      const zeroY = chart.scales.y.getPixelForValue(0);
-      // Vert au-dessus du zéro — gradient transparent (haut) → dense (zéro)
-      ctx.save();
-      ctx.globalAlpha = t;
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, zeroY);
-      pts.forEach(pt => ctx.lineTo(pt.x, Math.min(pt.y, zeroY)));
-      ctx.lineTo(pts[pts.length - 1].x, zeroY);
-      ctx.closePath(); ctx.clip();
-      ctx.globalCompositeOperation = 'destination-over';
-      const greenGrad = ctx.createLinearGradient(0, chartArea.top, 0, zeroY);
-      greenGrad.addColorStop(0, 'rgba(0,230,118,0.01)');
-      greenGrad.addColorStop(1, 'rgba(0,230,118,0.30)');
-      ctx.fillStyle = greenGrad;
-      ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
-      ctx.restore();
-      // Rouge en-dessous du zéro — gradient dense (zéro) → transparent (bas)
-      ctx.save();
-      ctx.globalAlpha = t;
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, zeroY);
-      pts.forEach(pt => ctx.lineTo(pt.x, Math.max(pt.y, zeroY)));
-      ctx.lineTo(pts[pts.length - 1].x, zeroY);
-      ctx.closePath(); ctx.clip();
-      ctx.globalCompositeOperation = 'destination-over';
-      const redGrad = ctx.createLinearGradient(0, zeroY, 0, chartArea.bottom);
-      redGrad.addColorStop(0, 'rgba(255,45,85,0.30)');
-      redGrad.addColorStop(1, 'rgba(255,45,85,0.01)');
-      ctx.fillStyle = redGrad;
-      ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
-      ctx.restore();
-    }
-
-    // Fondu sombre bas — toujours présent, indépendant de la transition
+    // Fondu sombre bas — sur la ligne
     const fadeH = (chartArea.bottom - chartArea.top) * 0.45;
     ctx.save();
-    ctx.globalCompositeOperation = 'source-over';
     const bgrad = ctx.createLinearGradient(0, chartArea.bottom - fadeH, 0, chartArea.bottom);
     bgrad.addColorStop(0, 'rgba(15,23,42,0)');
     bgrad.addColorStop(1, 'rgba(15,23,42,1)');
@@ -2815,17 +2808,6 @@ function renderCharts() {
     borderWidth: 2.5,
     pointRadius: 0,
     pointHoverRadius: 4,
-    segment: {
-      borderColor: ctx => {
-        if (chartModeT === 0) return undefined;
-        const base = ctx.chart.data.datasets[0].borderColor || '#f5b731';
-        const y0 = ctx.p0.parsed.y, y1 = ctx.p1.parsed.y;
-        const c0 = lerpColor(base, y0 >= 0 ? '#00e676' : '#ff2d55', chartModeT);
-        const c1 = lerpColor(base, y1 >= 0 ? '#00e676' : '#ff2d55', chartModeT);
-        const avgY = (y0 + y1) / 2;
-        return lerpColor(base, avgY >= 0 ? '#00e676' : '#ff2d55', chartModeT);
-      }
-    }
   }];
 
   if (chartArea) chartArea.destroy();
