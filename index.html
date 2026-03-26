@@ -375,6 +375,10 @@
       0%, 100% { transform: translateY(0); }
       50%       { transform: translateY(5px); }
     }
+    @keyframes scrollBounceUp {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-5px); }
+    }
 
     /* CLAUDE CHAT */
     #claude { padding: 0; }
@@ -736,21 +740,32 @@
     #donut-ext-tooltip .dtt-title { color: #f1f5f9; font-weight: 600; margin-bottom: 2px; }
     #donut-ext-tooltip .dtt-body  { color: #94a3b8; }
 
-    .chart-mode-tabs { display: flex; gap: 6px; margin-bottom: 6px; padding-left: 42px; margin-top: -5px; }
+    .chart-mode-tabs { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; margin-top: -5px; padding-left: calc(22px + 3vw); padding-right: 16px; }
     .chart-mode-tab {
-      padding: 4px 12px; border: 1px solid transparent; background: none;
+      padding: 4px 12px; border: none; background: none;
       color: var(--text2); opacity: 0.45;
       font-size: 13px; font-weight: 600; cursor: pointer; letter-spacing: 0.04em;
       font-family: 'Noto Sans', sans-serif;
-      border-radius: 99px;
-      transition: opacity 0.2s, color 0.2s, background 0.2s, border-color 0.2s;
+      border-radius: 0;
+      position: relative; overflow: visible;
+      transition: opacity 0.2s, color 0.2s;
+    }
+    .chart-mode-tab::before {
+      content: ''; position: absolute; inset: -6px;
+      border-radius: 4px; opacity: 0; transform: scale(0.8);
+      transition: opacity 1.9s ease-out, transform 1.9s ease-out;
+      filter: blur(10px); z-index: -1;
+    }
+    .chart-mode-tab[data-mode="perf"]::before {
+      background: linear-gradient(135deg, rgba(239,68,68,0.7) 0%, rgba(34,197,94,0.7) 100%);
+    }
+    .chart-mode-tab[data-mode="cumul"]::before {
+      background: radial-gradient(ellipse at center, rgba(255,215,0,0.8) 0%, rgba(184,134,11,0.6) 100%);
     }
     .chart-mode-tab.active {
-      opacity: 1;
-      color: var(--accent);
-      background: rgba(59,130,246,0.1);
-      border-color: rgba(59,130,246,0.25);
+      opacity: 1; color: var(--text);
     }
+    .chart-mode-tab:active::before { opacity: 1; transform: scale(1.05); transition: opacity 1.15s ease-in, transform 1.15s ease-in; }
     .charts-row { display: flex; flex-direction: column; gap: 8px; }
     .chart-sublabel { display: none; }
     @media (max-width: 767px) {
@@ -1016,6 +1031,36 @@
         <div class="charts-area-wrap">
           <div class="chart-mode-tabs">
             <button class="chart-mode-tab active" data-mode="perf" onclick="switchChartMode('perf')">Performance</button>
+            <div onclick="document.querySelector('#dashboard .dash-section-data').scrollIntoView({behavior:'smooth'})" style="display:inline-flex; align-items:center; gap:10px; padding:4px 10px; cursor:pointer; border-radius:16px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45; animation:scrollBounceUp 1.8s ease-in-out infinite;">
+                <polyline points="18 15 12 9 6 15"/>
+              </svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#hintGradUp1)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45;">
+                <defs>
+                  <linearGradient id="hintGradUp1" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="100%" stop-color="#8b5cf6"/>
+                  </linearGradient>
+                </defs>
+                <path d="M3 6a2 2 0 012-2h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6z"/>
+                <path d="M3 10h18"/>
+                <rect x="14" y="13" width="5" height="4" rx="1"/>
+              </svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#hintGradUp2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45;">
+                <defs>
+                  <linearGradient id="hintGradUp2" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="100%" stop-color="#8b5cf6"/>
+                  </linearGradient>
+                </defs>
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                <line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+            </div>
             <button class="chart-mode-tab" data-mode="cumul" onclick="switchChartMode('cumul')">Cumul</button>
           </div>
           <div style="position:relative">
@@ -2095,7 +2140,7 @@ Chart.register({
 
     const t = chartModeT; // 0=cumul, 1=perf
 
-    // Fill cumul (gold) — seul le dégradé horizontal fond via globalAlpha = 1-t
+    // Fill cumul (gold) — dégradé horizontal sous la courbe
     if (t < 1) {
       const lc = chart.data.datasets[0]?.borderColor || '#f5b731';
       const [r, g, b] = lc === '#f87171' ? [248, 113, 113] : lc === '#f5b731' ? [245, 183, 49] : [74, 222, 128];
@@ -2115,7 +2160,7 @@ Chart.register({
       ctx.restore();
     }
 
-    // Fill perf (vert/rouge) — tout le bloc suit globalAlpha = t
+    // Fill perf (vert/rouge) — couleur plate, sans dégradé
     if (t > 0) {
       const zeroY = chart.scales.y.getPixelForValue(0);
       // Vert au-dessus du zéro
@@ -2127,9 +2172,7 @@ Chart.register({
       ctx.lineTo(pts[pts.length - 1].x, zeroY);
       ctx.closePath(); ctx.clip();
       ctx.globalCompositeOperation = 'destination-over';
-      const gh = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
-      gh.addColorStop(0, 'rgba(74,222,128,0.25)'); gh.addColorStop(1, 'rgba(74,222,128,0.00)');
-      ctx.fillStyle = gh;
+      ctx.fillStyle = 'rgba(74,222,128,0.20)';
       ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
       ctx.restore();
       // Rouge en-dessous du zéro
@@ -2141,9 +2184,7 @@ Chart.register({
       ctx.lineTo(pts[pts.length - 1].x, zeroY);
       ctx.closePath(); ctx.clip();
       ctx.globalCompositeOperation = 'destination-over';
-      const rh = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
-      rh.addColorStop(0, 'rgba(248,113,113,0.25)'); rh.addColorStop(1, 'rgba(248,113,113,0.00)');
-      ctx.fillStyle = rh;
+      ctx.fillStyle = 'rgba(248,113,113,0.20)';
       ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
       ctx.restore();
     }
@@ -2655,10 +2696,8 @@ function renderCharts() {
         const y0 = ctx.p0.parsed.y, y1 = ctx.p1.parsed.y;
         const c0 = lerpColor(base, y0 >= 0 ? '#4ade80' : '#f87171', chartModeT);
         const c1 = lerpColor(base, y1 >= 0 ? '#4ade80' : '#f87171', chartModeT);
-        if (c0 === c1) return c0;
-        const grad = ctx.chart.ctx.createLinearGradient(ctx.p0.x, 0, ctx.p1.x, 0);
-        grad.addColorStop(0, c0); grad.addColorStop(1, c1);
-        return grad;
+        const avgY = (y0 + y1) / 2;
+        return lerpColor(base, avgY >= 0 ? '#4ade80' : '#f87171', chartModeT);
       }
     }
   }];
