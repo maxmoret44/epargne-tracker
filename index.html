@@ -3006,6 +3006,60 @@ async function readPeaPricesFromSheet(count) {
   }
 }
 
+const PEA_HOLDINGS_TAB = 'PEA_Holdings';
+
+async function ensurePeaHoldingsTab(sheetId) {
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets(properties(title))`,
+    { headers: { 'Authorization': `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) throw new Error(`Metadata error: ${res.status}`);
+  const meta = await res.json();
+  const exists = (meta.sheets || []).some(s => s.properties && s.properties.title === PEA_HOLDINGS_TAB);
+  if (!exists) {
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: PEA_HOLDINGS_TAB } } }] })
+    });
+  }
+}
+
+async function readPeaHoldingsFromSheet() {
+  const cfg = getConfig();
+  if (!cfg.targetId || !accessToken) return null;
+  try {
+    await ensurePeaHoldingsTab(cfg.targetId);
+    const values = await sheetsRead(cfg.targetId, `'${PEA_HOLDINGS_TAB}'!A2:F`);
+    if (!values || values.length === 0) return null;
+    return values.map(r => ({
+      ticker: r[0] || '',
+      name: r[1] || '',
+      qty: parseInt(r[2]) || 0,
+      purchasePrice: parseFloat(r[3]) || 0,
+      sector: r[4] || '',
+      geo: r[5] || ''
+    })).filter(h => h.ticker);
+  } catch(e) {
+    console.warn('readPeaHoldings:', e.message);
+    return null;
+  }
+}
+
+async function writePeaHoldingsToSheet(holdings) {
+  const cfg = getConfig();
+  if (!cfg.targetId) throw new Error('Sheet ID manquant');
+  if (!accessToken) throw new Error('Non connecté à Google');
+
+  await ensurePeaHoldingsTab(cfg.targetId);
+  const rows = [['Ticker', 'Name', 'Qty', 'PurchasePrice', 'Sector', 'Geo']];
+  holdings.forEach(h => {
+    rows.push([h.ticker, h.name, h.qty, h.purchasePrice, h.sector, h.geo]);
+  });
+  await sheetsUpdate(cfg.targetId, `'${PEA_HOLDINGS_TAB}'!A1:F${rows.length}`, rows);
+  savePeaHoldings(holdings);
+}
+
 async function refreshPeaModal() {
   const holdings = getPeaHoldings();
   const st = document.getElementById('peaFetchStatus');
@@ -3678,6 +3732,18 @@ window.addEventListener('load', () => {
 
   loadData();
 
+  // Charge les holdings PEA depuis le Sheet (synchro cross-device)
+  (async () => {
+    if (accessToken) {
+      const sheetHoldings = await readPeaHoldingsFromSheet();
+      if (sheetHoldings && sheetHoldings.length > 0) {
+        savePeaHoldings(sheetHoldings);
+      }
+      // Met à jour les prix GOOGLEFINANCE
+      await preFetchPeaPrices();
+    }
+  })();
+
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
       reg.update(); // force check for new SW on every app launch
@@ -3743,6 +3809,32 @@ const CLAUDE_TOOLS_DEFINITIONS = [
       required: []
     }
   },
+  {
+    name: "epargne_update_pea_holdings",
+    description: "Met à jour les holdings du PEA (achats/ventes d'actions). Enregistre dans Google Sheets et synchro partout. Utilise quand l'utilisateur dit 'J'ai acheté X de Y' ou 'J'ai vendu Z de W'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        holdings: {
+          type: "array",
+          description: "Liste complète des holdings PEA après la transaction",
+          items: {
+            type: "object",
+            properties: {
+              ticker: { type: "string", description: "Ticker ou ISIN (ex: TTE.PA, FR0011550185)" },
+              name: { type: "string", description: "Nom du titre" },
+              qty: { type: "number", description: "Quantité détenue" },
+              purchasePrice: { type: "number", description: "Prix d'achat unitaire en euros" },
+              sector: { type: "string", description: "Secteur (ex: Énergie, ETF Diversifié)" },
+              geo: { type: "string", description: "Géographie (France, USA, etc.)" }
+            },
+            required: ["ticker", "name", "qty", "purchasePrice"]
+          }
+        }
+      },
+      required: ["holdings"]
+    }
+  }
 ];
 
 const TOOL_EXECUTORS = {
@@ -3815,6 +3907,26 @@ const TOOL_EXECUTORS = {
       liquidites: cash,
       totalPEA: peaVal
     };
+  },
+
+  epargne_update_pea_holdings: async (params) => {
+    if (!accessToken) return { error: 'Non connecté à Google. Va dans Config > Connecter Google.' };
+    const holdings = params.holdings || [];
+    if (!Array.isArray(holdings) || holdings.length === 0) {
+      return { error: 'Holdings list vide ou invalide.' };
+    }
+    try {
+      await writePeaHoldingsToSheet(holdings);
+      // Recharge les prix depuis le sheet (GOOGLEFINANCE)
+      await preFetchPeaPrices();
+      return {
+        success: true,
+        message: `${holdings.length} position(s) mise(s) à jour dans le PEA`,
+        holdings: holdings
+      };
+    } catch(e) {
+      return { error: e.message };
+    }
   },
 
   epargne_get_history: async (params) => {
