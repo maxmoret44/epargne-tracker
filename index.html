@@ -90,11 +90,11 @@
     .nav-label { transition: opacity 0.25s ease, max-width 0.3s ease; font-weight: 500; }
 
     /* PAGES */
-    .page { display: none; padding: 16px 16px 80px; max-width: 900px; margin: 0 auto; }
+    .page { display: none; padding: 0 16px 80px; max-width: 900px; margin: 0 auto; }
     .page.active { display: block; }
 
     /* HEADER */
-    .header { text-align: center; padding: 20px 0 12px; }
+    .header { text-align: center; padding: 10px 0 12px; }
     .header h1 { font-size: 18px; font-weight: 600; }
     .header .total {
       font-size: 36px; font-weight: 700;
@@ -681,12 +681,12 @@
     #peaTabNews, #avTabRepartition { flex: 1; overflow-y: auto; min-height: 0; }
 
     /* DASHBOARD LAYOUT */
-    .dash-section-data { padding-top: 10px; }
+    .dash-section-data { padding-top: 25px; }
     .dash-section-charts {
       background: var(--surface);
       border-radius: var(--radius);
       padding: 16px;
-      margin: 16px 0;
+      margin: 0 0 16px;
     }
     .chart-shared-top { display: none; }
     .charts-donut-wrap {
@@ -790,7 +790,7 @@
       #dashboard .dash-section-data {
         min-height: calc(100vh - 60px);
         min-height: calc(100dvh - 60px);
-        padding: 10px 16px 20px;
+        padding: 30px 16px 10px;
         box-sizing: border-box;
         scroll-snap-align: start;
         scroll-snap-stop: always;
@@ -800,7 +800,7 @@
         height: calc(100vh - 60px);
         height: calc(100dvh - 60px);
         padding: 8px 16px 18px;
-        padding-top: 5vh;
+        padding-top: calc(5vh - 10px);
         box-sizing: border-box;
         overflow: hidden;
         scroll-snap-align: start;
@@ -974,7 +974,7 @@
         </div>
       </div>
       <div class="cards" id="accountCards"></div>
-      <div id="scrollHint" style="display:flex; align-items:center; justify-content:center; gap:14px; padding:16px 0 6px;">
+      <div id="scrollHint" style="display:flex; align-items:center; justify-content:center; gap:14px; padding:8px 0 4px;">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="url(#hintGrad)" stroke-width="1.6" style="opacity:0.45;">
           <defs>
             <linearGradient id="hintGrad" x1="0%" y1="0%" x2="100%" y2="100%">
