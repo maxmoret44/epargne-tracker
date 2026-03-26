@@ -2325,7 +2325,7 @@ Chart.register({
     const glow = `rgba(${rgb},0.7)`;
 
     // Gradient inversé : 0% au centre → 18% proche des barres
-    const fw = Math.min(72, w * 0.28);
+    const fw = Math.min(36, w * 0.12);
     const grad = ctx.createLinearGradient(sx, 0, ex, 0);
     grad.addColorStop(0,                           `rgba(${rgb},${(alpha * 0.18).toFixed(3)})`);
     grad.addColorStop(Math.min(0.44, fw / w),      `rgba(${rgb},0)`);
