@@ -286,15 +286,6 @@
     }
     .form-group input:focus { outline: none; border-color: var(--accent); }
 
-    .cristina-toggle {
-      display: flex; align-items: center; gap: 10px;
-      background: #09111f; border-radius: var(--radius);
-      padding: 12px 14px; margin-bottom: 16px; cursor: pointer;
-      border: 1px solid var(--surface2);
-    }
-    .cristina-toggle input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
-    .cristina-toggle span { font-size: 13px; color: var(--text2); }
-    .cristina-toggle .val { color: var(--text); font-weight: 600; margin-left: auto; }
 
     .btn {
       width: 100%; padding: 14px;
@@ -1147,13 +1138,7 @@
       <input type="number" id="fCristina" step="0.01" placeholder="0.00">
     </div>
 
-    <label class="cristina-toggle" id="cristinaToggle">
-      <input type="checkbox" id="cristinaSame">
-      <span>Reprendre la dernière valeur Cristina</span>
-      <span class="val" id="cristinaLastVal">--</span>
-    </label>
-
-    <hr style="border-color: var(--surface2); margin: 20px 0;">
+    <hr style="border-color: var(--surface2); margin: 16px 0;">
 
     <div class="injection-section">
       <label class="injection-toggle">
@@ -1675,6 +1660,9 @@ let cristinaData = [];
 let investedAmounts = { boursovie: 600, cto: 458.96, pea: 2067.03, livret: 1400, cash: 0 };
 let totalInjections = {};
 let cachedGainAbs = null, cachedGainPct = null;
+const BTC_QTY = 0.005464;
+let liveBtcPrice = null;
+let liveValues = { boursovie: null, cto: null, pea: null, livret: null, cash: null, cristina: null };
 
 async function loadData() {
   const cfg = getConfig();
@@ -1732,6 +1720,7 @@ async function loadData() {
     renderDashboard();
     renderHistory();
     prefillForm();
+    computeLiveValues();
   } catch(e) {
     console.error('Load error:', e);
     const cached = localStorage.getItem(DATA_KEY);
@@ -1745,6 +1734,7 @@ async function loadData() {
       renderDashboard();
       renderHistory();
       prefillForm();
+      computeLiveValues();
     } else {
       const msg = e.message.includes('403') || e.message.includes('401')
         ? 'Session expirée. Allez dans Config > Connecter Google'
@@ -1767,14 +1757,80 @@ function fmt(n) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n || 0);
 }
 
+async function computeLiveValues() {
+  // Valeurs statiques depuis le sheet
+  if (allData.length > 0) {
+    const last = allData[allData.length - 1];
+    liveValues.livret  = parseFloat(last[4]) || null;
+    liveValues.cash    = parseFloat(last[5]) || null;
+  }
+  liveValues.cristina = cristinaData.length > 0 ? (cristinaData[cristinaData.length - 1] || null) : null;
+  updateFormPlaceholders();
+
+  // Bitcoin: BTC_QTY × prix CoinGecko
+  try {
+    const res  = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur&include_24hr_change=true');
+    const data = await res.json();
+    liveBtcPrice = data.bitcoin.eur;
+    liveValues.cto = BTC_QTY * liveBtcPrice;
+  } catch(e) { console.warn('liveValues BTC:', e.message); }
+
+  // BoursoVie: Yahoo Finance via proxy
+  try {
+    const prices = await fetchAvPrices();
+    let total = AV_CASH;
+    AV_HOLDINGS.forEach((h, i) => { total += (prices[i] ?? h.lastPrice) * h.qty; });
+    liveValues.boursovie = total;
+    avPricesCache = AV_HOLDINGS.map((h, i) => prices[i] ?? h.lastPrice);
+  } catch(e) {
+    console.warn('liveValues BoursoVie:', e.message);
+    liveValues.boursovie = AV_HOLDINGS.reduce((s, h) => s + h.lastPrice * h.qty, AV_CASH);
+  }
+
+  // PEA: GOOGLEFINANCE via sheet (nécessite accessToken)
+  if (accessToken) {
+    try {
+      await preFetchPeaPrices();
+      const holdings = getPeaHoldings();
+      const prices   = await readPeaPricesFromSheet(holdings.length);
+      if (prices) {
+        let total = getPeaCash();
+        holdings.forEach((h, i) => { if (prices[i] != null) total += prices[i] * h.qty; });
+        liveValues.pea = total;
+      }
+    } catch(e) { console.warn('liveValues PEA:', e.message); }
+  }
+
+  renderDashboard();
+  updateFormPlaceholders();
+}
+
+function updateFormPlaceholders() {
+  const map = {
+    fBoursovie: liveValues.boursovie,
+    fCto:       liveValues.cto,
+    fPea:       liveValues.pea,
+    fLivret:    liveValues.livret,
+    fCash:      liveValues.cash,
+    fCristina:  liveValues.cristina,
+  };
+  Object.entries(map).forEach(([id, val]) => {
+    if (val != null && val > 0) {
+      const el = document.getElementById(id);
+      if (el && !el.value) el.placeholder = val.toFixed(2);
+    }
+  });
+}
+
 function renderDashboard() {
   if (!allData.length) return;
   const dashLoad = document.getElementById('dashLoading');
   if (dashLoad) dashLoad.style.display = 'none';
 
   const last = allData[allData.length - 1];
-  const totalMax = parseFloat(last[6]) || 0;
-  const cristinaLast = cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0;
+  // Live values > valeurs du sheet
+  const totalMax = ACCOUNTS.reduce((s, a) => s + (liveValues[a.key] ?? (parseFloat(last[a.idx]) || 0)), 0);
+  const cristinaLast = liveValues.cristina ?? (cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0);
   const totalEpargne = totalMax + cristinaLast;
 
   document.getElementById('totalEpargne').textContent = fmt(totalEpargne);
@@ -1782,7 +1838,7 @@ function renderDashboard() {
   document.getElementById('totalCristina').textContent = fmt(cristinaLast);
 
   // Performance: TR Cash not counted (invested = current value)
-  const currentCash = parseFloat(last[5]) || 0;
+  const currentCash = liveValues.cash ?? (parseFloat(last[5]) || 0);
   const totalInvested =
     (investedAmounts.boursovie || 0) + (totalInjections.boursovie || 0) +
     (investedAmounts.cto       || 0) + (totalInjections.cto       || 0) +
@@ -1806,7 +1862,7 @@ function renderDashboard() {
 
   // Account cards
   const cardsHtml = ACCOUNTS.map(a => {
-    const val = parseFloat(last[a.idx]) || 0;
+    const val = liveValues[a.key] ?? (parseFloat(last[a.idx]) || 0);
     const inv = (investedAmounts[a.key] || 0) + (totalInjections[a.key] || 0);
     const accountGain = a.key === 'cash' ? 0 : val - inv;
     const accountPct = ((investedAmounts[a.key] || 0) > 0 && a.key !== 'cash') ? ((accountGain / inv) * 100).toFixed(1) : null;
@@ -2911,11 +2967,9 @@ function closeFullscreen() {
 
 // ============== FORM ==============
 function prefillForm() {
-  const lastCristina = cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0;
-  if (lastCristina > 0) document.getElementById('cristinaLastVal').textContent = fmt(lastCristina);
-  // Try to restore a saved draft first; if none, set today's date
   const restored = restoreFormDraft();
   if (!restored) document.getElementById('fDate').valueAsDate = new Date();
+  updateFormPlaceholders();
 }
 
 // Auto-save form draft on every input
@@ -2928,16 +2982,6 @@ function prefillForm() {
   if (inj) inj.addEventListener('change', saveFormDraft);
 })();
 
-document.getElementById('cristinaSame').addEventListener('change', function() {
-  const input = document.getElementById('fCristina');
-  const lastCris = cristinaData.length > 0 ? cristinaData[cristinaData.length - 1] : 0;
-  if (this.checked && lastCris > 0) {
-    input.value = lastCris;
-    input.disabled = true;
-  } else {
-    input.disabled = false;
-  }
-});
 
 document.getElementById('injectionToggle').addEventListener('change', function() {
   document.getElementById('injectionFields').classList.toggle('visible', this.checked);
@@ -2952,13 +2996,17 @@ async function submitForm() {
   const date = document.getElementById('fDate').value;
   if (!date) { status.className = 'status error'; status.textContent = 'Veuillez saisir une date.'; return; }
 
+  const readField = id => {
+    const el = document.getElementById(id);
+    return parseFloat(el.value) || parseFloat(el.placeholder) || 0;
+  };
   const donnees = {
-    boursovie: parseFloat(document.getElementById('fBoursovie').value) || 0,
-    cto:       parseFloat(document.getElementById('fCto').value)       || 0,
-    pea:       parseFloat(document.getElementById('fPea').value)       || 0,
-    livret:    parseFloat(document.getElementById('fLivret').value)    || 0,
-    cash:      parseFloat(document.getElementById('fCash').value)      || 0,
-    cristina:  parseFloat(document.getElementById('fCristina').value)  || 0,
+    boursovie: readField('fBoursovie'),
+    cto:       readField('fCto'),
+    pea:       readField('fPea'),
+    livret:    readField('fLivret'),
+    cash:      readField('fCash'),
+    cristina:  readField('fCristina'),
   };
 
   const injections = {
@@ -3010,8 +3058,6 @@ async function submitForm() {
     ['fBoursovie','fCto','fPea','fLivret','fCash','fCristina','injBoursovie','injCto','injPea','injLivret'].forEach(id => {
       document.getElementById(id).value = '';
     });
-    document.getElementById('cristinaSame').checked = false;
-    document.getElementById('fCristina').disabled = false;
     document.getElementById('injectionToggle').checked = false;
     document.getElementById('injectionFields').classList.remove('visible');
 
@@ -3792,34 +3838,36 @@ async function loadBtcData() {
   const portEl = document.getElementById('btcPortfolioValue');
   const portGainEl = document.getElementById('btcPortfolioGain');
 
-  // Portfolio value from last data
-  if (allData.length > 0) {
-    const last = allData[allData.length - 1];
-    const currentValue = parseFloat(last[2]) || 0;
-    const invested = (investedAmounts.cto || 0) + (totalInjections.cto || 0);
-    const gain = currentValue - invested;
-    const gainPct = invested > 0 ? ((gain / invested) * 100).toFixed(2) : null;
-    portEl.textContent = fmt(currentValue);
-    if (gainPct !== null) {
-      portGainEl.textContent = `${gain >= 0 ? '+' : ''}${fmt(gain)} (${gain >= 0 ? '+' : ''}${gainPct}%)`;
-      portGainEl.style.color = gain >= 0 ? 'var(--green)' : 'var(--red)';
-    }
-  }
-
-  // Current BTC price from CoinGecko
+  // Current BTC price from CoinGecko (or cached from computeLiveValues)
+  let price = liveBtcPrice;
   try {
     const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur&include_24hr_change=true');
     const data = await res.json();
-    const price = data.bitcoin.eur;
+    price = data.bitcoin.eur;
+    liveBtcPrice = price;
+    liveValues.cto = BTC_QTY * price;
     const change = data.bitcoin.eur_24h_change;
     priceEl.textContent = fmt(price);
     const sign = change >= 0 ? '+' : '';
     changeEl.textContent = `${sign}${change.toFixed(2)}% (24h)`;
     changeEl.style.color = change >= 0 ? 'var(--green)' : 'var(--red)';
   } catch(e) {
-    priceEl.textContent = 'Indisponible';
-    priceEl.style.color = 'var(--text2)';
+    priceEl.textContent = price ? fmt(price) : 'Indisponible';
+    if (!price) priceEl.style.color = 'var(--text2)';
     console.warn('BTC price:', e.message);
+  }
+
+  // Portfolio value: BTC_QTY × live price
+  if (price) {
+    const btcValue = BTC_QTY * price;
+    const invested = (investedAmounts.cto || 0) + (totalInjections.cto || 0);
+    const gain = btcValue - invested;
+    const gainPct = invested > 0 ? ((gain / invested) * 100).toFixed(2) : null;
+    portEl.textContent = fmt(btcValue);
+    if (gainPct !== null) {
+      portGainEl.textContent = `${gain >= 0 ? '+' : ''}${fmt(gain)} (${gain >= 0 ? '+' : ''}${gainPct}%)`;
+      portGainEl.style.color = gain >= 0 ? 'var(--green)' : 'var(--red)';
+    }
   }
 
   // Load default chart period
