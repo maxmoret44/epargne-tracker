@@ -1791,32 +1791,8 @@ function darkenHex(hex, factor) {
   return `rgb(${r},${g},${b})`;
 }
 
-// Plugin : gradient radial par segment sur le donut
-const donutGradientPlugin = {
-  id: 'donutGradient',
-  beforeDatasetsDraw(chart) {
-    if (chart.config.type !== 'doughnut') return;
-    const { ctx } = chart;
-    const meta = chart.getDatasetMeta(0);
-    if (!meta || !meta.data.length) return;
-    const arc0 = meta.data[0];
-    if (!arc0 || !arc0.outerRadius) return;
-    const { x: cx, y: cy, outerRadius: outerR, innerRadius: innerR } = arc0;
-    const borderColors = chart.data.datasets[0].borderColor;
-    if (!Array.isArray(borderColors)) return;
-    // Use _baseColors if available (so borderColor can be styled independently)
-    const gradColors = chart.data.datasets[0]._baseColors || borderColors;
-    gradColors.forEach((color, i) => {
-      if (!meta.data[i] || typeof color !== 'string' || !color.startsWith('#')) return;
-      const base = color.slice(0, 7); // strip alpha if present
-      const grad = ctx.createRadialGradient(cx, cy, innerR * 0.75, cx, cy, outerR);
-      grad.addColorStop(0,   base + '18');
-      grad.addColorStop(0.65, base + 'bb');
-      grad.addColorStop(1,   base + 'd9');
-      meta.data[i].options.backgroundColor = grad;
-    });
-  }
-};
+// Placeholder — plugin désactivé (couleur plate par série)
+const donutGradientPlugin = { id: 'donutGradient' };
 let chartArea = null;
 let chartDonut = null;
 let chartFs = null;
@@ -2711,7 +2687,7 @@ function renderCharts() {
       plugins: [donutGradientPlugin],
       data: {
         labels: donutLabels,
-        datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '33'), borderColor: donutColors.map(c => darkenHex(c, 0.55)), borderWidth: 2, _baseColors: donutColors }]
+        datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '66'), borderColor: donutColors.map(c => darkenHex(c, 0.28)), borderWidth: 2, _baseColors: donutColors }]
       },
       options: getChartOptions('doughnut')
     });
@@ -2875,7 +2851,7 @@ function expandChart(mode) {
       plugins: [donutGradientPlugin],
       data: {
         labels: donutLabels,
-        datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '33'), borderColor: donutColors.map(c => darkenHex(c, 0.55)), borderWidth: 2, _baseColors: donutColors }]
+        datasets: [{ data: donutValues, backgroundColor: donutColors.map(c => c + '66'), borderColor: donutColors.map(c => darkenHex(c, 0.28)), borderWidth: 2, _baseColors: donutColors }]
       },
       options: getChartOptions('doughnut')
     });
