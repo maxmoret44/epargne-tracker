@@ -2433,6 +2433,8 @@ function updateRangeDisplay() {
   _animateRangeColor(rangePct >= 0 ? 1 : 0);
   const sign = rangePct >= 0 ? '+' : '';
   const gc   = rangePct >= 0 ? 'var(--green)' : 'var(--red)';
+  const rangeBtn = document.getElementById('rangeModeBtn');
+  if (rangeBtn) rangeBtn.style.color = rangePct >= 0 ? '#00e676' : '#ff2d55';
 
   const startLbl = allLabels[si] || '';
   const endLbl   = allLabels[ei] || '';
@@ -2453,7 +2455,7 @@ function updateRangeDisplay() {
 function toggleRangeMode() {
   rangeMode = !rangeMode;
   const btn = document.getElementById('rangeModeBtn');
-  if (btn) btn.classList.toggle('active', rangeMode);
+  if (btn) { btn.classList.toggle('active', rangeMode); if (!rangeMode) btn.style.color = ''; }
   // Fondu des labels : fade-out immédiat, mise à jour du contenu après 180ms
   const _fadeEls = ['sharedDateLabel','sharedTotalLabel','sharedGainsLabel']
     .map(id => document.getElementById(id)).filter(Boolean);
