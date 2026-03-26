@@ -2226,6 +2226,22 @@ Chart.register({
     // ── Aires remplies AVANT le tracé de la ligne (naturellement dessous) ──
     if (pts && pts.length) {
       const t = chartModeT;
+
+      // Clip global à la zone de données : évite de peindre sur les libellés d'axes
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+      ctx.clip();
+
+      // Helper : trace le path bezier exact de la courbe (suit tension:0.4)
+      const drawBezier = () => {
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) {
+          const p = pts[i-1], c = pts[i];
+          ctx.bezierCurveTo(p.cp2x ?? p.x, p.cp2y ?? p.y, c.cp1x ?? c.x, c.cp1y ?? c.y, c.x, c.y);
+        }
+      };
+
       // Fill cumul — dégradé vertical sous la courbe
       if (t < 1) {
         const lc = chart.data.datasets[0]?.borderColor || '#f5b731';
@@ -2233,9 +2249,9 @@ Chart.register({
         ctx.save();
         ctx.globalAlpha = 1 - t;
         ctx.beginPath();
-        ctx.moveTo(pts[0].x, chartArea.bottom);
-        pts.forEach(pt => ctx.lineTo(pt.x, pt.y));
+        drawBezier();
         ctx.lineTo(pts[pts.length - 1].x, chartArea.bottom);
+        ctx.lineTo(pts[0].x, chartArea.bottom);
         ctx.closePath();
         const vgrad = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
         vgrad.addColorStop(0,    `rgba(${r},${g},${b},0.32)`);
@@ -2245,15 +2261,20 @@ Chart.register({
         ctx.fill();
         ctx.restore();
       }
-      // Fill perf — dégradé ancré à la ligne zéro
+
+      // Fill perf — dégradé ancré à la ligne zéro, avec clip rectangulaire par zone
       if (t > 0) {
         const zeroY = chart.scales.y.getPixelForValue(0);
+        // Vert : clip au-dessus du zéro
         ctx.save();
         ctx.globalAlpha = t;
         ctx.beginPath();
-        ctx.moveTo(pts[0].x, zeroY);
-        pts.forEach(pt => ctx.lineTo(pt.x, Math.min(pt.y, zeroY)));
+        ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, Math.max(0, zeroY - chartArea.top));
+        ctx.clip();
+        ctx.beginPath();
+        drawBezier();
         ctx.lineTo(pts[pts.length - 1].x, zeroY);
+        ctx.lineTo(pts[0].x, zeroY);
         ctx.closePath();
         const greenGrad = ctx.createLinearGradient(0, chartArea.top, 0, zeroY);
         greenGrad.addColorStop(0, 'rgba(0,230,118,0.01)');
@@ -2261,12 +2282,16 @@ Chart.register({
         ctx.fillStyle = greenGrad;
         ctx.fill();
         ctx.restore();
+        // Rouge : clip en-dessous du zéro
         ctx.save();
         ctx.globalAlpha = t;
         ctx.beginPath();
-        ctx.moveTo(pts[0].x, zeroY);
-        pts.forEach(pt => ctx.lineTo(pt.x, Math.max(pt.y, zeroY)));
+        ctx.rect(chartArea.left, zeroY, chartArea.right - chartArea.left, Math.max(0, chartArea.bottom - zeroY));
+        ctx.clip();
+        ctx.beginPath();
+        drawBezier();
         ctx.lineTo(pts[pts.length - 1].x, zeroY);
+        ctx.lineTo(pts[0].x, zeroY);
         ctx.closePath();
         const redGrad = ctx.createLinearGradient(0, zeroY, 0, chartArea.bottom);
         redGrad.addColorStop(0, 'rgba(255,45,85,0.30)');
@@ -2275,6 +2300,8 @@ Chart.register({
         ctx.fill();
         ctx.restore();
       }
+
+      ctx.restore(); // fin clip global chartArea
     }
 
     // ── Fondus latéraux mobile ──
@@ -2300,7 +2327,7 @@ Chart.register({
     if (chart.canvas.id !== 'chartArea') return;
     const { ctx, chartArea } = chart;
     // Fondu sombre bas — sur la ligne
-    const fadeH = (chartArea.bottom - chartArea.top) * 0.45;
+    const fadeH = (chartArea.bottom - chartArea.top) * 0.22;
     ctx.save();
     const bgrad = ctx.createLinearGradient(0, chartArea.bottom - fadeH, 0, chartArea.bottom);
     bgrad.addColorStop(0, 'rgba(15,23,42,0)');
@@ -2808,6 +2835,14 @@ function renderCharts() {
     borderWidth: 2.5,
     pointRadius: 0,
     pointHoverRadius: 4,
+    segment: {
+      borderColor: ctx => {
+        if (chartModeT === 0) return undefined;
+        const base = ctx.chart.data.datasets[0].borderColor || '#f5b731';
+        const avgY = (ctx.p0.parsed.y + ctx.p1.parsed.y) / 2;
+        return lerpColor(base, avgY >= 0 ? '#00e676' : '#ff2d55', chartModeT);
+      }
+    }
   }];
 
   if (chartArea) chartArea.destroy();
