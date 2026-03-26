@@ -3770,51 +3770,20 @@ document.getElementById('avModal').addEventListener('click', function(e) {
 });
 
 // ============== LIVE VALUES COMPUTATION ==============
-async function computeLiveValues() {
-  // Valeurs statiques depuis le sheet
+function computeLiveValues() {
+  // Valeurs statiques depuis le sheet — remplissage rapide
   if (allData.length > 0) {
     const last = allData[allData.length - 1];
-    liveValues.livret  = parseFloat(last[4]) || null;
-    liveValues.cash    = parseFloat(last[5]) || null;
+    liveValues.boursovie = parseFloat(last[1]) || null;
+    liveValues.cto       = parseFloat(last[2]) || null;
+    liveValues.pea       = parseFloat(last[3]) || null;
+    liveValues.livret    = parseFloat(last[4]) || null;
+    liveValues.cash      = parseFloat(last[5]) || null;
   }
   liveValues.cristina = cristinaData.length > 0 ? (cristinaData[cristinaData.length - 1] || null) : null;
 
-  // Bitcoin: BTC_QTY × prix CoinGecko
-  try {
-    const res  = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur&include_24hr_change=true');
-    const data = await res.json();
-    liveBtcPrice = data.bitcoin.eur;
-    liveValues.cto = BTC_QTY * liveBtcPrice;
-  } catch(e) { console.warn('liveValues BTC:', e.message); }
-
-  // BoursoVie: Yahoo Finance via proxy
-  try {
-    const prices = await fetchAvPrices();
-    let total = AV_CASH;
-    AV_HOLDINGS.forEach((h, i) => { total += (prices[i] ?? h.lastPrice) * h.qty; });
-    liveValues.boursovie = total;
-    avPricesCache = AV_HOLDINGS.map((h, i) => prices[i] ?? h.lastPrice);
-  } catch(e) {
-    console.warn('liveValues BoursoVie:', e.message);
-    liveValues.boursovie = AV_HOLDINGS.reduce((s, h) => s + h.lastPrice * h.qty, AV_CASH);
-  }
-
-  // PEA: GOOGLEFINANCE via sheet (nécessite accessToken)
-  if (accessToken) {
-    try {
-      await preFetchPeaPrices();
-      const holdings = getPeaHoldings();
-      const prices   = await readPeaPricesFromSheet(holdings.length);
-      if (prices) {
-        let total = getPeaCash();
-        holdings.forEach((h, i) => { if (prices[i] != null) total += prices[i] * h.qty; });
-        liveValues.pea = total;
-      }
-    } catch(e) { console.warn('liveValues PEA:', e.message); }
-  }
-
-  renderDashboard();
   updateFormPlaceholders();
+  renderDashboard();
 }
 
 // ============== BITCOIN MODAL ==============
