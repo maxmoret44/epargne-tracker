@@ -2223,17 +2223,15 @@ Chart.register({
     const { ctx, chartArea, width, height } = chart;
     const pts = chart.getDatasetMeta(0)?.data;
 
-    // ── Aires remplies AVANT le tracé de la ligne (naturellement dessous) ──
+    // ── Halo lumineux autour de la courbe (avant le tracé de la ligne) ──
     if (pts && pts.length) {
       const t = chartModeT;
 
-      // Clip global à la zone de données : évite de peindre sur les libellés d'axes
       ctx.save();
       ctx.beginPath();
       ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
       ctx.clip();
 
-      // Helper : trace le path bezier exact de la courbe (suit tension:0.4)
       const drawBezier = () => {
         ctx.moveTo(pts[0].x, pts[0].y);
         for (let i = 1; i < pts.length; i++) {
@@ -2242,66 +2240,42 @@ Chart.register({
         }
       };
 
-      // Fill cumul — dégradé vertical sous la courbe
+      // 3 passes de stroke (large→étroit, transparent→opaque) = halo doux
+      const halos = [[22, 0.06], [12, 0.11], [5, 0.20]];
+
+      // Halo cumul (doré)
       if (t < 1) {
-        const lc = chart.data.datasets[0]?.borderColor || '#f5b731';
-        const [r, g, b] = lc === '#f5b731' ? [245, 183, 49] : [74, 222, 128];
-        ctx.save();
-        ctx.globalAlpha = 1 - t;
-        ctx.beginPath();
-        drawBezier();
-        ctx.lineTo(pts[pts.length - 1].x, chartArea.bottom);
-        ctx.lineTo(pts[0].x, chartArea.bottom);
-        ctx.closePath();
-        const vgrad = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-        vgrad.addColorStop(0,    `rgba(${r},${g},${b},0.32)`);
-        vgrad.addColorStop(0.55, `rgba(${r},${g},${b},0.10)`);
-        vgrad.addColorStop(1,    `rgba(${r},${g},${b},0.00)`);
-        ctx.fillStyle = vgrad;
-        ctx.fill();
-        ctx.restore();
+        halos.forEach(([w, a]) => {
+          ctx.save();
+          ctx.globalAlpha = (1 - t) * a;
+          ctx.beginPath(); drawBezier();
+          ctx.strokeStyle = '#f5b731';
+          ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          ctx.stroke();
+          ctx.restore();
+        });
       }
 
-      // Fill perf — dégradé ancré à la ligne zéro, avec clip rectangulaire par zone
+      // Halo perf : vert au-dessus du zéro, rouge en-dessous (clip rect par zone)
       if (t > 0) {
         const zeroY = chart.scales.y.getPixelForValue(0);
-        // Vert : clip au-dessus du zéro
-        ctx.save();
-        ctx.globalAlpha = t;
-        ctx.beginPath();
-        ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, Math.max(0, zeroY - chartArea.top));
-        ctx.clip();
-        ctx.beginPath();
-        drawBezier();
-        ctx.lineTo(pts[pts.length - 1].x, zeroY);
-        ctx.lineTo(pts[0].x, zeroY);
-        ctx.closePath();
-        const greenGrad = ctx.createLinearGradient(0, chartArea.top, 0, zeroY);
-        greenGrad.addColorStop(0, 'rgba(0,230,118,0.01)');
-        greenGrad.addColorStop(1, 'rgba(0,230,118,0.30)');
-        ctx.fillStyle = greenGrad;
-        ctx.fill();
-        ctx.restore();
-        // Rouge : clip en-dessous du zéro
-        ctx.save();
-        ctx.globalAlpha = t;
-        ctx.beginPath();
-        ctx.rect(chartArea.left, zeroY, chartArea.right - chartArea.left, Math.max(0, chartArea.bottom - zeroY));
-        ctx.clip();
-        ctx.beginPath();
-        drawBezier();
-        ctx.lineTo(pts[pts.length - 1].x, zeroY);
-        ctx.lineTo(pts[0].x, zeroY);
-        ctx.closePath();
-        const redGrad = ctx.createLinearGradient(0, zeroY, 0, chartArea.bottom);
-        redGrad.addColorStop(0, 'rgba(255,45,85,0.30)');
-        redGrad.addColorStop(1, 'rgba(255,45,85,0.01)');
-        ctx.fillStyle = redGrad;
-        ctx.fill();
-        ctx.restore();
+        [['#00e676', chartArea.top, zeroY], ['#ff2d55', zeroY, chartArea.bottom]].forEach(([color, yTop, yBot]) => {
+          const zoneH = Math.max(0, yBot - yTop);
+          if (zoneH < 1) return;
+          halos.forEach(([w, a]) => {
+            ctx.save();
+            ctx.globalAlpha = t * a;
+            ctx.beginPath(); ctx.rect(chartArea.left, yTop, chartArea.right - chartArea.left, zoneH); ctx.clip();
+            ctx.beginPath(); drawBezier();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.stroke();
+            ctx.restore();
+          });
+        });
       }
 
-      ctx.restore(); // fin clip global chartArea
+      ctx.restore();
     }
 
     // ── Fondus latéraux mobile ──
