@@ -2137,7 +2137,7 @@ Chart.register({
     const x = el.x;
     const y = el.y;
     const dataValue = chart.data.datasets[0]?.data[active[0].index] ?? 0;
-    const perfTarget = dataValue >= 0 ? '#4ade80' : '#f87171';
+    const perfTarget = dataValue >= 0 ? '#00e676' : '#ff2d55';
     const dotColor = lerpColor('#f5b731', perfTarget, chartModeT);
 
     ctx.save();
@@ -2226,7 +2226,7 @@ Chart.register({
     // Fill cumul (gold) — dégradé horizontal sous la courbe
     if (t < 1) {
       const lc = chart.data.datasets[0]?.borderColor || '#f5b731';
-      const [r, g, b] = lc === '#f87171' ? [248, 113, 113] : lc === '#f5b731' ? [245, 183, 49] : [74, 222, 128];
+      const [r, g, b] = lc === '#ff2d55' ? [255, 45, 85] : lc === '#00e676' ? [0, 230, 118] : lc === '#f5b731' ? [245, 183, 49] : [74, 222, 128];
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(pts[0].x, chartArea.bottom);
@@ -2235,18 +2235,19 @@ Chart.register({
       ctx.closePath(); ctx.clip();
       ctx.globalAlpha = 1 - t;
       ctx.globalCompositeOperation = 'destination-over';
-      const hgrad = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
-      hgrad.addColorStop(0, `rgba(${r},${g},${b},0.20)`);
-      hgrad.addColorStop(1, `rgba(${r},${g},${b},0.00)`);
-      ctx.fillStyle = hgrad;
+      const vgrad = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+      vgrad.addColorStop(0,    `rgba(${r},${g},${b},0.32)`);
+      vgrad.addColorStop(0.55, `rgba(${r},${g},${b},0.10)`);
+      vgrad.addColorStop(1,    `rgba(${r},${g},${b},0.00)`);
+      ctx.fillStyle = vgrad;
       ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
       ctx.restore();
     }
 
-    // Fill perf (vert/rouge) — couleur plate, sans dégradé
+    // Fill perf (vert/rouge) — dégradé vertical ancré à la ligne zéro
     if (t > 0) {
       const zeroY = chart.scales.y.getPixelForValue(0);
-      // Vert au-dessus du zéro
+      // Vert au-dessus du zéro — gradient transparent (haut) → dense (zéro)
       ctx.save();
       ctx.globalAlpha = t;
       ctx.beginPath();
@@ -2255,10 +2256,13 @@ Chart.register({
       ctx.lineTo(pts[pts.length - 1].x, zeroY);
       ctx.closePath(); ctx.clip();
       ctx.globalCompositeOperation = 'destination-over';
-      ctx.fillStyle = 'rgba(74,222,128,0.20)';
+      const greenGrad = ctx.createLinearGradient(0, chartArea.top, 0, zeroY);
+      greenGrad.addColorStop(0, 'rgba(0,230,118,0.02)');
+      greenGrad.addColorStop(1, 'rgba(0,230,118,0.46)');
+      ctx.fillStyle = greenGrad;
       ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
       ctx.restore();
-      // Rouge en-dessous du zéro
+      // Rouge en-dessous du zéro — gradient dense (zéro) → transparent (bas)
       ctx.save();
       ctx.globalAlpha = t;
       ctx.beginPath();
@@ -2267,13 +2271,16 @@ Chart.register({
       ctx.lineTo(pts[pts.length - 1].x, zeroY);
       ctx.closePath(); ctx.clip();
       ctx.globalCompositeOperation = 'destination-over';
-      ctx.fillStyle = 'rgba(248,113,113,0.20)';
+      const redGrad = ctx.createLinearGradient(0, zeroY, 0, chartArea.bottom);
+      redGrad.addColorStop(0, 'rgba(255,45,85,0.44)');
+      redGrad.addColorStop(1, 'rgba(255,45,85,0.02)');
+      ctx.fillStyle = redGrad;
       ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
       ctx.restore();
     }
 
     // Fondu sombre bas — toujours présent, indépendant de la transition
-    const fadeH = (chartArea.bottom - chartArea.top) * 0.30;
+    const fadeH = (chartArea.bottom - chartArea.top) * 0.45;
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
     const bgrad = ctx.createLinearGradient(0, chartArea.bottom - fadeH, 0, chartArea.bottom);
@@ -2723,7 +2730,7 @@ function getChartOptions(type) {
         x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, callback: function(val) { const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']; const lbl = this.getLabelForValue(val); if (!lbl) return ''; let d = new Date(lbl); if (isNaN(d.getTime())) { const p = lbl.split('/'); if (p.length===3) d = new Date(`${p[2]}-${p[1]}-${p[0]}`); else if (p.length===2) { const dd=parseInt(p[0]),mm=parseInt(p[1]); let yr=new Date().getFullYear(); for(const row of allData){const fp=String(row[0]).split('/');if(fp.length===3){const ry=parseInt(fp[2]),rm=parseInt(fp[1]);yr=mm>rm?ry-1:ry;break;}} d=new Date(`${yr}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`); } } if (isNaN(d.getTime())) return lbl; return MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } }, grid: { display: false } },
         y: {
           ticks: { display: false },
-          grid: { color: ctx => (chartMode === 'perf' && Math.abs(ctx.tick.value) < 0.001) ? 'rgba(100,116,139,0.55)' : 'rgba(30,41,59,0.8)' }
+          grid: { color: ctx => (chartMode === 'perf' && Math.abs(ctx.tick.value) < 0.001) ? 'rgba(148,163,184,0.65)' : 'rgba(15,23,42,0)' }
         }
       }
     };
@@ -2777,10 +2784,10 @@ function renderCharts() {
         if (chartModeT === 0) return undefined;
         const base = ctx.chart.data.datasets[0].borderColor || '#f5b731';
         const y0 = ctx.p0.parsed.y, y1 = ctx.p1.parsed.y;
-        const c0 = lerpColor(base, y0 >= 0 ? '#4ade80' : '#f87171', chartModeT);
-        const c1 = lerpColor(base, y1 >= 0 ? '#4ade80' : '#f87171', chartModeT);
+        const c0 = lerpColor(base, y0 >= 0 ? '#00e676' : '#ff2d55', chartModeT);
+        const c1 = lerpColor(base, y1 >= 0 ? '#00e676' : '#ff2d55', chartModeT);
         const avgY = (y0 + y1) / 2;
-        return lerpColor(base, avgY >= 0 ? '#4ade80' : '#f87171', chartModeT);
+        return lerpColor(base, avgY >= 0 ? '#00e676' : '#ff2d55', chartModeT);
       }
     }
   }];
