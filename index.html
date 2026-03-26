@@ -728,11 +728,8 @@
     }
     .donut-center-btn:hover { background: var(--surface); border-color: rgba(59,130,246,0.4); color: var(--text); }
     .donut-center-btn.active {
-      background: rgba(59,130,246,0.15);
-      border-color: rgba(59,130,246,0.5);
-      color: var(--accent);
+      background: rgba(8,12,22,0.75);
       transform: scale(1.08);
-      box-shadow: 0 0 12px rgba(59,130,246,0.35);
     }
     /* Donut external tooltip (HTML, z-index > bouton) */
     #donut-ext-tooltip {
@@ -2462,7 +2459,14 @@ function toggleRangeMode() {
   const btn = document.getElementById('rangeModeBtn');
   if (btn) {
     btn.classList.toggle('active', rangeMode);
-    if (!rangeMode) { btn.style.color = ''; btn.style.borderColor = ''; btn.style.boxShadow = ''; }
+    if (rangeMode) {
+      // Couleur neutre immédiate pour éviter tout flash bleu — sera remplacée par vert/rouge dans updateRangeDisplay
+      btn.style.color = 'var(--text2)';
+      btn.style.borderColor = 'var(--surface2)';
+      btn.style.boxShadow = 'none';
+    } else {
+      btn.style.color = ''; btn.style.borderColor = ''; btn.style.boxShadow = '';
+    }
   }
   // Fondu des labels : fade-out immédiat, mise à jour du contenu après 180ms
   const _fadeEls = ['sharedDateLabel','sharedTotalLabel','sharedGainsLabel']
