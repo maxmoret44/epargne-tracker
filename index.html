@@ -2534,7 +2534,7 @@ function switchChartMode(mode) {
   const donutLabels = chartDonut ? chartDonut.data.labels : [];
 
   if (mode === 'perf') {
-    const newData = allData.map((_, i) => {
+    const rawPoints = allData.map((_, i) => {
       let val = 0, inv = 0;
       donutLabels.forEach((lbl, j) => {
         if (donutVisibility['shared' + j] === false) return;
@@ -2544,8 +2544,12 @@ function switchChartMode(mode) {
         else if (acc.key === 'cash') { const v = parseFloat(row[acc.idx]) || 0; val += v; inv += v; }
         else { val += parseFloat(row[acc.idx]) || 0; inv += getInvestedAt(i, acc.key); }
       });
-      return inv > 0 ? (val - inv) / inv * 100 : 0;
+      return { val, inv };
     });
+    const lastVal = rawPoints[rawPoints.length - 1]?.val || 1;
+    const newData = rawPoints.map(({ val, inv }) =>
+      inv > 0 ? (val - inv) / inv * 100 * (val / lastVal) : 0
+    );
     const maxAbs = Math.max(...newData.map(v => Math.abs(v)), 1);
     chartArea.data.datasets[0].data = newData;
     chartArea.options.scales.y.min = -(maxAbs * 1.15);
@@ -2681,7 +2685,20 @@ function selectDataPoint(idx) {
     }
   });
   const gain = total - visInv;
-  const pct  = visInv > 0 ? ((gain / visInv) * 100).toFixed(1) : null;
+  const rawPct = visInv > 0 ? (gain / visInv) * 100 : null;
+  let lastTotal = 0;
+  if (rawPct !== null) {
+    const lastRow = allData[allData.length - 1];
+    chartDonut.data.labels.forEach((lbl, j) => {
+      if (donutVisibility['shared' + j] === false) return;
+      const acc = ACCOUNTS.find(a => a.name === lbl);
+      if (!acc) lastTotal += cristinaData[allData.length - 1] || 0;
+      else lastTotal += parseFloat(lastRow?.[acc.idx]) || 0;
+    });
+  }
+  const pct = rawPct !== null
+    ? (rawPct * (lastTotal > 0 ? total / lastTotal : 1)).toFixed(1)
+    : null;
   const sign = gain >= 0 ? '+' : '';
   const gc   = gain >= 0 ? 'var(--green)' : 'var(--red)';
 
