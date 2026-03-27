@@ -551,12 +551,23 @@
     .conv-history-item:hover { background: var(--surface2); }
     .conv-history-item.active { background: rgba(59,130,246,0.08); }
     .conv-history-item.active .conv-history-title { color: var(--accent); }
+    .conv-history-item.delete-mode { background: rgba(239,68,68,0.07); }
     .conv-history-title {
       font-size: 13px; font-weight: 500; color: var(--text);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      max-width: 75%;
+      flex: 1; min-width: 0;
     }
     .conv-history-date { font-size: 11px; color: var(--text2); flex-shrink: 0; }
+    .conv-delete-btn {
+      display: none; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 50%;
+      border: none; background: rgba(239,68,68,0.15);
+      color: #ef4444; cursor: pointer; flex-shrink: 0; margin-left: 10px;
+      transition: background 0.15s;
+    }
+    .conv-delete-btn:active { background: rgba(239,68,68,0.35); }
+    .conv-history-item.delete-mode .conv-delete-btn { display: flex; }
+    .conv-history-item.delete-mode .conv-history-date { display: none; }
 
     .claude-conv-title {
       font-size: 11px; color: var(--text2);
@@ -4689,16 +4700,67 @@ function openConvHistory() {
     list.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:13px;padding:28px 20px">Aucune conversation sauvegardée</div>';
   } else {
     list.innerHTML = claudeConversations.map(c => `
-      <div class="conv-history-item${c.id === claudeCurrentConvId ? ' active' : ''}" onclick="loadConversation('${c.id}')">
+      <div class="conv-history-item${c.id === claudeCurrentConvId ? ' active' : ''}" data-conv-id="${c.id}">
         <div class="conv-history-title">${c.title}</div>
         <div class="conv-history-date">${formatConvDate(c.date)}</div>
+        <button class="conv-delete-btn" onclick="event.stopPropagation(); deleteConversation('${c.id}')" title="Supprimer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
       </div>`).join('');
+
+    // Long-press pour activer le mode suppression
+    list.querySelectorAll('.conv-history-item').forEach(el => {
+      let timer = null;
+      const convId = el.dataset.convId;
+
+      const startPress = () => {
+        timer = setTimeout(() => {
+          // Désactive delete-mode sur tous les autres
+          list.querySelectorAll('.conv-history-item').forEach(o => o.classList.remove('delete-mode'));
+          el.classList.add('delete-mode');
+          timer = null;
+        }, 500);
+      };
+      const cancelPress = () => { clearTimeout(timer); timer = null; };
+
+      el.addEventListener('touchstart', startPress, { passive: true });
+      el.addEventListener('touchend',   cancelPress);
+      el.addEventListener('touchmove',  cancelPress);
+      el.addEventListener('mousedown',  startPress);
+      el.addEventListener('mouseup',    cancelPress);
+      el.addEventListener('mouseleave', cancelPress);
+
+      // Tap normal → charger la conv (sauf si en delete-mode)
+      el.addEventListener('click', () => {
+        if (el.classList.contains('delete-mode')) {
+          el.classList.remove('delete-mode');
+        } else {
+          loadConversation(convId);
+        }
+      });
+    });
   }
   document.getElementById('convHistoryModal').classList.add('visible');
 }
 
 function closeConvHistory() {
   document.getElementById('convHistoryModal').classList.remove('visible');
+}
+
+function deleteConversation(convId) {
+  claudeConversations = claudeConversations.filter(c => c.id !== convId);
+  localStorage.setItem(CLAUDE_CONVERSATIONS_KEY, JSON.stringify(claudeConversations));
+  // Si on supprime la conv active, en créer une nouvelle
+  if (convId === claudeCurrentConvId) {
+    closeConvHistory();
+    if (claudeConversations.length) {
+      loadConversation(claudeConversations[0].id);
+    } else {
+      createNewConversation();
+    }
+  } else {
+    openConvHistory(); // Rafraîchit la liste
+  }
 }
 
 function displayUserMessage(text, images = []) {
