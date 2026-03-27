@@ -4815,8 +4815,9 @@ function removePendingImage(idx) {
 }
 
 // ---- Voice input ----
-let voiceRecognition = null;
-let voiceRecording   = false;
+let voiceRecognition    = null;
+let voiceRecording      = false;
+let voiceFinalTranscript = '';
 
 function toggleVoiceInput() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -4830,6 +4831,7 @@ function toggleVoiceInput() {
     return;
   }
 
+  voiceFinalTranscript = '';
   voiceRecognition = new SpeechRecognition();
   voiceRecognition.lang = 'fr-FR';
   voiceRecognition.interimResults = true;
@@ -4846,11 +4848,15 @@ function toggleVoiceInput() {
   };
 
   voiceRecognition.onresult = (e) => {
-    let transcript = '';
-    for (let i = 0; i < e.results.length; i++) {
-      transcript += e.results[i][0].transcript;
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        voiceFinalTranscript += e.results[i][0].transcript;
+      } else {
+        interim += e.results[i][0].transcript;
+      }
     }
-    input.value = transcript;
+    input.value = voiceFinalTranscript + interim;
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
   };
