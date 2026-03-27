@@ -4275,23 +4275,60 @@ window.addEventListener('load', () => {
 
 // ============== CLAUDE CHAT ==============
 
-const CLAUDE_SYSTEM_PROMPT = `Tu es l'assistant financier intégré à l'app Épargne Tracker de Max. Tu parles en français, de façon concise et directe.
+function getClaudeSystemPrompt() {
+  // Snapshot du portefeuille actuel injecté dans le prompt
+  let portfolioSnapshot = 'Données non disponibles (pas encore connecté à Google).';
+  if (allData.length) {
+    const last    = allData[allData.length - 1];
+    const cristina = cristinaData[cristinaData.length - 1] || 0;
+    const boursoVie = parseFloat(last[1]) || 0;
+    const bitcoin   = parseFloat(last[2]) || 0;
+    const trPea     = parseFloat(last[3]) || 0;
+    const livretA   = parseFloat(last[4]) || 0;
+    const trCash    = parseFloat(last[5]) || 0;
+    const totalMax  = boursoVie + bitcoin + trPea + livretA + trCash;
+    const invested  = (investedAmounts.boursovie || 0) + (investedAmounts.cto || 0)
+                    + (investedAmounts.pea || 0) + (investedAmounts.livret || 0);
+    const gainAbs   = invested > 0 ? (totalMax - invested).toFixed(2) : null;
+    const gainPct   = invested > 0 ? ((totalMax - invested) / invested * 100).toFixed(2) : null;
+    const fmt = v => v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+    portfolioSnapshot = `Dernière mise à jour : ${last[0]}
+- BoursoVie (AV) : ${fmt(boursoVie)}
+- Bitcoin (CTO) : ${fmt(bitcoin)}
+- TR PEA : ${fmt(trPea)}
+- CE Livret A : ${fmt(livretA)}
+- TR Cash : ${fmt(trCash)}
+- Total Max : ${fmt(totalMax)}${gainAbs ? ` (${gainAbs >= 0 ? '+' : ''}${gainAbs} €, ${gainPct >= 0 ? '+' : ''}${gainPct}%)` : ''}
+- Cristina : ${fmt(cristina)}
+- Total épargne foyer : ${fmt(totalMax + cristina)}`;
 
-Contexte financier de Max :
+    // Ajout des holdings PEA si disponibles
+    try {
+      const holdings = getPeaHoldings();
+      if (holdings && holdings.length) {
+        portfolioSnapshot += '\n\nComposition PEA actuelle :\n' +
+          holdings.map(h => `- ${h.name} (${h.ticker}) : ${h.qty} action${h.qty > 1 ? 's' : ''}${h.purchasePrice ? ` @ ${h.purchasePrice} €` : ''}`).join('\n');
+      }
+    } catch(e) {}
+  }
+
+  return `Tu es l'assistant financier intégré à l'app Épargne Tracker de Max. Tu parles en français, de façon concise et directe.
+
+Enveloppes de Max :
 - PEA chez Trade Republic (actions européennes, pas de fractions)
 - Assurance-vie BoursoVie chez Boursobank
 - Livret A à la Caisse d'Épargne
 - Bitcoin (CTO) chez Trade Republic
 - Cash (compte courant) chez Trade Republic
-- Plan DCA : 400€/mois répartis sur les enveloppes
 
-Tu peux lire le portfolio, mettre à jour les soldes, lister les actifs PEA, voir l'historique.
+Portefeuille actuel (données live) :
+${portfolioSnapshot}
 
+Tu peux mettre à jour les soldes, lister les actifs PEA, voir l'historique via les outils disponibles.
 Quand Max donne un nouveau solde, utilise epargne_update_balance. Si un seul compte change, ne modifie que celui-là.
-
 Pour les analyses d'actions : P/E, ROE, marge opérationnelle, dette/fonds propres, croissance bénéfices 5 ans, dividendes, opinion objective dans le cadre du PEA.
-
 Sois concis. Pas de formules de politesse. Va droit au but.`;
+}
 
 const CLAUDE_TOOLS_DEFINITIONS = [
   {
@@ -4729,7 +4766,7 @@ async function sendClaudeMessage(userMessage) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 4096,
-        system: CLAUDE_SYSTEM_PROMPT,
+        system: getClaudeSystemPrompt(),
         tools: CLAUDE_TOOLS_DEFINITIONS,
         messages: conversationHistory
       })
