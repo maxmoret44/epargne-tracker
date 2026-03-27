@@ -2376,7 +2376,7 @@ function updateRangeDisplay() {
     return rangeColor(endG - startG);
   });
 
-  chartDonut.data.datasets[0].data = endData;
+  chartDonut.data.datasets[0].data = applyDonutThreshold(endData);
   chartDonut.data.datasets[0]._baseColors = newBorderColors;
   chartDonut.data.datasets[0].borderColor = newBorderColors.map(c => c + 'cc');
   chartDonut.data.datasets[0].backgroundColor = newBorderColors.map(c => c + '3a');
@@ -2739,6 +2739,12 @@ function getVirtualCristina() {
   return liveValues.cristina ?? (cristinaData[cristinaData.length - 1] || 0);
 }
 
+function applyDonutThreshold(data) {
+  const total = data.reduce((s, v) => s + (v || 0), 0);
+  if (total === 0) return data;
+  return data.map(v => (v || 0) / total < 0.01 ? 0 : (v || 0));
+}
+
 // ── Sélection d'un point : met à jour le donut + labels ─────────────────────
 let selectedDataIdx = null;
 
@@ -2756,7 +2762,7 @@ function selectDataPoint(idx) {
   const newData = ACCOUNTS.map(a => parseFloat(row[a.idx]) || 0);
   const crist = cristVal;
   if (chartDonut.data.labels.includes('Cristina')) newData.push(crist);
-  chartDonut.data.datasets[0].data = newData;
+  chartDonut.data.datasets[0].data = applyDonutThreshold(newData);
   chartDonut.update({ duration: 280, easing: 'easeInOutCubic' });
 
   // Calcul total visible + gain
@@ -3009,7 +3015,7 @@ function renderCharts() {
 
   if (chartDonut && chartDonut.data.labels.length === donutLabels.length) {
     // Même structure : mise à jour sans ré-animation
-    chartDonut.data.datasets[0].data = donutValues;
+    chartDonut.data.datasets[0].data = applyDonutThreshold(donutValues);
     chartDonut.update('none');
   } else {
     if (chartDonut) chartDonut.destroy();
