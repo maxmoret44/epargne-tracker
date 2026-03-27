@@ -1791,10 +1791,12 @@ async function loadData() {
         // Mettre à jour après chargement
         updateFormPlaceholders();
         renderDashboard();
+        updateLiveChartPoint();
       } catch(e) {
         console.warn('Live values background load:', e.message);
       }
     })();
+    setInterval(refreshLiveValues, 30000);
   } catch(e) {
     console.error('Load error:', e);
     const cached = localStorage.getItem(DATA_KEY);
@@ -2546,6 +2548,17 @@ function switchChartMode(mode) {
       });
       return { val, inv };
     });
+    // Appendre le point virtuel avant de calculer lastVal
+    const _vr = getVirtualRow(), _vc = getVirtualCristina();
+    let _vVal = 0, _vInv = 0;
+    donutLabels.forEach((lbl, j) => {
+      if (donutVisibility['shared' + j] === false) return;
+      const acc = ACCOUNTS.find(a => a.name === lbl);
+      if (!acc) { _vVal += _vc; _vInv += _vc; }
+      else if (acc.key === 'cash') { const v = parseFloat(_vr[acc.idx]) || 0; _vVal += v; _vInv += v; }
+      else { _vVal += parseFloat(_vr[acc.idx]) || 0; _vInv += getInvestedAt(allData.length, acc.key); }
+    });
+    rawPoints.push({ val: _vVal, inv: _vInv });
     const lastVal = rawPoints[rawPoints.length - 1]?.val || 1;
     const newData = rawPoints.map(({ val, inv }) =>
       inv > 0 ? (val - inv) / inv * 100 * (val / lastVal) : 0
@@ -2565,11 +2578,67 @@ function switchChartMode(mode) {
       });
       return sum;
     });
+    // Appendre le point virtuel
+    const _vr2 = getVirtualRow(), _vc2 = getVirtualCristina();
+    let _vSum = 0;
+    donutLabels.forEach((lbl, j) => {
+      if (donutVisibility['shared' + j] === false) return;
+      const acc = ACCOUNTS.find(a => a.name === lbl);
+      _vSum += acc ? (parseFloat(_vr2[acc.idx]) || 0) : _vc2;
+    });
+    newData.push(_vSum);
     chartArea.data.datasets[0].data = newData;
     chartArea.options.scales.y.min = undefined;
     chartArea.options.scales.y.max = undefined;
   }
   chartArea.update();
+}
+
+// ── Mise à jour du point virtuel en temps réel ───────────────────────────────
+function updateLiveChartPoint() {
+  if (!chartArea || !allData.length) return;
+  const vi = allData.length;
+  const vRow = getVirtualRow(), vCrist = getVirtualCristina();
+  const donutLabels = chartDonut ? chartDonut.data.labels : [];
+
+  if (chartMode === 'perf') {
+    switchChartMode('perf');
+    return;
+  }
+  let vSum = 0;
+  donutLabels.forEach((lbl, j) => {
+    if (donutVisibility['shared' + j] === false) return;
+    const acc = ACCOUNTS.find(a => a.name === lbl);
+    vSum += acc ? (parseFloat(vRow[acc.idx]) || 0) : vCrist;
+  });
+  chartArea.data.datasets[0].data[vi] = vSum;
+  chartArea.update({ duration: 300 });
+}
+
+async function refreshLiveValues() {
+  // Bitcoin
+  try {
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur');
+    const data = await res.json();
+    liveBtcPrice = data.bitcoin.eur;
+    liveValues.cto = BTC_QTY * liveBtcPrice;
+  } catch(e) { console.warn('BTC refresh:', e); }
+
+  // PEA (lecture seule, formules GOOGLEFINANCE déjà en place)
+  if (accessToken) {
+    try {
+      const holdings = getPeaHoldings();
+      const peaPrices = await readPeaPricesFromSheet(holdings.length);
+      if (peaPrices) {
+        let peaTotal = getPeaCash();
+        holdings.forEach((h, i) => { if (peaPrices[i] != null) peaTotal += peaPrices[i] * h.qty; });
+        liveValues.pea = peaTotal;
+      }
+    } catch(e) { console.warn('PEA refresh:', e); }
+  }
+
+  updateLiveChartPoint();
+  renderDashboard();
 }
 
 let rangeDragSetup = false;
@@ -2653,6 +2722,23 @@ function getInvestedAt(rowIdx, key) {
   return hist[rowIdx] || 0; // 0 = pas encore investi à cette date (premières lignes)
 }
 
+// ── Point virtuel "Maintenant" ───────────────────────────────────────────────
+function getVirtualRow() {
+  const last = allData[allData.length - 1] || [];
+  return [
+    'now',
+    liveValues.boursovie ?? parseFloat(last[1]) ?? 0,
+    liveValues.cto       ?? parseFloat(last[2]) ?? 0,
+    liveValues.pea       ?? parseFloat(last[3]) ?? 0,
+    liveValues.livret    ?? parseFloat(last[4]) ?? 0,
+    liveValues.cash      ?? parseFloat(last[5]) ?? 0,
+    parseFloat(last[6]) ?? 0,
+  ];
+}
+function getVirtualCristina() {
+  return liveValues.cristina ?? (cristinaData[cristinaData.length - 1] || 0);
+}
+
 // ── Sélection d'un point : met à jour le donut + labels ─────────────────────
 let selectedDataIdx = null;
 
@@ -2661,12 +2747,14 @@ function selectDataPoint(idx) {
   if (!allData.length || !chartDonut) return;
   const i = (idx === null || idx === undefined) ? allData.length - 1 : idx;
   selectedDataIdx = i;
-  const row = allData[i];
+  const isVirtual = i === allData.length;
+  const row = isVirtual ? getVirtualRow() : allData[i];
+  const cristVal = isVirtual ? getVirtualCristina() : (cristinaData[i] || 0);
   const label = allLabels[i] || '';
 
   // Mise à jour données donut
   const newData = ACCOUNTS.map(a => parseFloat(row[a.idx]) || 0);
-  const crist = cristinaData[i] || 0;
+  const crist = cristVal;
   if (chartDonut.data.labels.includes('Cristina')) newData.push(crist);
   chartDonut.data.datasets[0].data = newData;
   chartDonut.update({ duration: 280, easing: 'easeInOutCubic' });
@@ -2842,6 +2930,13 @@ function renderCharts() {
   const totals = allData.map((row, i) =>
     ACCOUNTS.reduce((s, a) => s + (parseFloat(row[a.idx]) || 0), 0) + (cristinaData[i] || 0)
   );
+  // Point virtuel "Maintenant"
+  const _vRow = getVirtualRow(), _vCrist = getVirtualCristina();
+  const _vTotal = ACCOUNTS.reduce((s, a) => s + (parseFloat(_vRow[a.idx]) || 0), 0) + _vCrist;
+  const _vLabel = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' });
+  labels.push(new Date().toISOString().slice(0, 10));
+  allLabels.push(_vLabel);
+  totals.push(_vTotal);
   const lineColor = '#f5b731';
   chartMode = 'cumul';
   chartModeT = 0;
