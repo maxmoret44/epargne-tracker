@@ -666,14 +666,17 @@
       font-size: 16px; cursor: pointer; line-height: 1;
     }
     /* Allocation donut layout — always stacked vertically */
-    .alloc-wrap { display: flex; flex-direction: column; gap: 24px; padding: 8px 0; }
-    .alloc-block { width: 100%; }
-    .alloc-title { font-size: 11px; font-weight: 600; color: var(--text2); text-align: center; margin-bottom: 10px; text-transform: uppercase; letter-spacing: .05em; }
-    .alloc-chart-row { display: flex; align-items: center; gap: 18px; }
-    .alloc-canvas-wrap { flex-shrink: 0; width: 160px; }
+    #peaTabRepartition, #avTabRepartition {
+      flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto;
+    }
+    .alloc-wrap { display: flex; flex-direction: column; flex: 1; justify-content: space-evenly; padding: 12px 0; }
+    .alloc-block { width: 100%; display: flex; flex-direction: column; align-items: center; }
+    .alloc-title { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.55); text-align: center; margin-bottom: 28px; text-transform: uppercase; letter-spacing: .08em; }
+    .alloc-chart-row { display: flex; align-items: center; gap: 20px; width: 100%; }
+    .alloc-canvas-wrap { flex-shrink: 0; width: 180px; }
     .alloc-legend { flex: 1; min-width: 0; }
     @media (max-width: 767px) {
-      .alloc-canvas-wrap { width: 130px; }
+      .alloc-canvas-wrap { width: 150px; }
     }
 
     .pea-holding-row {
@@ -1379,6 +1382,7 @@
       <div class="modal-tabs">
         <button class="modal-tab active" id="peaTabBtnPortfolio" onclick="switchPeaTab('portfolio')">Portefeuille</button>
         <button class="modal-tab" id="peaTabBtnNews" onclick="switchPeaTab('news')">Actualités</button>
+        <button class="modal-tab" id="peaTabBtnRepartition" onclick="switchPeaTab('repartition')">Répartition</button>
       </div>
       <!-- Onglet Portefeuille -->
       <div id="peaTabPortfolio">
@@ -1406,6 +1410,25 @@
       <!-- Onglet Actualités -->
       <div id="peaTabNews" style="display:none">
         <div id="peaNews" style="font-size:13px;color:var(--text2)">Chargement...</div>
+      </div>
+      <!-- Onglet Répartition PEA -->
+      <div id="peaTabRepartition" style="display:none">
+        <div class="alloc-wrap">
+          <div class="alloc-block">
+            <div class="alloc-title">Géographique</div>
+            <div class="alloc-chart-row">
+              <div class="alloc-canvas-wrap"><canvas id="peaGeoChart"></canvas></div>
+              <div id="peaGeoLegend" class="alloc-legend"></div>
+            </div>
+          </div>
+          <div class="alloc-block">
+            <div class="alloc-title">Sectorielle</div>
+            <div class="alloc-chart-row">
+              <div class="alloc-canvas-wrap"><canvas id="peaSectorChart"></canvas></div>
+              <div id="peaSectorLegend" class="alloc-legend"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -3389,12 +3412,14 @@ function closePeaModal() {
 let peaNewsLoaded = false;
 let peaLastPrices = null;
 function switchPeaTab(tab) {
-  const isPortfolio = tab === 'portfolio';
-  document.getElementById('peaTabPortfolio').style.display = isPortfolio ? 'flex' : 'none';
-  document.getElementById('peaTabNews').style.display      = isPortfolio ? 'none' : 'flex';
-  document.getElementById('peaTabBtnPortfolio').classList.toggle('active', isPortfolio);
-  document.getElementById('peaTabBtnNews').classList.toggle('active', !isPortfolio);
-  if (!isPortfolio && !peaNewsLoaded) loadPeaNews();
+  document.getElementById('peaTabPortfolio').style.display   = tab === 'portfolio'   ? 'flex' : 'none';
+  document.getElementById('peaTabNews').style.display        = tab === 'news'        ? 'flex' : 'none';
+  document.getElementById('peaTabRepartition').style.display = tab === 'repartition' ? 'flex' : 'none';
+  document.getElementById('peaTabBtnPortfolio').classList.toggle('active',   tab === 'portfolio');
+  document.getElementById('peaTabBtnNews').classList.toggle('active',        tab === 'news');
+  document.getElementById('peaTabBtnRepartition').classList.toggle('active', tab === 'repartition');
+  if (tab === 'news' && !peaNewsLoaded) loadPeaNews();
+  if (tab === 'repartition') renderPeaRepartition(peaLastPrices);
 }
 
 async function loadPeaNews() {
@@ -3773,6 +3798,21 @@ document.getElementById('peaModal').addEventListener('click', function(e) {
 const _chartInst = {};
 const PALETTE_GEO    = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#CC1900','#06b6d4','#f97316','#64748b'];
 const PALETTE_SECTOR = ['#f97316','#ec4899','#84cc16','#14b8a6','#a855f7','#eab308','#10b981','#f43f5e','#3b82f6','#64748b'];
+const ALLOC_COLOR_OVERRIDES = {
+  'USA': '#ef4444', 'États-Unis': '#ef4444',
+  'Émergents': '#eab308',
+};
+function resolveAllocColors(labels, palette) {
+  return labels.map((l, i) => ALLOC_COLOR_OVERRIDES[l] || palette[i % palette.length]);
+}
+const ALLOC_ICONS = {
+  'France':'🇫🇷','Portugal':'🇵🇹','Émergents':'🌏','Europe':'🇪🇺',
+  'États-Unis':'🇺🇸','USA':'🇺🇸','Monde':'🌍','Global':'🌐','Liquidités':'💶',
+  'Industrie':'🏭','Finance':'🏦','Santé':'🏥','Énergie':'⚡',
+  'Services':'🛠️','ETF Diversifié':'📊','Consommation':'🛍️',
+  'Technologie':'💻','ETF Tech':'💡','ETF Actions':'📈',
+  'Actions':'📊','Matières premières':'🥇','Autre':'•'
+};
 
 function makeDonutAlloc(canvasId, labels, values, colors) {
   if (_chartInst[canvasId]) { _chartInst[canvasId].destroy(); delete _chartInst[canvasId]; }
@@ -3814,13 +3854,15 @@ function makeLegendAlloc(containerId, labels, values, colors) {
   const total = values.reduce((a,b)=>a+b,0);
   const el = document.getElementById(containerId);
   if (!el) return;
-  el.innerHTML = labels.map((l,i) =>
-    `<div style="display:flex;align-items:center;gap:6px;padding:3px 0">
-      <div style="width:8px;height:8px;border-radius:50%;background:${colors[i]};flex-shrink:0"></div>
-      <span style="flex:1;font-size:11px;color:var(--text)">${l}</span>
-      <span style="font-size:11px;color:var(--text2)">${((values[i]/total)*100).toFixed(1)}%</span>
-    </div>`
-  ).join('');
+  el.innerHTML = labels.map((l,i) => {
+    const icon = ALLOC_ICONS[l] ? `<span style="font-size:17px;line-height:1;flex-shrink:0">${ALLOC_ICONS[l]}</span>` : '';
+    const border = i > 0 ? 'border-top:1px solid rgba(255,255,255,0.06);' : '';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;${border}">
+      <div style="width:9px;height:9px;border-radius:50%;background:${colors[i]};flex-shrink:0"></div>
+      ${icon}<span style="flex:1;font-size:13px;color:rgba(255,255,255,0.75)">${l}</span>
+      <span style="font-size:13px;font-weight:500;color:rgba(255,255,255,0.45)">${((values[i]/total)*100).toFixed(1)}%</span>
+    </div>`;
+  }).join('');
 }
 
 function buildAlloc(holdings, prices, key) {
@@ -3847,8 +3889,10 @@ function renderPeaRepartition(prices) {
   const extPrices = cash > 0 ? [...(prices || []), null] : prices;
   const geoEnt    = buildAlloc(holdingsWithCash, extPrices, 'geo');
   const sectorEnt = buildAlloc(holdingsWithCash, extPrices, 'sector');
-  makeDonutAlloc('peaGeoChart',    geoEnt.map(e=>e[0]),    geoEnt.map(e=>e[1]),    PALETTE_GEO);
-  makeLegendAlloc('peaGeoLegend',  geoEnt.map(e=>e[0]),    geoEnt.map(e=>e[1]),    PALETTE_GEO);
+  const peaGeoLabels = geoEnt.map(e=>e[0]), peaGeoVals = geoEnt.map(e=>e[1]);
+  const peaGeoColors = resolveAllocColors(peaGeoLabels, PALETTE_GEO);
+  makeDonutAlloc('peaGeoChart',   peaGeoLabels, peaGeoVals, peaGeoColors);
+  makeLegendAlloc('peaGeoLegend', peaGeoLabels, peaGeoVals, peaGeoColors);
   makeDonutAlloc('peaSectorChart',    sectorEnt.map(e=>e[0]), sectorEnt.map(e=>e[1]), PALETTE_SECTOR);
   makeLegendAlloc('peaSectorLegend',  sectorEnt.map(e=>e[0]), sectorEnt.map(e=>e[1]), PALETTE_SECTOR);
 }
@@ -3989,8 +4033,10 @@ function renderAvRepartition(prices) {
   const usePrices = prices || AV_HOLDINGS.map(h => h.lastPrice);
   const geoEnt    = buildAlloc(AV_HOLDINGS, usePrices, 'geo');
   const sectorEnt = buildAlloc(AV_HOLDINGS, usePrices, 'sector');
-  makeDonutAlloc('avGeoChart',     geoEnt.map(e=>e[0]),    geoEnt.map(e=>e[1]),    PALETTE_GEO);
-  makeLegendAlloc('avGeoLegend',   geoEnt.map(e=>e[0]),    geoEnt.map(e=>e[1]),    PALETTE_GEO);
+  const avGeoLabels = geoEnt.map(e=>e[0]), avGeoVals = geoEnt.map(e=>e[1]);
+  const avGeoColors = resolveAllocColors(avGeoLabels, PALETTE_GEO);
+  makeDonutAlloc('avGeoChart',   avGeoLabels, avGeoVals, avGeoColors);
+  makeLegendAlloc('avGeoLegend', avGeoLabels, avGeoVals, avGeoColors);
   makeDonutAlloc('avSectorChart',  sectorEnt.map(e=>e[0]), sectorEnt.map(e=>e[1]), PALETTE_SECTOR);
   makeLegendAlloc('avSectorLegend',sectorEnt.map(e=>e[0]), sectorEnt.map(e=>e[1]), PALETTE_SECTOR);
 }
