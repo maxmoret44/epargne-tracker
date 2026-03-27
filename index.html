@@ -456,7 +456,7 @@
 
     .claude-input-bar {
       flex-shrink: 0; padding: 10px 14px;
-      display: flex; gap: 8px; align-items: flex-end;
+      display: flex; gap: 8px; align-items: center;
       background: var(--bg);
       border-top: 1px solid rgba(59,130,246,0.1);
     }
@@ -4914,9 +4914,59 @@ function removePendingImage(idx) {
 }
 
 // ---- Voice input ----
-let voiceRecognition    = null;
-let voiceRecording      = false;
+let voiceRecognition     = null;
+let voiceRecording       = false;
 let voiceFinalTranscript = '';
+
+// Crée et démarre une session de reconnaissance (sans continuous:true pour éviter
+// les duplications sur Android). Se relance automatiquement via onend si l'utilisateur
+// n'a pas appuyé sur stop.
+function _startVoiceSession() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn   = document.getElementById('claudeMicBtn');
+  const input = document.getElementById('claudeInput');
+
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.lang = 'fr-FR';
+  voiceRecognition.interimResults = true;
+  voiceRecognition.maxAlternatives = 1;
+  // Pas de continuous:true — on gère le redémarrage manuellement dans onend
+
+  voiceRecognition.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        voiceFinalTranscript += e.results[i][0].transcript;
+      } else {
+        interim = e.results[i][0].transcript;
+      }
+    }
+    input.value = voiceFinalTranscript + interim;
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  };
+
+  voiceRecognition.onerror = (e) => {
+    if (e.error === 'no-speech') return; // silence normal, onend va relancer
+    voiceRecording = false;
+    btn.classList.remove('recording');
+    input.placeholder = 'Ex: Mon Livret A est à 15 200€...';
+  };
+
+  voiceRecognition.onend = () => {
+    if (voiceRecording) {
+      // Pause naturelle — relancer une nouvelle session propre
+      _startVoiceSession();
+      return;
+    }
+    // Utilisateur a appuyé sur stop
+    btn.classList.remove('recording');
+    input.placeholder = 'Ex: Mon Livret A est à 15 200€...';
+    if (input.value.trim()) handleClaudeSend();
+  };
+
+  voiceRecognition.start();
+}
 
 function toggleVoiceInput() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -4926,50 +4976,16 @@ function toggleVoiceInput() {
   }
 
   if (voiceRecording) {
+    voiceRecording = false; // signal à onend de ne pas relancer
     voiceRecognition.stop();
     return;
   }
 
   voiceFinalTranscript = '';
-  voiceRecognition = new SpeechRecognition();
-  voiceRecognition.lang = 'fr-FR';
-  voiceRecognition.interimResults = true;
-  voiceRecognition.continuous = true;
-  voiceRecognition.maxAlternatives = 1;
-
-  const btn   = document.getElementById('claudeMicBtn');
-  const input = document.getElementById('claudeInput');
-
-  voiceRecognition.onstart = () => {
-    voiceRecording = true;
-    btn.classList.add('recording');
-    input.placeholder = 'Écoute en cours...';
-  };
-
-  voiceRecognition.onresult = (e) => {
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) {
-        voiceFinalTranscript += e.results[i][0].transcript;
-      } else {
-        interim += e.results[i][0].transcript;
-      }
-    }
-    input.value = voiceFinalTranscript + interim;
-    input.style.height = 'auto';
-    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-  };
-
-  voiceRecognition.onerror = () => { voiceRecognition.stop(); };
-
-  voiceRecognition.onend = () => {
-    voiceRecording = false;
-    btn.classList.remove('recording');
-    input.placeholder = 'Ex: Mon Livret A est à 15 200€...';
-    if (input.value.trim()) handleClaudeSend();
-  };
-
-  voiceRecognition.start();
+  voiceRecording = true;
+  document.getElementById('claudeMicBtn').classList.add('recording');
+  document.getElementById('claudeInput').placeholder = 'Écoute en cours...';
+  _startVoiceSession();
 }
 
 async function handleClaudeSend() {
