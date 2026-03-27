@@ -2317,14 +2317,14 @@ Chart.register({
     lgrad.addColorStop(0, 'rgba(15,23,42,1)');
     lgrad.addColorStop(1, 'rgba(15,23,42,0)');
     ctx.fillStyle = lgrad;
-    ctx.fillRect(0, 0, chartArea.left, height);
+    ctx.fillRect(0, chartArea.top, chartArea.left, chartArea.bottom - chartArea.top);
     const rStart = chartArea.right - 80;
     const rEnd   = chartArea.right + 8;
     const rgrad = ctx.createLinearGradient(rStart, 0, rEnd, 0);
     rgrad.addColorStop(0, 'rgba(15,23,42,0)');
     rgrad.addColorStop(1, 'rgba(15,23,42,1)');
     ctx.fillStyle = rgrad;
-    ctx.fillRect(rStart, 0, rEnd - rStart, height);
+    ctx.fillRect(rStart, chartArea.top, rEnd - rStart, chartArea.bottom - chartArea.top);
     ctx.fillStyle = 'rgba(15,23,42,1)';
     ctx.fillRect(rEnd, 0, width - rEnd, height);
     ctx.restore();
@@ -2843,13 +2843,13 @@ function getChartOptions(type) {
             displayFormats: { day: 'd MMM', week: 'd MMM', month: 'MMM yy', year: 'yyyy' }
           },
           adapters: { date: {} },
-          ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 }, source: 'auto' },
+          ticks: { color: '#475569', maxTicksLimit: 6, font: { size: 10 }, source: 'auto' },
           grid: { display: false }
         },
         y: {
           position: 'left',
           ticks: {
-            color: '#475569',
+            color: '#94a3b8',
             font: { size: 9 },
             maxTicksLimit: 10,
             callback: v => {
