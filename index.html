@@ -1943,6 +1943,9 @@ async function loadData() {
       });
     } catch (e) { console.warn('[FundCompoPEA] onglet absent ou erreur:', e); }
 
+    // Seed sector compositions si absentes du Sheet
+    await seedFundCompoSector(cfg.targetId);
+
     renderDashboard();
     renderHistory();
     prefillForm();
@@ -1969,6 +1972,7 @@ async function loadData() {
           const holdings = getPeaHoldings();
           const peaPrices = await readPeaPricesFromSheet(holdings.length);
           if (peaPrices) {
+            peaLastPrices = peaPrices;
             let peaTotal = getPeaCash();
             holdings.forEach((h, i) => { if (peaPrices[i] != null) peaTotal += peaPrices[i] * h.qty; });
             liveValues.pea = peaTotal;
@@ -2015,6 +2019,7 @@ async function loadData() {
             const holdings = getPeaHoldings();
             const peaPrices = await readPeaPricesFromSheet(holdings.length);
             if (peaPrices) {
+              peaLastPrices = peaPrices;
               let peaTotal = getPeaCash();
               holdings.forEach((h, i) => { if (peaPrices[i] != null) peaTotal += peaPrices[i] * h.qty; });
               liveValues.pea = peaTotal;
@@ -3675,6 +3680,42 @@ async function ensurePeaCoursTab(sheetId) {
   }
 }
 
+// Seed sector compositions into FundCompo/FundCompoPEA if missing
+async function seedFundCompoSector(sheetId) {
+  // Toujours appliquer FUND_SECTOR_SEED en JS (source de vérité)
+  let needWrite = false;
+  Object.entries(FUND_SECTOR_SEED).forEach(([isin, { sector }]) => {
+    if (!fundComposition[isin]) fundComposition[isin] = {};
+    const cur = fundComposition[isin].sector;
+    const match = cur && Object.keys(sector).every(k => cur[k] === sector[k]) && Object.keys(cur).length === Object.keys(sector).length;
+    if (!match) needWrite = true;
+    fundComposition[isin].sector = { ...sector };
+  });
+
+  if (!needWrite || !sheetId || !accessToken) return;
+
+  // Réécrire les lignes sector dans le Sheet
+  const byTab = {};
+  Object.entries(FUND_SECTOR_SEED).forEach(([isin, { tab, sector }]) => {
+    if (!byTab[tab]) byTab[tab] = [];
+    Object.entries(sector).forEach(([cat, poids]) => {
+      byTab[tab].push([isin, 'sector', cat, poids]);
+    });
+  });
+
+  for (const [tab, rows] of Object.entries(byTab)) {
+    try {
+      // Lire les lignes existantes, filtrer les anciennes sector de nos ISINs, puis réécrire tout
+      const existing = (await sheetsRead(sheetId, `'${tab}'!A2:D`) || []);
+      const seedIsins = new Set(Object.keys(FUND_SECTOR_SEED).filter(i => FUND_SECTOR_SEED[i].tab === tab));
+      const kept = existing.filter(r => !(seedIsins.has(r[0]) && r[1] === 'sector'));
+      const merged = [...kept, ...rows];
+      await sheetsUpdate(sheetId, `'${tab}'!A2:D${merged.length + 1}`, merged);
+      console.log(`[FundCompo] ${tab} réécrit avec ${rows.length} lignes sector mises à jour`);
+    } catch (e) { console.warn(`[FundCompo] seed ${tab}:`, e.message); }
+  }
+}
+
 // Write GOOGLEFINANCE formulas to dedicated PEA_Cours tab
 async function preFetchPeaPrices() {
   if (!accessToken) return;
@@ -3931,7 +3972,7 @@ document.getElementById('peaModal').addEventListener('click', function(e) {
 // ============== SHARED ALLOCATION HELPERS ==============
 const _chartInst = {};
 const PALETTE_GEO    = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#CC1900','#06b6d4','#f97316','#64748b'];
-const PALETTE_SECTOR = ['#f97316','#ec4899','#84cc16','#14b8a6','#a855f7','#eab308','#10b981','#f43f5e','#3b82f6','#64748b'];
+const PALETTE_SECTOR = ['#1e3a8a','#1d4ed8','#2563eb','#3b82f6','#60a5fa','#15803d','#22c55e','#f7931a','#64748b','#94a3b8'];
 
 // Couleurs par famille de continent
 const ALLOC_COLOR_OVERRIDES = {
@@ -3952,10 +3993,23 @@ const ALLOC_COLOR_OVERRIDES = {
   'EMEA émergent': '#b45309', 'Afrique': '#d97706',
   // Autres
   'Monde': '#64748b', 'Global': '#64748b', 'Autres': '#64748b', 'Liquidités': '#94a3b8',
-  // Secteurs
-  'Communication': '#06b6d4', 'Immobilier': '#a78bfa',
-  'Consommation': '#fb923c', 'Industrie': '#34d399', 'Finance': '#60a5fa',
-  'Crypto': '#f7931a',
+  // Secteurs — Actions (nuances de bleu, du plus foncé au plus clair)
+  'Technologie': '#1e3a8a', 'Finance': '#1d4ed8', 'Santé': '#2563eb',
+  'Industrie': '#3b82f6', 'Énergie': '#4f8ffa', 'Consommation': '#60a5fa',
+  'Services': '#7cb3f9', 'Immobilier': '#93c5fd', 'Communication': '#a5d0fe',
+  'Télécommunications': '#bfdbfe',
+  'ETF Diversifié': '#4f8ffa', 'ETF Actions': '#3b82f6',
+  'Actions': '#2563eb',
+  // Matières premières (nuances de vert)
+  'Or & Métaux': '#15803d', 'Agricole & Industriel': '#86efac', 'Matières premières': '#4ade80',
+  // Obligations (nuances de gris-bleu)
+  'Souveraines': '#64748b', 'Corporate': '#94a3b8',
+  // Monétaire
+  'Fonds euros': '#cbd5e1',
+  // Crypto (orange)
+  'Crypto': '#f7931a', 'Bitcoin': '#f7931a',
+  // Autre (gris)
+  'Autre': '#64748b',
 };
 
 // Groupement géographique par continent
@@ -3987,6 +4041,69 @@ function sortGeoEntries(entries) {
   });
 }
 
+const SECTOR_CLASS = {
+  'Technologie':'Actions', 'Santé':'Actions', 'Finance':'Actions',
+  'Industrie':'Actions', 'Énergie':'Actions', 'Consommation':'Actions',
+  'Services':'Actions', 'Immobilier':'Actions', 'Télécommunications':'Actions',
+  'Communication':'Actions',
+  'ETF Diversifié':'Actions', 'ETF Actions':'Actions', 'Actions':'Actions',
+  'Matières premières':'Matières premières', 'Or & Métaux':'Matières premières',
+  'Agricole & Industriel':'Matières premières',
+  'Souveraines':'Obligations', 'Corporate':'Obligations',
+  'Fonds euros':'Monétaire', 'Liquidités':'Monétaire',
+  'Crypto':'Crypto', 'Bitcoin':'Crypto',
+};
+const CLASS_ORDER = ['Actions','Matières premières','Obligations','Monétaire','Crypto','Autre'];
+const CLASS_ICONS = {
+  'Actions':'📈', 'Matières premières':'🥇', 'Obligations':'📜',
+  'Monétaire':'💶', 'Crypto':'₿', 'Autre':'•',
+};
+function sectorClass(label) {
+  return SECTOR_CLASS[label] || 'Autre';
+}
+function sortSectorEntries(entries) {
+  return [...entries].sort((a, b) => {
+    const ca = CLASS_ORDER.indexOf(sectorClass(a[0]));
+    const cb = CLASS_ORDER.indexOf(sectorClass(b[0]));
+    if (ca !== cb) return ca - cb;
+    return b[1] - a[1];
+  });
+}
+
+// Compositions sectorielles à injecter dans FundCompo/FundCompoPEA
+const FUND_SECTOR_SEED = {
+  // AV — AXA Or et Matières Premières C
+  'FR0010011171': {
+    tab: 'FundCompo',
+    sector: { 'Or & Métaux':0.55,'Énergie':0.25,'Agricole & Industriel':0.20 }
+  },
+  // AV — Lazard Actions Emergentes R
+  'FR0010380675': {
+    tab: 'FundCompo',
+    sector: { 'Technologie':0.25,'Finance':0.24,'Consommation':0.12,'Communication':0.08,'Énergie':0.08,'Agricole & Industriel':0.08,'Industrie':0.06,'Santé':0.04,'Services':0.03,'Immobilier':0.02 }
+  },
+  // AV — Amundi EURO STOXX 50 II
+  'FR0007054358': {
+    tab: 'FundCompo',
+    sector: { 'Technologie':0.18,'Finance':0.16,'Industrie':0.14,'Consommation':0.14,'Santé':0.08,'Énergie':0.08,'Télécommunications':0.06,'Services':0.06,'Agricole & Industriel':0.04,'Communication':0.03,'Immobilier':0.03 }
+  },
+  // AV — Amundi MSCI All Country World
+  'LU1829220216': {
+    tab: 'FundCompo',
+    sector: { 'Technologie':0.25,'Finance':0.15,'Santé':0.11,'Consommation':0.11,'Industrie':0.10,'Communication':0.08,'Énergie':0.05,'Services':0.04,'Agricole & Industriel':0.04,'Télécommunications':0.04,'Immobilier':0.03 }
+  },
+  // PEA — Amundi PEA Em MSCI ESG
+  'FR0013412020': {
+    tab: 'FundCompoPEA',
+    sector: { 'Technologie':0.28,'Finance':0.22,'Consommation':0.12,'Communication':0.09,'Agricole & Industriel':0.07,'Industrie':0.06,'Énergie':0.06,'Santé':0.04,'Services':0.03,'Immobilier':0.02,'Télécommunications':0.01 }
+  },
+  // PEA — Amundi PEA S&P 500
+  'FR0011550185': {
+    tab: 'FundCompoPEA',
+    sector: { 'Technologie':0.32,'Finance':0.13,'Santé':0.12,'Consommation':0.10,'Communication':0.09,'Industrie':0.08,'Énergie':0.04,'Services':0.03,'Immobilier':0.02,'Agricole & Industriel':0.02,'Télécommunications':0.05 }
+  },
+};
+
 function resolveAllocColors(labels, palette) {
   return labels.map((l, i) => ALLOC_COLOR_OVERRIDES[l] || palette[i % palette.length]);
 }
@@ -3999,9 +4116,12 @@ const ALLOC_ICONS = {
   'Brésil':'🇧🇷','Asie du Sud-Est':'🌏','EMEA émergent':'🌍',
   'Industrie':'🏭','Finance':'🏦','Santé':'🏥','Énergie':'⚡',
   'Services':'🛠️','ETF Diversifié':'📊','Consommation':'🛍️',
-  'Technologie':'💻','ETF Tech':'💡','ETF Actions':'📈',
+  'Technologie':'💻','ETF Actions':'📈',
   'Actions':'📊','Matières premières':'🥇','Communication':'📡',
   'Immobilier':'🏠','Autre':'•',
+  'Or & Métaux':'🥇','Agricole & Industriel':'🌾','Souveraines':'🏛️',
+  'Corporate':'🏢','Fonds euros':'💶','Bitcoin':'₿','Crypto':'₿',
+  'Télécommunications':'📡',
 };
 
 function makeDonutAlloc(canvasId, labels, values, colors) {
@@ -4304,6 +4424,84 @@ function makeLegendAllocGeo(containerId, canvasId, labels, values, colors, gains
   el.innerHTML = html;
 }
 
+// Légende sectorielle avec accordion par classe d'actif (miroir de makeLegendAllocGeo)
+function makeLegendAllocSector(containerId, canvasId, labels, values, colors, gains) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const total = values.reduce((a,b)=>a+b,0);
+  const SEP   = 'border-left:1px solid rgba(255,255,255,0.1);';
+  const CELL  = `${SEP}padding:5px 10px;display:flex;align-items:center;justify-content:flex-end;white-space:nowrap;`;
+  const cols  = gains ? '1fr auto auto auto' : '1fr auto';
+  const fmtEur = v => Math.abs(v) >= 1000
+    ? Math.round(Math.abs(v)).toLocaleString('fr-FR') + '\u202f€'
+    : Math.abs(v).toFixed(0) + '\u202f€';
+
+  // Grouper par classe d'actif (déjà triés)
+  const groups = [];
+  let cur = null;
+  labels.forEach((l, i) => {
+    const cls = sectorClass(l);
+    if (!cur || cur.name !== cls) { cur = { name: cls, items: [] }; groups.push(cur); }
+    cur.items.push({ label: l, value: values[i], color: colors[i], gain: gains ? gains[i] : null });
+  });
+
+  geoAccordionState[containerId] = { canvasId, groups, openGroups: new Set() };
+  _refreshGeoDonut(containerId);
+
+  let html = `<div style="display:grid;grid-template-columns:${cols};">`;
+
+  groups.forEach((grp, gi) => {
+    const grpVal  = grp.items.reduce((s,x) => s + x.value, 0);
+    const grpGain = gains ? grp.items.reduce((s,x) => s + x.gain, 0) : null;
+    const grpCost = grpGain !== null ? grpVal - grpGain : 0;
+    const grpGPct = grpCost > 0.01 ? grpGain / grpCost * 100 : 0;
+    const icon    = CLASS_ICONS[grp.name] || '•';
+    const bColor  = grp.items[0].color;
+    const gId     = `${containerId}_g${gi}`;
+    const rb      = gi > 0 ? 'border-top:1px solid rgba(255,255,255,0.12);' : '';
+
+    html += `<div class="alloc-cont-hdr" data-gtoggle="${gId}" onclick="toggleAllocGroup('${gId}','${containerId}')"
+      style="display:flex;align-items:center;gap:7px;padding:10px 10px;min-width:0;border-left:3px solid ${bColor};background:linear-gradient(to right,${bColor}22 0%,transparent 80%);${rb}cursor:pointer;user-select:none;">
+      <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.8)">${grp.name}</span>
+      <span class="alloc-chevron" style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:auto">▾</span>
+    </div>`;
+    html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}','${containerId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;color:rgba(255,255,255,0.85)">${(grpVal/total*100).toFixed(1)}%</span></div>`;
+    html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}','${containerId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;color:rgba(255,255,255,0.6)">${fmtEur(grpVal)}</span></div>`;
+    if (gains) {
+      const gs = grpGain >= 0 ? '+' : '−'; const gc = grpGain >= 0 ? '#34d399' : '#f87171';
+      html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}','${containerId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;font-weight:600;color:${gc}">${gs}${Math.abs(grpGPct).toFixed(1)}%</span></div>`;
+    }
+
+    html += `<div id="${gId}" style="grid-column:1/-1;display:grid;grid-template-columns:subgrid;overflow:hidden;max-height:0;transition:max-height 0.28s ease;">`;
+    grp.items.forEach(item => {
+      const col   = item.color;
+      const iIcon = ALLOC_ICONS[item.label] ? `<span style="font-size:15px;line-height:1;flex-shrink:0">${ALLOC_ICONS[item.label]}</span>` : '';
+      const tint  = `background:${col}0d;border-top:1px solid rgba(255,255,255,0.04);`;
+      html += `<div style="display:flex;align-items:center;gap:7px;padding:7px 8px 7px 22px;min-width:0;border-left:3px solid ${col};background:linear-gradient(to right,${col}18 0%,transparent 80%);${tint}">
+        ${iIcon}<span style="font-size:12px;color:rgba(255,255,255,0.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.label}</span>
+      </div>`;
+      html += `<div style="${CELL}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.75)">${(item.value/total*100).toFixed(1)}%</span></div>`;
+      html += `<div style="${CELL}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.5)">${fmtEur(item.value)}</span></div>`;
+      if (gains) {
+        const g = item.gain; const cost = item.value - g;
+        const pct = cost > 0.01 ? g / cost * 100 : 0;
+        const sign = g >= 0 ? '+' : '−'; const gcolor = g >= 0 ? '#34d399' : '#f87171';
+        html += `<div style="${CELL}${tint}"><span style="font-size:11px;font-weight:600;color:${gcolor}">${sign}${Math.abs(pct).toFixed(1)}%</span></div>`;
+      }
+    });
+    html += `</div>`;
+  });
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// Mapping ticker → ISIN pour les holdings PEA ajoutés sans ISIN
+const TICKER_TO_ISIN = {
+  'PAEEM.PA': 'FR0013412020',
+  'ESE.PA': 'FR0011550185', 'PSP5.PA': 'FR0011550185', 'PE500.PA': 'FR0011550185',
+};
+
 function buildAlloc(holdings, prices, key, compo) {
   const mapVal = {}, mapCost = {};
   holdings.forEach((h, i) => {
@@ -4311,7 +4509,8 @@ function buildAlloc(holdings, prices, key, compo) {
     const price = (prices && prices[i] != null) ? prices[i] : fallback;
     const val  = price    * (h.qty || 0);
     const cost = fallback * (h.qty || 0);
-    const compKey = compo && h.isin && compo[h.isin] && compo[h.isin][key];
+    const isin = h.isin || TICKER_TO_ISIN[h.ticker] || null;
+    const compKey = compo && isin && compo[isin] && compo[isin][key];
     if (compKey) {
       Object.entries(compKey).forEach(([subCat, weight]) => {
         const sc = GEO_NORMALIZE[subCat] || subCat;
@@ -4357,12 +4556,13 @@ function renderPeaRepartition(prices) {
     : holdings;
   const extPrices = cash > 0 ? [...(prices || []), null] : prices;
   const geoEntRaw = buildAlloc(holdingsWithCash, extPrices, 'geo',    fundComposition);
-  const sectorEnt = buildAlloc(holdingsWithCash, extPrices, 'sector', fundComposition);
+  const sectorEnt = sortSectorEntries(buildAlloc(holdingsWithCash, extPrices, 'sector', fundComposition));
   const geoEnt    = sortGeoEntries(geoEntRaw);
   const geoLabels = geoEnt.map(e=>e[0]), geoVals = geoEnt.map(e=>e[1]);
+  const secLabels = sectorEnt.map(e=>e[0]), secVals = sectorEnt.map(e=>e[1]);
   peaAllocData = {
     geoLabels, geoVals, geoColors: resolveAllocColors(geoLabels, PALETTE_GEO), geoGains: geoEnt.map(e=>e[1]-e[2]),
-    secLabels: sectorEnt.map(e=>e[0]), secVals: sectorEnt.map(e=>e[1]), secGains: sectorEnt.map(e=>e[1]-e[2])
+    secLabels, secVals, secColors: resolveAllocColors(secLabels, PALETTE_SECTOR), secGains: sectorEnt.map(e=>e[1]-e[2])
   };
   _drawPeaSubChart('geo');
   renderDiversBadge('peaDiversBadge', peaAllocData.geoVals, peaAllocData.secVals);
@@ -4373,8 +4573,7 @@ function _drawPeaSubChart(sub) {
   if (sub === 'geo') {
     makeLegendAllocGeo('peaGeoLegend', 'peaGeoChart', peaAllocData.geoLabels, peaAllocData.geoVals, peaAllocData.geoColors, peaAllocData.geoGains);
   } else {
-    makeDonutAlloc('peaSectorChart',   peaAllocData.secLabels, peaAllocData.secVals, PALETTE_SECTOR);
-    makeLegendAlloc('peaSectorLegend', peaAllocData.secLabels, peaAllocData.secVals, PALETTE_SECTOR, peaAllocData.secGains, false);
+    makeLegendAllocSector('peaSectorLegend', 'peaSectorChart', peaAllocData.secLabels, peaAllocData.secVals, peaAllocData.secColors, peaAllocData.secGains);
   }
 }
 
@@ -4384,7 +4583,7 @@ const AV_HOLDINGS = [
   { name: 'Lazard Actions Emergentes R',     isin: 'FR0010380675', qty: 0.0315, pxRevient: 2058.41, lastPrice: 2629.20, sector: 'Actions',            geo: 'Émergents'    },
   { name: 'Amundi MSCI All Country World',   isin: 'LU1829220216', qty: 0.1187, pxRevient: 501.76,  lastPrice: 533.18,  sector: 'ETF Diversifié',     geo: 'Monde'        },
   { name: 'Amundi EURO STOXX 50 II',         isin: 'FR0007054358', qty: 0.8256, pxRevient: 60.13,   lastPrice: 63.83,   sector: 'ETF Actions',        geo: 'Europe'       },
-  { name: 'Amundi Nasdaq-100 II',            isin: 'LU1829221024', qty: 0.6048, pxRevient: 82.07,   lastPrice: 86.83,   sector: 'ETF Tech',           geo: 'États-Unis'   },
+  { name: 'Amundi Nasdaq-100 II',            isin: 'LU1829221024', qty: 0.6048, pxRevient: 82.07,   lastPrice: 86.83,   sector: 'Technologie',        geo: 'États-Unis'   },
   { name: 'JPM Global Healthcare',           isin: 'LU0880062913', qty: 0.1354, pxRevient: 293.54,  lastPrice: 275.84,  sector: 'Santé',              geo: 'Global'       },
   { name: 'iShares Digital Security ETF',    isin: 'IE00BG0J4C88', qty: 4.4182, pxRevient: 8.99,    lastPrice: 8.38,    sector: 'Technologie',        geo: 'Global'       },
 ];
@@ -4525,12 +4724,13 @@ function renderAvTable(listEl, prices, isEstimate) {
 function renderAvRepartition(prices) {
   const usePrices = prices || AV_HOLDINGS.map(h => h.lastPrice);
   const geoEntRaw = buildAlloc(AV_HOLDINGS, usePrices, 'geo',    fundComposition);
-  const sectorEnt = buildAlloc(AV_HOLDINGS, usePrices, 'sector', fundComposition);
+  const sectorEnt = sortSectorEntries(buildAlloc(AV_HOLDINGS, usePrices, 'sector', fundComposition));
   const geoEnt    = sortGeoEntries(geoEntRaw);
   const geoLabels = geoEnt.map(e=>e[0]), geoVals = geoEnt.map(e=>e[1]);
+  const secLabels = sectorEnt.map(e=>e[0]), secVals = sectorEnt.map(e=>e[1]);
   avAllocData = {
     geoLabels, geoVals, geoColors: resolveAllocColors(geoLabels, PALETTE_GEO), geoGains: geoEnt.map(e=>e[1]-e[2]),
-    secLabels: sectorEnt.map(e=>e[0]), secVals: sectorEnt.map(e=>e[1]), secGains: sectorEnt.map(e=>e[1]-e[2])
+    secLabels, secVals, secColors: resolveAllocColors(secLabels, PALETTE_SECTOR), secGains: sectorEnt.map(e=>e[1]-e[2])
   };
   _drawAvSubChart('geo');
   renderDiversBadge('avDiversBadge', avAllocData.geoVals, avAllocData.secVals);
@@ -4541,8 +4741,7 @@ function _drawAvSubChart(sub) {
   if (sub === 'geo') {
     makeLegendAllocGeo('avGeoLegend', 'avGeoChart', avAllocData.geoLabels, avAllocData.geoVals, avAllocData.geoColors, avAllocData.geoGains);
   } else {
-    makeDonutAlloc('avSectorChart',   avAllocData.secLabels, avAllocData.secVals, PALETTE_SECTOR);
-    makeLegendAlloc('avSectorLegend', avAllocData.secLabels, avAllocData.secVals, PALETTE_SECTOR, avAllocData.secGains, false);
+    makeLegendAllocSector('avSectorLegend', 'avSectorChart', avAllocData.secLabels, avAllocData.secVals, avAllocData.secColors, avAllocData.secGains);
   }
 }
 
@@ -4811,9 +5010,9 @@ document.addEventListener('visibilitychange', () => {
 let globalAllocData = null;
 
 function buildCombinedAlloc() {
-  // S'assurer que les données AV/PEA sont calculées même si les modals n'ont pas été ouverts
-  if (!avAllocData) renderAvRepartition(avPricesCache);
-  if (!peaAllocData) renderPeaRepartition(peaLastPrices);
+  // Toujours recalculer avec les prix les plus frais (pas besoin d'ouvrir les modals)
+  renderAvRepartition(avPricesCache);
+  renderPeaRepartition(peaLastPrices);
   const geoMap = {}, secMap = {};
   function add(map, lbl, val, cost) {
     if (!map[lbl]) map[lbl] = { val: 0, cost: 0 };
@@ -4828,16 +5027,16 @@ function buildCombinedAlloc() {
     peaAllocData.secLabels.forEach((l,i) => add(secMap, l, peaAllocData.secVals[i], peaAllocData.secVals[i] - peaAllocData.secGains[i]));
   }
   const btcVal = liveValues.cto || (allData.length ? allData[allData.length - 1][2] : 0);
-  if (btcVal > 0) { add(geoMap, 'Autre', btcVal, btcVal); add(secMap, 'Crypto', btcVal, btcVal); }
+  const btcCost = (investedAmounts.cto || 0) + (totalInjections.cto || 0);
+  if (btcVal > 0) { add(geoMap, 'Autre', btcVal, btcCost); add(secMap, 'Bitcoin', btcVal, btcCost); }
   const geoEnt = sortGeoEntries(Object.entries(geoMap).map(([k,v]) => [k, v.val, v.cost]));
-  const secEnt = Object.entries(secMap).map(([k,v]) => [k, v.val, v.cost]).sort((a,b) => b[1] - a[1]);
+  const secEnt = sortSectorEntries(Object.entries(secMap).map(([k,v]) => [k, v.val, v.cost]));
   const geoLabels = geoEnt.map(e=>e[0]), geoVals = geoEnt.map(e=>e[1]);
   const secLabels = secEnt.map(e=>e[0]), secVals = secEnt.map(e=>e[1]);
-  // 'Autre' = majoritairement Bitcoin → orange
-  const geoColors = resolveAllocColors(geoLabels, PALETTE_GEO).map((c,i) => geoLabels[i] === 'Autre' ? '#f7931a' : c);
+  const geoColors = resolveAllocColors(geoLabels, PALETTE_GEO);
   return {
     geoLabels, geoVals, geoColors, geoGains: geoEnt.map(e=>e[1]-e[2]),
-    secLabels, secVals, secGains: secEnt.map(e=>e[1]-e[2])
+    secLabels, secVals, secColors: resolveAllocColors(secLabels, PALETTE_SECTOR), secGains: secEnt.map(e=>e[1]-e[2])
   };
 }
 function renderGlobalRepartition() {
@@ -4855,8 +5054,7 @@ function switchGlobalSubTab(sub) {
   if (isGeo) {
     makeLegendAllocGeo('globalGeoLegend', 'globalGeoChart', globalAllocData.geoLabels, globalAllocData.geoVals, globalAllocData.geoColors, globalAllocData.geoGains);
   } else {
-    makeDonutAlloc('globalSectorChart', globalAllocData.secLabels, globalAllocData.secVals, PALETTE_SECTOR);
-    makeLegendAlloc('globalSectorLegend', globalAllocData.secLabels, globalAllocData.secVals, PALETTE_SECTOR, globalAllocData.secGains, false);
+    makeLegendAllocSector('globalSectorLegend', 'globalSectorChart', globalAllocData.secLabels, globalAllocData.secVals, globalAllocData.secColors, globalAllocData.secGains);
   }
 }
 function _slidePages(from, to, dir, onInit) {
