@@ -3960,7 +3960,8 @@ function makeDonutAlloc(canvasId, labels, values, colors) {
   });
 }
 
-function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons = true, groupBy = null) {
+// Ordre colonnes : Catégorie | Poids% | Valeur€ | PV€ | PV%
+function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons = true) {
   const total = values.reduce((a,b)=>a+b,0);
   const el = document.getElementById(containerId);
   if (!el) return;
@@ -3969,40 +3970,118 @@ function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons =
     : Math.abs(v).toFixed(0) + '\u202f€';
   const SEP  = 'border-left:1px solid rgba(255,255,255,0.1);';
   const CELL = `${SEP}padding:5px 10px;display:flex;align-items:center;justify-content:flex-end;white-space:nowrap;`;
-  const cols = gains ? '1fr auto auto auto auto' : '1fr auto auto';
+  const cols = gains ? '1fr auto auto auto auto' : '1fr auto';
   let rows = '';
-  let lastGroup = null;
   labels.forEach((l, i) => {
-    if (groupBy) {
-      const grp = groupBy(l);
-      if (grp !== lastGroup) {
-        lastGroup = grp;
-        const icon = CONTINENT_ICONS[grp] || '';
-        rows += `<div style="grid-column:1/-1;padding:5px 10px 2px;font-size:10px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.08em;${i > 0 ? 'border-top:1px solid rgba(255,255,255,0.1);margin-top:2px;' : ''}">${icon} ${grp}</div>`;
-      }
-    }
-    const rb   = (i > 0 && !groupBy) ? 'border-top:1px solid rgba(255,255,255,0.06);' : (groupBy ? '' : '');
-    const col  = colors[i];
-    const icon = (showIcons && ALLOC_ICONS[l]) ? `<span style="font-size:16px;line-height:1;flex-shrink:0">${ALLOC_ICONS[l]}</span>` : '';
-    const tint = `background:${col}0d;`;
-    let gainPctCell = '', gainAbsCell = '';
+    const rb    = i > 0 ? 'border-top:1px solid rgba(255,255,255,0.06);' : '';
+    const col   = colors[i];
+    const icon  = (showIcons && ALLOC_ICONS[l]) ? `<span style="font-size:16px;line-height:1;flex-shrink:0">${ALLOC_ICONS[l]}</span>` : '';
+    const tint  = `background:${col}0d;`;
+    const allocCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.35)">${((values[i]/total)*100).toFixed(1)}%</span></div>`;
+    const totalCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.55)">${fmtEur(values[i])}</span></div>`;
+    let gainAbsCell = '', gainPctCell = '';
     if (gains) {
       const g = gains[i];
       const cost = values[i] - g;
       const pct = cost > 0.01 ? (g / cost) * 100 : 0;
       const sign = g >= 0 ? '+' : '−';
       const gcolor = g >= 0 ? '#4ade80' : '#f87171';
+      gainAbsCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;font-weight:500;color:${gcolor}">${sign}${fmtEur(Math.abs(g))}</span></div>`;
       gainPctCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;font-weight:600;color:${gcolor}">${sign}${Math.abs(pct).toFixed(1)}%</span></div>`;
-      gainAbsCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;font-weight:500;color:${gcolor}">${sign}${fmtEur(g)}</span></div>`;
     }
-    const totalCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.55)">${fmtEur(values[i])}</span></div>`;
-    const allocCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.35)">${((values[i]/total)*100).toFixed(1)}%</span></div>`;
-    const nameCell  = `<div style="display:flex;align-items:center;gap:8px;padding:8px 8px 8px 10px;min-width:0;border-left:3px solid ${col};background:linear-gradient(to right,${col}28 0%,${col}08 60%,transparent 100%);${rb}">
+    const nameCell = `<div style="display:flex;align-items:center;gap:8px;padding:8px 8px 8px 10px;min-width:0;border-left:3px solid ${col};background:linear-gradient(to right,${col}28 0%,${col}08 60%,transparent 100%);${rb}">
       ${icon}<span style="font-size:13px;color:rgba(255,255,255,0.82);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l}</span>
     </div>`;
-    rows += nameCell + gainPctCell + gainAbsCell + totalCell + allocCell;
+    rows += nameCell + allocCell + totalCell + gainAbsCell + gainPctCell;
   });
   el.innerHTML = `<div style="display:grid;grid-template-columns:${cols};">${rows}</div>`;
+}
+
+function toggleAllocGroup(groupId) {
+  const el = document.getElementById(groupId);
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  const chevron = document.querySelector(`[data-gtoggle="${groupId}"] .alloc-chevron`);
+  if (chevron) chevron.textContent = open ? '▾' : '▴';
+}
+
+// Légende géographique avec accordion par continent
+function makeLegendAllocGeo(containerId, labels, values, colors, gains) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const total = values.reduce((a,b)=>a+b,0);
+  const SEP   = 'border-left:1px solid rgba(255,255,255,0.1);';
+  const CELL  = `${SEP}padding:5px 10px;display:flex;align-items:center;justify-content:flex-end;white-space:nowrap;`;
+  const cols  = gains ? '1fr auto auto auto auto' : '1fr auto';
+  const fmtEur = v => Math.abs(v) >= 1000
+    ? Math.round(Math.abs(v)).toLocaleString('fr-FR') + '\u202f€'
+    : Math.abs(v).toFixed(0) + '\u202f€';
+
+  // Grouper par continent (déjà triés)
+  const groups = [];
+  let cur = null;
+  labels.forEach((l, i) => {
+    const cont = geoContinent(l);
+    if (!cur || cur.name !== cont) { cur = { name: cont, items: [] }; groups.push(cur); }
+    cur.items.push({ label: l, value: values[i], color: colors[i], gain: gains ? gains[i] : null });
+  });
+
+  let html = '<div style="display:flex;flex-direction:column;">';
+  groups.forEach((grp, gi) => {
+    const grpVal  = grp.items.reduce((s,x) => s + x.value, 0);
+    const grpGain = gains ? grp.items.reduce((s,x) => s + x.gain, 0) : null;
+    const grpCost = grpGain !== null ? grpVal - grpGain : 0;
+    const grpGPct = grpCost > 0.01 ? grpGain / grpCost * 100 : 0;
+    const icon    = CONTINENT_ICONS[grp.name] || '🌐';
+    const bColor  = grp.items[0].color;
+    const gId     = `${containerId}_g${gi}`;
+    const rb      = gi > 0 ? 'border-top:1px solid rgba(255,255,255,0.12);' : '';
+
+    // Header continent
+    let hCells = `<div style="display:flex;align-items:center;gap:7px;padding:10px 10px;min-width:0;border-left:3px solid ${bColor};background:linear-gradient(to right,${bColor}22 0%,transparent 80%);${rb}">
+      <span style="font-size:15px">${icon}</span>
+      <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.8)">${grp.name}</span>
+      <span class="alloc-chevron" style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:auto;padding-right:4px">▾</span>
+    </div>`;
+    hCells += `<div style="${CELL}${rb}background:${bColor}0a;"><span style="font-size:11px;color:rgba(255,255,255,0.4)">${(grpVal/total*100).toFixed(1)}%</span></div>`;
+    hCells += `<div style="${CELL}${rb}background:${bColor}0a;"><span style="font-size:11px;color:rgba(255,255,255,0.6)">${fmtEur(grpVal)}</span></div>`;
+    if (gains) {
+      const gs = grpGain >= 0 ? '+' : '−';
+      const gc = grpGain >= 0 ? '#4ade80' : '#f87171';
+      hCells += `<div style="${CELL}${rb}background:${bColor}0a;"><span style="font-size:11px;font-weight:500;color:${gc}">${gs}${fmtEur(Math.abs(grpGain))}</span></div>`;
+      hCells += `<div style="${CELL}${rb}background:${bColor}0a;"><span style="font-size:11px;font-weight:600;color:${gc}">${gs}${Math.abs(grpGPct).toFixed(1)}%</span></div>`;
+    }
+
+    // Lignes pays
+    let countryRows = '';
+    grp.items.forEach(item => {
+      const col   = item.color;
+      const iIcon = ALLOC_ICONS[item.label] ? `<span style="font-size:15px;line-height:1;flex-shrink:0">${ALLOC_ICONS[item.label]}</span>` : '';
+      const tint  = `background:${col}0d;`;
+      const allocC = `<div style="${CELL}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.3)">${(item.value/total*100).toFixed(1)}%</span></div>`;
+      const valC   = `<div style="${CELL}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.5)">${fmtEur(item.value)}</span></div>`;
+      let gainCells = '';
+      if (gains) {
+        const g = item.gain; const cost = item.value - g;
+        const pct = cost > 0.01 ? g / cost * 100 : 0;
+        const sign = g >= 0 ? '+' : '−'; const gcolor = g >= 0 ? '#4ade80' : '#f87171';
+        gainCells  = `<div style="${CELL}${tint}"><span style="font-size:11px;font-weight:500;color:${gcolor}">${sign}${fmtEur(Math.abs(g))}</span></div>`;
+        gainCells += `<div style="${CELL}${tint}"><span style="font-size:11px;font-weight:600;color:${gcolor}">${sign}${Math.abs(pct).toFixed(1)}%</span></div>`;
+      }
+      const nameC = `<div style="display:flex;align-items:center;gap:7px;padding:7px 8px 7px 22px;min-width:0;border-left:3px solid ${col};background:linear-gradient(to right,${col}18 0%,transparent 80%);border-top:1px solid rgba(255,255,255,0.04);">
+        ${iIcon}<span style="font-size:12px;color:rgba(255,255,255,0.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.label}</span>
+      </div>`;
+      countryRows += nameC + allocC + valC + gainCells;
+    });
+
+    html += `<div>
+      <div data-gtoggle="${gId}" onclick="toggleAllocGroup('${gId}')" style="display:grid;grid-template-columns:${cols};cursor:pointer;user-select:none;">${hCells}</div>
+      <div id="${gId}" style="display:none"><div style="display:grid;grid-template-columns:${cols};">${countryRows}</div></div>
+    </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 function buildAlloc(holdings, prices, key, compo) {
@@ -4049,8 +4128,8 @@ function renderPeaRepartition(prices) {
 function _drawPeaSubChart(sub) {
   if (!peaAllocData) return;
   if (sub === 'geo') {
-    makeDonutAlloc('peaGeoChart',   peaAllocData.geoLabels, peaAllocData.geoVals, peaAllocData.geoColors);
-    makeLegendAlloc('peaGeoLegend', peaAllocData.geoLabels, peaAllocData.geoVals, peaAllocData.geoColors, peaAllocData.geoGains, true, geoContinent);
+    makeDonutAlloc('peaGeoChart',      peaAllocData.geoLabels, peaAllocData.geoVals, peaAllocData.geoColors);
+    makeLegendAllocGeo('peaGeoLegend', peaAllocData.geoLabels, peaAllocData.geoVals, peaAllocData.geoColors, peaAllocData.geoGains);
   } else {
     makeDonutAlloc('peaSectorChart',   peaAllocData.secLabels, peaAllocData.secVals, PALETTE_SECTOR);
     makeLegendAlloc('peaSectorLegend', peaAllocData.secLabels, peaAllocData.secVals, PALETTE_SECTOR, peaAllocData.secGains, false);
@@ -4216,8 +4295,8 @@ function renderAvRepartition(prices) {
 function _drawAvSubChart(sub) {
   if (!avAllocData) return;
   if (sub === 'geo') {
-    makeDonutAlloc('avGeoChart',   avAllocData.geoLabels, avAllocData.geoVals, avAllocData.geoColors);
-    makeLegendAlloc('avGeoLegend', avAllocData.geoLabels, avAllocData.geoVals, avAllocData.geoColors, avAllocData.geoGains, true, geoContinent);
+    makeDonutAlloc('avGeoChart',      avAllocData.geoLabels, avAllocData.geoVals, avAllocData.geoColors);
+    makeLegendAllocGeo('avGeoLegend', avAllocData.geoLabels, avAllocData.geoVals, avAllocData.geoColors, avAllocData.geoGains);
   } else {
     makeDonutAlloc('avSectorChart',   avAllocData.secLabels, avAllocData.secVals, PALETTE_SECTOR);
     makeLegendAlloc('avSectorLegend', avAllocData.secLabels, avAllocData.secVals, PALETTE_SECTOR, avAllocData.secGains, false);
