@@ -1854,6 +1854,7 @@ async function loadData() {
     // Chargement des compositions de fonds (onglet FundCompo)
     try {
       const compoRows = await sheetsRead(cfg.targetId, "'FundCompo'!A2:D");
+      console.log('[FundCompo] rows reçues:', compoRows);
       fundComposition = {};
       (compoRows || []).forEach(([isin, dim, cat, poids]) => {
         if (!isin || !dim || !cat || !poids) return;
@@ -1861,7 +1862,8 @@ async function loadData() {
         if (!fundComposition[isin][dim]) fundComposition[isin][dim] = {};
         fundComposition[isin][dim][cat] = parseFloat(poids);
       });
-    } catch (_) { /* onglet absent → dégradé gracieux */ }
+      console.log('[FundCompo] objet construit:', fundComposition);
+    } catch (e) { console.error('[FundCompo] erreur de chargement:', e); }
 
     renderDashboard();
     renderHistory();
