@@ -897,6 +897,13 @@
         background: var(--bg);
         display: flex; flex-direction: column; justify-content: flex-start;
       }
+      #globalAlloc.page {
+        overflow-y: auto;
+        height: calc(100vh - 60px);
+        height: calc(100dvh - 60px);
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+      }
       /* Page 2 : total + légende plus grands */
       /* charts-row devient transparent pour le flex → courbe et donut sont enfants directs */
       #dashboard .dash-section-charts .charts-row { display: contents; }
@@ -3961,6 +3968,7 @@ const GEO_CONTINENT = {
   'Australie': 'Océanie',
   'EMEA émergent': 'Afrique/EMEA', 'Afrique': 'Afrique/EMEA',
 };
+const GEO_NORMALIZE = { 'USA': 'États-Unis' };
 const CONTINENT_ORDER = ['Amérique du Nord', 'Europe', 'Asie', 'Amérique Latine', 'Océanie', 'Afrique/EMEA', 'Autres'];
 const CONTINENT_ICONS = {
   'Amérique du Nord': '🌎', 'Europe': '🇪🇺', 'Asie': '🌏',
@@ -4306,11 +4314,12 @@ function buildAlloc(holdings, prices, key, compo) {
     const compKey = compo && h.isin && compo[h.isin] && compo[h.isin][key];
     if (compKey) {
       Object.entries(compKey).forEach(([subCat, weight]) => {
-        mapVal[subCat]  = (mapVal[subCat]  || 0) + val  * weight;
-        mapCost[subCat] = (mapCost[subCat] || 0) + cost * weight;
+        const sc = GEO_NORMALIZE[subCat] || subCat;
+        mapVal[sc]  = (mapVal[sc]  || 0) + val  * weight;
+        mapCost[sc] = (mapCost[sc] || 0) + cost * weight;
       });
     } else {
-      const k = h[key] || 'Autre';
+      const k = GEO_NORMALIZE[h[key]] || h[key] || 'Autre';
       mapVal[k]  = (mapVal[k]  || 0) + val;
       mapCost[k] = (mapCost[k] || 0) + cost;
     }
@@ -4894,11 +4903,12 @@ function openGlobalAlloc() {
 function closeGlobalAlloc() {
   _slidePages(document.getElementById('globalAlloc'), document.getElementById('dashboard'), -1, null);
 }
-// Swipe dashboard ↔ globalAlloc
+// Swipe charts → globalAlloc (pas depuis les tiles)
 (function() {
   let sx = 0;
-  document.getElementById('dashboard').addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
-  document.getElementById('dashboard').addEventListener('touchend', e => {
+  const charts = document.querySelector('#dashboard .dash-section-charts');
+  charts.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
+  charts.addEventListener('touchend', e => {
     if (e.changedTouches[0].clientX - sx < -60) openGlobalAlloc();
   }, { passive: true });
   document.getElementById('globalAlloc').addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
