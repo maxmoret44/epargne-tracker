@@ -1150,16 +1150,14 @@
           <div class="donut-side donut-side-r">
             <div id="sharedGainsLabel" class="di-gains"></div>
             <div style="display:flex;align-items:center;gap:4px;margin-top:8px;">
-              <button id="globalAllocBtn" class="donut-center-btn" style="position:relative;" onclick="openGlobalAlloc()" title="Répartition globale">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="url(#allocGrad)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                  <defs><linearGradient id="allocGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#f59e0b"/><stop offset="45%" stop-color="#c2185b"/><stop offset="100%" stop-color="#3b82f6"/>
-                  </linearGradient></defs>
-                  <circle cx="12" cy="12" r="9"/>
-                  <circle cx="12" cy="12" r="4.5"/>
-                  <path d="M12 3 A9 9 0 0 1 21 12" stroke="url(#allocGrad)" stroke-width="2.2"/>
-                </svg>
-              </button>
+              <svg id="globalAllocBtn" onclick="openGlobalAlloc()" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="url(#allocGrad)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7;cursor:pointer;">
+                <defs><linearGradient id="allocGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#f59e0b"/><stop offset="45%" stop-color="#c2185b"/><stop offset="100%" stop-color="#3b82f6"/>
+                </linearGradient></defs>
+                <circle cx="12" cy="12" r="9"/>
+                <circle cx="12" cy="12" r="4.5"/>
+                <path d="M12 3 A9 9 0 0 1 21 12" stroke="url(#allocGrad)" stroke-width="2.2"/>
+              </svg>
               <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="animation:arrowBounceRight 1.4s ease-in-out infinite"><polyline points="1,2 6,7 1,12"/></svg>
             </div>
           </div>
@@ -1318,15 +1316,13 @@
     <div class="global-alloc-header">
       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
         <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="animation:arrowBounceLeft 1.4s ease-in-out infinite"><polyline points="7,2 2,7 7,12"/></svg>
-        <button class="donut-center-btn" style="position:relative;" onclick="closeGlobalAlloc()" title="Retour graphiques">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="url(#chartGrad)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <defs><linearGradient id="chartGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#CC1900"/><stop offset="50%" stop-color="#f5b731"/><stop offset="100%" stop-color="#00CE44"/>
-            </linearGradient></defs>
-            <polyline points="3 17 8 11 13 14 21 6"/>
-            <line x1="3" y1="20" x2="21" y2="20"/>
-          </svg>
-        </button>
+        <svg onclick="closeGlobalAlloc()" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="url(#chartGrad)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7;cursor:pointer;">
+          <defs><linearGradient id="chartGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#CC1900"/><stop offset="50%" stop-color="#f5b731"/><stop offset="100%" stop-color="#00CE44"/>
+          </linearGradient></defs>
+          <polyline points="3 17 8 11 13 14 21 6"/>
+          <line x1="3" y1="20" x2="21" y2="20"/>
+        </svg>
       </div>
       <span style="font-size:15px;font-weight:600;color:var(--text)">Répartition globale</span>
       <span style="font-size:11px;color:rgba(255,255,255,0.35);margin-left:4px">BV · PEA · BTC</span>
