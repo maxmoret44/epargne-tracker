@@ -1059,6 +1059,20 @@
       <div class="cards" id="accountCards"></div>
       <div style="display:flex; justify-content:center; padding:8px 0 4px;">
       <div id="scrollHint" onclick="document.querySelector('#dashboard .dash-section-charts').scrollIntoView({behavior:'smooth'})" style="display:inline-flex; align-items:center; gap:14px; padding:6px 18px; cursor:pointer; border-radius:20px;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="url(#hintGrad2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7;">
+          <defs>
+            <linearGradient id="hintGrad2" x1="0%" y1="100%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#CC1900"/>
+              <stop offset="50%" stop-color="#f5b731"/>
+              <stop offset="100%" stop-color="#00CE44"/>
+            </linearGradient>
+          </defs>
+          <polyline points="3 17 8 11 13 14 21 6"/>
+          <line x1="3" y1="20" x2="21" y2="20"/>
+        </svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7; animation:scrollBounce 1.8s ease-in-out infinite;">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="url(#hintGrad)" stroke-width="1.6" style="opacity:0.7;">
           <defs>
             <linearGradient id="hintGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1070,20 +1084,6 @@
           <circle cx="12" cy="12" r="9"/>
           <circle cx="12" cy="12" r="4.5"/>
           <path d="M12 3 A9 9 0 0 1 21 12" stroke="url(#hintGrad)" stroke-width="2.2" stroke-linecap="round"/>
-        </svg>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7; animation:scrollBounce 1.8s ease-in-out infinite;">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="url(#hintGrad2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7;">
-          <defs>
-            <linearGradient id="hintGrad2" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#CC1900"/>
-              <stop offset="50%" stop-color="#f5b731"/>
-              <stop offset="100%" stop-color="#00CE44"/>
-            </linearGradient>
-          </defs>
-          <polyline points="3 17 8 11 13 14 21 6"/>
-          <line x1="3" y1="20" x2="21" y2="20"/>
         </svg>
       </div>
       </div>
@@ -1151,9 +1151,10 @@
             <div id="sharedGainsLabel" class="di-gains"></div>
             <div style="display:flex;align-items:center;gap:4px;margin-top:8px;">
               <button id="globalAllocBtn" class="donut-center-btn" style="position:relative;" onclick="openGlobalAlloc()" title="Répartition globale">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 2v10h10A10 10 0 1 1 12 2z"/>
-                  <path d="M12 2a10 10 0 0 1 10 10H12V2z" fill="currentColor" opacity="0.25"/>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="9"/>
+                  <circle cx="12" cy="12" r="4.5"/>
+                  <path d="M12 3 A9 9 0 0 1 21 12" stroke-width="2.2"/>
                 </svg>
               </button>
               <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="animation:arrowBounceRight 1.4s ease-in-out infinite"><polyline points="1,2 6,7 1,12"/></svg>
@@ -1315,9 +1316,9 @@
       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
         <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="animation:arrowBounceLeft 1.4s ease-in-out infinite"><polyline points="7,2 2,7 7,12"/></svg>
         <button class="donut-center-btn" style="position:relative;" onclick="closeGlobalAlloc()" title="Retour graphiques">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 17 9 9 13 13 19 5"/>
-            <polyline points="3 21 21 21"/>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 17 8 11 13 14 21 6"/>
+            <line x1="3" y1="20" x2="21" y2="20"/>
           </svg>
         </button>
       </div>
@@ -4848,18 +4849,20 @@ function switchGlobalSubTab(sub) {
   }
 }
 function _slidePages(from, to, dir, onInit) {
-  const enterX = dir === 1 ? '100%' : '-40%';
-  const exitX  = dir === 1 ? '-40%' : '100%';
-  // 'from' reste en flux normal — on lui applique uniquement un transform
-  // (évite tout saut lié au changement de position/height)
-  from.style.willChange = 'transform'; from.style.zIndex = '10';
-  from.style.transform = 'translateX(0)'; from.style.transition = 'none';
-  // 'to' arrive en overlay fixe par-dessus, sans perturber le layout
-  to.style.position = 'fixed'; to.style.top = '0'; to.style.left = '0';
-  to.style.width = '100%'; to.style.height = '100%'; to.style.overflowY = 'auto';
-  to.style.willChange = 'transform'; to.style.zIndex = '20';
-  to.style.transform = `translateX(${enterX})`; to.style.transition = 'none';
+  const enterX = dir === 1 ? '100%' : '-100%';
+  const exitX  = dir === 1 ? '-100%' : '100%';
+  // Hauteur pixel = calc(100vh - navH) — identique au CSS du dashboard
+  // → aucun saut au cleanup quand les styles sont retirés
+  const navH = document.querySelector('.nav')?.offsetHeight || 60;
+  const h = (window.innerHeight - navH) + 'px';
+  function fixPage(el, z) {
+    el.style.position = 'fixed'; el.style.top = '0'; el.style.left = '0';
+    el.style.width = '100%'; el.style.height = h; el.style.overflowY = 'auto';
+    el.style.willChange = 'transform'; el.style.zIndex = z; el.style.transition = 'none';
+  }
+  fixPage(from, '10'); from.style.transform = 'translateX(0)';
   to.style.display = 'block';
+  fixPage(to, '20'); to.style.transform = `translateX(${enterX})`;
   to.classList.add('active');
   if (onInit) onInit();
   requestAnimationFrame(() => {
@@ -4870,12 +4873,12 @@ function _slidePages(from, to, dir, onInit) {
       to.style.transform = 'translateX(0)';
       to.addEventListener('transitionend', () => {
         from.classList.remove('active');
-        from.style.willChange = ''; from.style.zIndex = '';
-        from.style.transform = ''; from.style.transition = '';
-        to.style.position = ''; to.style.top = ''; to.style.left = '';
-        to.style.width = ''; to.style.height = ''; to.style.overflowY = '';
-        to.style.willChange = ''; to.style.zIndex = '';
-        to.style.transform = ''; to.style.transition = ''; to.style.display = '';
+        [from, to].forEach(el => {
+          el.style.position = ''; el.style.top = ''; el.style.left = '';
+          el.style.width = ''; el.style.height = ''; el.style.overflowY = '';
+          el.style.willChange = ''; el.style.zIndex = '';
+          el.style.transform = ''; el.style.transition = ''; el.style.display = '';
+        });
       }, { once: true });
     });
   });
