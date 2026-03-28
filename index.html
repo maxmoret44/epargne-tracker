@@ -4044,7 +4044,6 @@ function makeLegendAllocGeo(containerId, labels, values, colors, gains) {
     // Cellules header continent (direct children du grid → alignement garanti)
     html += `<div class="alloc-cont-hdr" data-gtoggle="${gId}" onclick="toggleAllocGroup('${gId}')"
       style="display:flex;align-items:center;gap:7px;padding:10px 10px;min-width:0;border-left:3px solid ${bColor};background:linear-gradient(to right,${bColor}22 0%,transparent 80%);${rb}cursor:pointer;user-select:none;">
-      <span style="font-size:15px;flex-shrink:0">${icon}</span>
       <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.8)">${grp.name}</span>
       <span class="alloc-chevron" style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:auto">▾</span>
     </div>`;
