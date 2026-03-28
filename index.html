@@ -4850,19 +4850,18 @@ function switchGlobalSubTab(sub) {
 function _slidePages(from, to, dir, onInit) {
   const enterX = dir === 1 ? '100%' : '-40%';
   const exitX  = dir === 1 ? '-40%' : '100%';
-  function makeFixed(el, z) {
-    el.style.position = 'fixed'; el.style.top = '0'; el.style.left = '0';
-    el.style.width = '100%'; el.style.height = '100%';
-    el.style.overflowY = 'auto'; el.style.willChange = 'transform';
-    el.style.zIndex = z; el.style.transition = 'none';
-  }
-  makeFixed(from, '10'); from.style.transform = 'translateX(0)';
-  // Make 'to' visible off-screen before adding active class
+  // 'from' reste en flux normal — on lui applique uniquement un transform
+  // (évite tout saut lié au changement de position/height)
+  from.style.willChange = 'transform'; from.style.zIndex = '10';
+  from.style.transform = 'translateX(0)'; from.style.transition = 'none';
+  // 'to' arrive en overlay fixe par-dessus, sans perturber le layout
+  to.style.position = 'fixed'; to.style.top = '0'; to.style.left = '0';
+  to.style.width = '100%'; to.style.height = '100%'; to.style.overflowY = 'auto';
+  to.style.willChange = 'transform'; to.style.zIndex = '20';
+  to.style.transform = `translateX(${enterX})`; to.style.transition = 'none';
   to.style.display = 'block';
-  makeFixed(to, '20'); to.style.transform = `translateX(${enterX})`;
   to.classList.add('active');
   if (onInit) onInit();
-  // Double rAF: first ensures initial state is painted, second triggers animation
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       const t = 'transform 0.30s cubic-bezier(0.4,0,0.2,1)';
@@ -4871,12 +4870,12 @@ function _slidePages(from, to, dir, onInit) {
       to.style.transform = 'translateX(0)';
       to.addEventListener('transitionend', () => {
         from.classList.remove('active');
-        [from, to].forEach(el => {
-          el.style.position = ''; el.style.top = ''; el.style.left = '';
-          el.style.width = ''; el.style.height = ''; el.style.overflowY = '';
-          el.style.willChange = ''; el.style.zIndex = '';
-          el.style.transform = ''; el.style.transition = ''; el.style.display = '';
-        });
+        from.style.willChange = ''; from.style.zIndex = '';
+        from.style.transform = ''; from.style.transition = '';
+        to.style.position = ''; to.style.top = ''; to.style.left = '';
+        to.style.width = ''; to.style.height = ''; to.style.overflowY = '';
+        to.style.willChange = ''; to.style.zIndex = '';
+        to.style.transform = ''; to.style.transition = ''; to.style.display = '';
       }, { once: true });
     });
   });
