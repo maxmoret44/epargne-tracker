@@ -3968,7 +3968,7 @@ const GEO_CONTINENT = {
   'Australie': 'Océanie',
   'EMEA émergent': 'Afrique/EMEA', 'Afrique': 'Afrique/EMEA',
 };
-const GEO_NORMALIZE = { 'USA': 'États-Unis' };
+const GEO_NORMALIZE = { 'USA': 'États-Unis', 'Autres': 'Autre' };
 const CONTINENT_ORDER = ['Amérique du Nord', 'Europe', 'Asie', 'Amérique Latine', 'Océanie', 'Afrique/EMEA', 'Autres'];
 const CONTINENT_ICONS = {
   'Amérique du Nord': '🌎', 'Europe': '🇪🇺', 'Asie': '🌏',
@@ -4060,7 +4060,7 @@ function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons =
     const col   = colors[i];
     const icon  = (showIcons && ALLOC_ICONS[l]) ? `<span style="font-size:16px;line-height:1;flex-shrink:0">${ALLOC_ICONS[l]}</span>` : '';
     const tint  = `background:${col}0d;`;
-    const allocCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.35)">${((values[i]/total)*100).toFixed(1)}%</span></div>`;
+    const allocCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.85)">${((values[i]/total)*100).toFixed(1)}%</span></div>`;
     const totalCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.55)">${fmtEur(values[i])}</span></div>`;
     let gainPctCell = '';
     if (gains) {
@@ -4068,7 +4068,7 @@ function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons =
       const cost = values[i] - g;
       const pct = cost > 0.01 ? (g / cost) * 100 : 0;
       const sign = g >= 0 ? '+' : '−';
-      const gcolor = g >= 0 ? '#4ade80' : '#f87171';
+      const gcolor = g >= 0 ? '#34d399' : '#f87171';
       gainPctCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;font-weight:600;color:${gcolor}">${sign}${Math.abs(pct).toFixed(1)}%</span></div>`;
     }
     const nameCell = `<div style="display:flex;align-items:center;gap:8px;padding:8px 8px 8px 10px;min-width:0;border-left:3px solid ${col};background:linear-gradient(to right,${col}28 0%,${col}08 60%,transparent 100%);${rb}">
@@ -4272,10 +4272,10 @@ function makeLegendAllocGeo(containerId, canvasId, labels, values, colors, gains
       <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.8)">${grp.name}</span>
       <span class="alloc-chevron" style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:auto">▾</span>
     </div>`;
-    html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}','${containerId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;color:rgba(255,255,255,0.4)">${(grpVal/total*100).toFixed(1)}%</span></div>`;
+    html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}','${containerId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;color:rgba(255,255,255,0.85)">${(grpVal/total*100).toFixed(1)}%</span></div>`;
     html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}','${containerId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;color:rgba(255,255,255,0.6)">${fmtEur(grpVal)}</span></div>`;
     if (gains) {
-      const gs = grpGain >= 0 ? '+' : '−'; const gc = grpGain >= 0 ? '#4ade80' : '#f87171';
+      const gs = grpGain >= 0 ? '+' : '−'; const gc = grpGain >= 0 ? '#34d399' : '#f87171';
       html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}','${containerId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;font-weight:600;color:${gc}">${gs}${Math.abs(grpGPct).toFixed(1)}%</span></div>`;
     }
 
@@ -4288,12 +4288,12 @@ function makeLegendAllocGeo(containerId, canvasId, labels, values, colors, gains
       html += `<div style="display:flex;align-items:center;gap:7px;padding:7px 8px 7px 22px;min-width:0;border-left:3px solid ${col};background:linear-gradient(to right,${col}18 0%,transparent 80%);${tint}">
         ${iIcon}<span style="font-size:12px;color:rgba(255,255,255,0.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.label}</span>
       </div>`;
-      html += `<div style="${CELL}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.3)">${(item.value/total*100).toFixed(1)}%</span></div>`;
+      html += `<div style="${CELL}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.75)">${(item.value/total*100).toFixed(1)}%</span></div>`;
       html += `<div style="${CELL}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.5)">${fmtEur(item.value)}</span></div>`;
       if (gains) {
         const g = item.gain; const cost = item.value - g;
         const pct = cost > 0.01 ? g / cost * 100 : 0;
-        const sign = g >= 0 ? '+' : '−'; const gcolor = g >= 0 ? '#4ade80' : '#f87171';
+        const sign = g >= 0 ? '+' : '−'; const gcolor = g >= 0 ? '#34d399' : '#f87171';
         html += `<div style="${CELL}${tint}"><span style="font-size:11px;font-weight:600;color:${gcolor}">${sign}${Math.abs(pct).toFixed(1)}%</span></div>`;
       }
     });
@@ -4813,7 +4813,7 @@ let globalAllocData = null;
 function buildCombinedAlloc() {
   // S'assurer que les données AV/PEA sont calculées même si les modals n'ont pas été ouverts
   if (!avAllocData) renderAvRepartition(avPricesCache);
-  if (!peaAllocData) renderPeaRepartition(null);
+  if (!peaAllocData) renderPeaRepartition(peaLastPrices);
   const geoMap = {}, secMap = {};
   function add(map, lbl, val, cost) {
     if (!map[lbl]) map[lbl] = { val: 0, cost: 0 };
@@ -4903,18 +4903,89 @@ function openGlobalAlloc() {
 function closeGlobalAlloc() {
   _slidePages(document.getElementById('globalAlloc'), document.getElementById('dashboard'), -1, null);
 }
-// Swipe charts → globalAlloc (pas depuis les tiles)
+// Swipe continu (finger-following) entre charts et globalAlloc
 (function() {
-  let sx = 0;
   const charts = document.querySelector('#dashboard .dash-section-charts');
-  charts.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
-  charts.addEventListener('touchend', e => {
-    if (e.changedTouches[0].clientX - sx < -60) openGlobalAlloc();
-  }, { passive: true });
-  document.getElementById('globalAlloc').addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
-  document.getElementById('globalAlloc').addEventListener('touchend', e => {
-    if (e.changedTouches[0].clientX - sx > 60) closeGlobalAlloc();
-  }, { passive: true });
+  const ga = document.getElementById('globalAlloc');
+  const dash = document.getElementById('dashboard');
+  const navH = () => document.querySelector('.nav')?.offsetHeight || 60;
+  let sx = 0, dx = 0, dragging = false, direction = 0;
+
+  function setupDrag(source, dir) {
+    source.addEventListener('touchstart', e => {
+      sx = e.touches[0].clientX; dx = 0; dragging = false; direction = 0;
+    }, { passive: true });
+
+    source.addEventListener('touchmove', e => {
+      dx = e.touches[0].clientX - sx;
+      const validDrag = dir === 1 ? dx < -10 : dx > 10;
+      if (!validDrag) return;
+
+      if (!dragging) {
+        dragging = true; direction = dir;
+        const h = (window.innerHeight - navH()) + 'px';
+        window.scrollTo(0, 0);
+        const from = dir === 1 ? dash : ga;
+        const to   = dir === 1 ? ga : dash;
+        [from, to].forEach(el => {
+          el.style.position = 'fixed'; el.style.top = '0'; el.style.left = '0';
+          el.style.width = '100%'; el.style.height = h; el.style.overflowY = 'hidden';
+          el.style.willChange = 'transform'; el.style.transition = 'none';
+        });
+        from.style.zIndex = '10'; to.style.zIndex = '20';
+        to.style.display = 'block'; to.classList.add('active');
+        to.style.transform = dir === 1 ? 'translateX(100%)' : 'translateX(-100%)';
+        from.style.transform = 'translateX(0)';
+        if (dir === 1) renderGlobalRepartition();
+      }
+
+      const from = dir === 1 ? dash : ga;
+      const to   = dir === 1 ? ga : dash;
+      const w = window.innerWidth;
+      const pct = Math.max(0, Math.min(1, Math.abs(dx) / w));
+      if (dir === 1) {
+        to.style.transform = `translateX(${(1 - pct) * 100}%)`;
+        from.style.transform = `translateX(${-pct * 100}%)`;
+      } else {
+        to.style.transform = `translateX(${-(1 - pct) * 100}%)`;
+        from.style.transform = `translateX(${pct * 100}%)`;
+      }
+    }, { passive: true });
+
+    source.addEventListener('touchend', () => {
+      if (!dragging) return;
+      const w = window.innerWidth;
+      const pct = Math.abs(dx) / w;
+      const threshold = 0.25;
+      const from = direction === 1 ? dash : ga;
+      const to   = direction === 1 ? ga : dash;
+      const t = 'transform 0.25s cubic-bezier(0.4,0,0.2,1)';
+      from.style.transition = t; to.style.transition = t;
+
+      if (pct > threshold) {
+        to.style.transform = 'translateX(0)';
+        from.style.transform = direction === 1 ? 'translateX(-100%)' : 'translateX(100%)';
+      } else {
+        from.style.transform = 'translateX(0)';
+        to.style.transform = direction === 1 ? 'translateX(100%)' : 'translateX(-100%)';
+      }
+
+      to.addEventListener('transitionend', () => {
+        if (pct <= threshold) { to.classList.remove('active'); }
+        else { from.classList.remove('active'); }
+        [from, to].forEach(el => {
+          el.style.position = ''; el.style.top = ''; el.style.left = '';
+          el.style.width = ''; el.style.height = ''; el.style.overflowY = '';
+          el.style.willChange = ''; el.style.zIndex = '';
+          el.style.transform = ''; el.style.transition = ''; el.style.display = '';
+        });
+        dragging = false; direction = 0;
+      }, { once: true });
+    }, { passive: true });
+  }
+
+  setupDrag(charts, 1);
+  setupDrag(ga, -1);
 })();
 
 // ============== PRIVACY MODE ==============
