@@ -673,7 +673,7 @@
     .alloc-wrap { display: flex; flex-direction: column; flex: 1; padding: 16px 0 8px; min-height: 0; }
     .alloc-block { width: 100%; display: flex; flex-direction: column; align-items: center; flex: 1; min-height: 0; }
     .alloc-title { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.55); text-align: center; margin-bottom: 28px; text-transform: uppercase; letter-spacing: .08em; }
-    .alloc-chart-row { display: flex; flex-direction: column; align-items: center; width: 100%; flex: 1; min-height: 0; gap: 20px; }
+    .alloc-chart-row { display: flex; flex-direction: column; align-items: center; width: 100%; flex: 1; min-height: 0; overflow-y: auto; }
     .modal-subtabs {
       display: flex; gap: 2px; flex-shrink: 0;
       border-bottom: 1px solid var(--surface2);
@@ -689,10 +689,10 @@
     .modal-subtab:hover { color: var(--text); }
     .modal-subtab.active { color: var(--text); border-bottom-color: rgba(255,255,255,0.45); font-weight: 600; }
     .alloc-subpanel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-    .alloc-canvas-wrap { flex-shrink: 0; width: 220px; }
-    .alloc-legend { width: 100%; overflow-y: auto; padding: 0 12px; }
+    .alloc-canvas-wrap { flex-shrink: 0; width: 260px; margin: 25px auto 0; }
+    .alloc-legend { flex-shrink: 0; width: 100%; padding: 0 12px 30px; margin-top: 64px; }
     @media (max-width: 767px) {
-      .alloc-canvas-wrap { width: 180px; }
+      .alloc-canvas-wrap { width: 220px; }
     }
 
     .pea-holding-row {
@@ -3938,7 +3938,9 @@ function makeDonutAlloc(canvasId, labels, values, colors) {
         backgroundColor: colors.map(c => c + '33'),
         borderColor: colors,
         borderWidth: 1.5,
-        hoverOffset: 4
+        hoverOffset: 4,
+        offset: 0,
+        spacing: 0
       }]
     },
     options: {
@@ -3971,7 +3973,7 @@ function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons =
     : Math.abs(v).toFixed(0) + '\u202f€';
   const SEP  = 'border-left:1px solid rgba(255,255,255,0.1);';
   const CELL = `${SEP}padding:5px 10px;display:flex;align-items:center;justify-content:flex-end;white-space:nowrap;`;
-  const cols = gains ? '1fr auto auto auto auto' : '1fr auto';
+  const cols = gains ? '1fr auto auto auto' : '1fr auto';
   let rows = '';
   labels.forEach((l, i) => {
     const rb    = i > 0 ? 'border-top:1px solid rgba(255,255,255,0.06);' : '';
@@ -3980,20 +3982,19 @@ function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons =
     const tint  = `background:${col}0d;`;
     const allocCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.35)">${((values[i]/total)*100).toFixed(1)}%</span></div>`;
     const totalCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.55)">${fmtEur(values[i])}</span></div>`;
-    let gainAbsCell = '', gainPctCell = '';
+    let gainPctCell = '';
     if (gains) {
       const g = gains[i];
       const cost = values[i] - g;
       const pct = cost > 0.01 ? (g / cost) * 100 : 0;
       const sign = g >= 0 ? '+' : '−';
       const gcolor = g >= 0 ? '#4ade80' : '#f87171';
-      gainAbsCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;font-weight:500;color:${gcolor}">${sign}${fmtEur(Math.abs(g))}</span></div>`;
       gainPctCell = `<div style="${CELL}${rb}${tint}"><span style="font-size:11px;font-weight:600;color:${gcolor}">${sign}${Math.abs(pct).toFixed(1)}%</span></div>`;
     }
     const nameCell = `<div style="display:flex;align-items:center;gap:8px;padding:8px 8px 8px 10px;min-width:0;border-left:3px solid ${col};background:linear-gradient(to right,${col}28 0%,${col}08 60%,transparent 100%);${rb}">
       ${icon}<span style="font-size:13px;color:rgba(255,255,255,0.82);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l}</span>
     </div>`;
-    rows += nameCell + allocCell + totalCell + gainAbsCell + gainPctCell;
+    rows += nameCell + allocCell + totalCell + gainPctCell;
   });
   el.innerHTML = `<div style="display:grid;grid-template-columns:${cols};">${rows}</div>`;
 }
@@ -4001,8 +4002,14 @@ function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons =
 function toggleAllocGroup(groupId, containerId) {
   const el = document.getElementById(groupId);
   if (!el) return;
-  const isOpen = el.style.maxHeight && el.style.maxHeight !== '0px';
-  el.style.maxHeight = isOpen ? '0px' : el.scrollHeight + 'px';
+  let isOpen;
+  if (containerId) {
+    isOpen = el.style.maxHeight && el.style.maxHeight !== '0px';
+    el.style.maxHeight = isOpen ? '0px' : el.scrollHeight + 'px';
+  } else {
+    isOpen = el.style.maxHeight && el.style.maxHeight !== '0px';
+    el.style.maxHeight = isOpen ? '0px' : el.scrollHeight + 'px';
+  }
   const chevron = document.querySelector(`[data-gtoggle="${groupId}"] .alloc-chevron`);
   if (chevron) chevron.textContent = isOpen ? '▾' : '▴';
   if (containerId) {
@@ -4010,34 +4017,71 @@ function toggleAllocGroup(groupId, containerId) {
     const state = geoAccordionState[containerId];
     if (state) {
       if (isOpen) state.openGroups.delete(gi); else state.openGroups.add(gi);
-      _refreshGeoDonut(containerId);
+      _refreshGeoDonut(containerId, isOpen);
     }
   }
 }
 
-function _refreshGeoDonut(containerId) {
+function _animateGeoOffset(chart, targetOffsets, duration, onDone) {
+  if (chart._offsetRaf) cancelAnimationFrame(chart._offsetRaf);
+  const startOffsets = (chart.data.datasets[0].offset || []).map(v => v || 0);
+  const t0 = performance.now();
+  function step(now) {
+    const p = Math.min((now - t0) / duration, 1);
+    const e = 1 - Math.pow(1 - p, 3); // easeOutCubic
+    chart.data.datasets[0].offset = targetOffsets.map((tgt, i) =>
+      (startOffsets[i] || 0) + (tgt - (startOffsets[i] || 0)) * e
+    );
+    chart.update('none');
+    if (p < 1) chart._offsetRaf = requestAnimationFrame(step);
+    else if (onDone) onDone();
+  }
+  chart._offsetRaf = requestAnimationFrame(step);
+}
+
+function _applyGeoDonutData(chart, labels, values, colors, offsets, hasOpen) {
+  chart.data.labels = labels;
+  chart.data.datasets[0].data = values;
+  chart.data.datasets[0].backgroundColor = colors.map(c => c + '33');
+  chart.data.datasets[0].borderColor = colors;
+  chart.data.datasets[0].spacing = 0;
+  chart.data.datasets[0].offset = offsets.map(() => 0);
+  chart.update('none');
+}
+
+function _refreshGeoDonut(containerId, closing) {
   const state = geoAccordionState[containerId];
   if (!state) return;
   const { canvasId, groups, openGroups } = state;
-  const labels = [], values = [], colors = [];
+  const labels = [], values = [], colors = [], offsets = [];
+  let hasOpen = false;
   groups.forEach((grp, gi) => {
     if (openGroups.has(gi)) {
-      grp.items.forEach(item => { labels.push(item.label); values.push(item.value); colors.push(item.color); });
+      hasOpen = true;
+      grp.items.forEach(item => {
+        labels.push(item.label); values.push(item.value);
+        colors.push(item.color); offsets.push(50);
+      });
     } else {
       labels.push(grp.name);
       values.push(grp.items.reduce((s,x) => s + x.value, 0));
       colors.push(grp.items[0].color);
+      offsets.push(0);
     }
   });
   const chart = _chartInst[canvasId];
-  if (chart) {
-    chart.data.labels = labels;
-    chart.data.datasets[0].data = values;
-    chart.data.datasets[0].backgroundColor = colors.map(c => c + '33');
-    chart.data.datasets[0].borderColor = colors;
-    chart.update();
+  if (!chart) { makeDonutAlloc(canvasId, labels, values, colors); return; }
+
+  if (closing) {
+    // Fermeture : animer les arcs vers 0 d'abord, puis mettre à jour les données
+    const curOffsets = (chart.data.datasets[0].offset || []).map(v => v || 0);
+    _animateGeoOffset(chart, curOffsets.map(() => 0), 350, () => {
+      _applyGeoDonutData(chart, labels, values, colors, offsets, hasOpen);
+    });
   } else {
-    makeDonutAlloc(canvasId, labels, values, colors);
+    // Ouverture : mettre à jour les données instantanément, puis animer les offsets
+    _applyGeoDonutData(chart, labels, values, colors, offsets, hasOpen);
+    _animateGeoOffset(chart, offsets, 350);
   }
 }
 
@@ -4048,7 +4092,7 @@ function makeLegendAllocGeo(containerId, canvasId, labels, values, colors, gains
   const total = values.reduce((a,b)=>a+b,0);
   const SEP   = 'border-left:1px solid rgba(255,255,255,0.1);';
   const CELL  = `${SEP}padding:5px 10px;display:flex;align-items:center;justify-content:flex-end;white-space:nowrap;`;
-  const cols  = gains ? '1fr auto auto auto auto' : '1fr auto';
+  const cols  = gains ? '1fr auto auto auto' : '1fr auto';
   const fmtEur = v => Math.abs(v) >= 1000
     ? Math.round(Math.abs(v)).toLocaleString('fr-FR') + '\u202f€'
     : Math.abs(v).toFixed(0) + '\u202f€';
@@ -4089,7 +4133,6 @@ function makeLegendAllocGeo(containerId, canvasId, labels, values, colors, gains
     html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}','${containerId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;color:rgba(255,255,255,0.6)">${fmtEur(grpVal)}</span></div>`;
     if (gains) {
       const gs = grpGain >= 0 ? '+' : '−'; const gc = grpGain >= 0 ? '#4ade80' : '#f87171';
-      html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}','${containerId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;font-weight:500;color:${gc}">${gs}${fmtEur(Math.abs(grpGain))}</span></div>`;
       html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}','${containerId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;font-weight:600;color:${gc}">${gs}${Math.abs(grpGPct).toFixed(1)}%</span></div>`;
     }
 
@@ -4108,7 +4151,6 @@ function makeLegendAllocGeo(containerId, canvasId, labels, values, colors, gains
         const g = item.gain; const cost = item.value - g;
         const pct = cost > 0.01 ? g / cost * 100 : 0;
         const sign = g >= 0 ? '+' : '−'; const gcolor = g >= 0 ? '#4ade80' : '#f87171';
-        html += `<div style="${CELL}${tint}"><span style="font-size:11px;font-weight:500;color:${gcolor}">${sign}${fmtEur(Math.abs(g))}</span></div>`;
         html += `<div style="${CELL}${tint}"><span style="font-size:11px;font-weight:600;color:${gcolor}">${sign}${Math.abs(pct).toFixed(1)}%</span></div>`;
       }
     });
