@@ -3853,30 +3853,59 @@ document.getElementById('peaModal').addEventListener('click', function(e) {
 const _chartInst = {};
 const PALETTE_GEO    = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#CC1900','#06b6d4','#f97316','#64748b'];
 const PALETTE_SECTOR = ['#f97316','#ec4899','#84cc16','#14b8a6','#a855f7','#eab308','#10b981','#f43f5e','#3b82f6','#64748b'];
+
+// Couleurs par famille de continent
 const ALLOC_COLOR_OVERRIDES = {
-  'USA': '#ef4444', 'États-Unis': '#ef4444',
-  'Émergents': '#eab308',
-  'Japon':     '#f97316',
-  'Israël':    '#3b82f6',
-  'Canada':    '#dc2626',
-  'Australie': '#84cc16',
-  'Royaume-Uni': '#8b5cf6',
-  'Asie':      '#06b6d4',
-  'Amérique Latine': '#a855f7',
-  'Chine':           '#ef4444',
-  'Inde':            '#f97316',
-  'Taïwan':          '#06b6d4',
-  'Corée du Sud':    '#3b82f6',
-  'Brésil':          '#22c55e',
-  'Asie du Sud-Est': '#14b8a6',
-  'EMEA émergent':   '#a78bfa',
-  'Autres':    '#64748b',
-  'Communication': '#06b6d4',
-  'Immobilier':    '#a78bfa',
-  'Consommation':  '#fb923c',
-  'Industrie':     '#34d399',
-  'Finance':       '#60a5fa',
+  // Amérique du Nord — bleus
+  'États-Unis': '#1d4ed8', 'USA': '#1d4ed8', 'Canada': '#60a5fa',
+  // Europe — violets/indigo
+  'Europe': '#4f46e5', 'Royaume-Uni': '#7c3aed', 'Israël': '#a78bfa',
+  'France': '#6366f1', 'Portugal': '#818cf8',
+  // Asie — rouges/oranges (du plus foncé au plus clair par poids décroissant)
+  'Chine': '#dc2626', 'Inde': '#ea580c', 'Taïwan': '#f97316',
+  'Corée du Sud': '#fb923c', 'Japon': '#fbbf24', 'Asie du Sud-Est': '#d97706',
+  'Asie': '#f97316', 'Émergents': '#eab308',
+  // Amérique Latine — verts
+  'Brésil': '#15803d', 'Mexique': '#22c55e', 'Amérique Latine': '#4ade80',
+  // Océanie — teal
+  'Australie': '#0f766e',
+  // Afrique/EMEA — ambre
+  'EMEA émergent': '#b45309', 'Afrique': '#d97706',
+  // Autres
+  'Monde': '#64748b', 'Global': '#64748b', 'Autres': '#64748b', 'Liquidités': '#94a3b8',
+  // Secteurs
+  'Communication': '#06b6d4', 'Immobilier': '#a78bfa',
+  'Consommation': '#fb923c', 'Industrie': '#34d399', 'Finance': '#60a5fa',
 };
+
+// Groupement géographique par continent
+const GEO_CONTINENT = {
+  'États-Unis': 'Amérique du Nord', 'USA': 'Amérique du Nord', 'Canada': 'Amérique du Nord',
+  'Brésil': 'Amérique Latine', 'Mexique': 'Amérique Latine', 'Amérique Latine': 'Amérique Latine',
+  'Europe': 'Europe', 'Royaume-Uni': 'Europe', 'Israël': 'Europe', 'France': 'Europe', 'Portugal': 'Europe',
+  'Japon': 'Asie', 'Chine': 'Asie', 'Inde': 'Asie', 'Taïwan': 'Asie',
+  'Corée du Sud': 'Asie', 'Asie du Sud-Est': 'Asie', 'Asie': 'Asie', 'Émergents': 'Asie',
+  'Australie': 'Océanie',
+  'EMEA émergent': 'Afrique/EMEA', 'Afrique': 'Afrique/EMEA',
+};
+const CONTINENT_ORDER = ['Amérique du Nord', 'Europe', 'Asie', 'Amérique Latine', 'Océanie', 'Afrique/EMEA', 'Autres'];
+const CONTINENT_ICONS = {
+  'Amérique du Nord': '🌎', 'Europe': '🇪🇺', 'Asie': '🌏',
+  'Amérique Latine': '🌿', 'Océanie': '🌊', 'Afrique/EMEA': '🌍', 'Autres': '🌐',
+};
+
+function geoContinent(label) {
+  return GEO_CONTINENT[label] || 'Autres';
+}
+function sortGeoEntries(entries) {
+  return [...entries].sort((a, b) => {
+    const ca = CONTINENT_ORDER.indexOf(geoContinent(a[0]));
+    const cb = CONTINENT_ORDER.indexOf(geoContinent(b[0]));
+    if (ca !== cb) return ca - cb;
+    return b[1] - a[1]; // au sein d'un continent : par valeur décroissante
+  });
+}
+
 function resolveAllocColors(labels, palette) {
   return labels.map((l, i) => ALLOC_COLOR_OVERRIDES[l] || palette[i % palette.length]);
 }
@@ -3931,7 +3960,7 @@ function makeDonutAlloc(canvasId, labels, values, colors) {
   });
 }
 
-function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons = true) {
+function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons = true, groupBy = null) {
   const total = values.reduce((a,b)=>a+b,0);
   const el = document.getElementById(containerId);
   if (!el) return;
@@ -3940,8 +3969,19 @@ function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons =
     : Math.abs(v).toFixed(0) + '\u202f€';
   const SEP  = 'border-left:1px solid rgba(255,255,255,0.1);';
   const CELL = `${SEP}padding:5px 10px;display:flex;align-items:center;justify-content:flex-end;white-space:nowrap;`;
-  const rows = labels.map((l, i) => {
-    const rb   = i > 0 ? 'border-top:1px solid rgba(255,255,255,0.06);' : '';
+  const cols = gains ? '1fr auto auto auto auto' : '1fr auto auto';
+  let rows = '';
+  let lastGroup = null;
+  labels.forEach((l, i) => {
+    if (groupBy) {
+      const grp = groupBy(l);
+      if (grp !== lastGroup) {
+        lastGroup = grp;
+        const icon = CONTINENT_ICONS[grp] || '';
+        rows += `<div style="grid-column:1/-1;padding:5px 10px 2px;font-size:10px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.08em;${i > 0 ? 'border-top:1px solid rgba(255,255,255,0.1);margin-top:2px;' : ''}">${icon} ${grp}</div>`;
+      }
+    }
+    const rb   = (i > 0 && !groupBy) ? 'border-top:1px solid rgba(255,255,255,0.06);' : (groupBy ? '' : '');
     const col  = colors[i];
     const icon = (showIcons && ALLOC_ICONS[l]) ? `<span style="font-size:16px;line-height:1;flex-shrink:0">${ALLOC_ICONS[l]}</span>` : '';
     const tint = `background:${col}0d;`;
@@ -3960,9 +4000,8 @@ function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons =
     const nameCell  = `<div style="display:flex;align-items:center;gap:8px;padding:8px 8px 8px 10px;min-width:0;border-left:3px solid ${col};background:linear-gradient(to right,${col}28 0%,${col}08 60%,transparent 100%);${rb}">
       ${icon}<span style="font-size:13px;color:rgba(255,255,255,0.82);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l}</span>
     </div>`;
-    return nameCell + gainPctCell + gainAbsCell + totalCell + allocCell;
-  }).join('');
-  const cols = gains ? '1fr auto auto auto auto' : '1fr auto auto';
+    rows += nameCell + gainPctCell + gainAbsCell + totalCell + allocCell;
+  });
   el.innerHTML = `<div style="display:grid;grid-template-columns:${cols};">${rows}</div>`;
 }
 
@@ -3996,8 +4035,9 @@ function renderPeaRepartition(prices) {
     ? [...holdings, { name: 'Liquidités', ticker: '', qty: 1, purchasePrice: cash, sector: 'Liquidités', geo: 'Liquidités' }]
     : holdings;
   const extPrices = cash > 0 ? [...(prices || []), null] : prices;
-  const geoEnt    = buildAlloc(holdingsWithCash, extPrices, 'geo',    fundComposition);
+  const geoEntRaw = buildAlloc(holdingsWithCash, extPrices, 'geo',    fundComposition);
   const sectorEnt = buildAlloc(holdingsWithCash, extPrices, 'sector', fundComposition);
+  const geoEnt    = sortGeoEntries(geoEntRaw);
   const geoLabels = geoEnt.map(e=>e[0]), geoVals = geoEnt.map(e=>e[1]);
   peaAllocData = {
     geoLabels, geoVals, geoColors: resolveAllocColors(geoLabels, PALETTE_GEO), geoGains: geoEnt.map(e=>e[1]-e[2]),
@@ -4010,7 +4050,7 @@ function _drawPeaSubChart(sub) {
   if (!peaAllocData) return;
   if (sub === 'geo') {
     makeDonutAlloc('peaGeoChart',   peaAllocData.geoLabels, peaAllocData.geoVals, peaAllocData.geoColors);
-    makeLegendAlloc('peaGeoLegend', peaAllocData.geoLabels, peaAllocData.geoVals, peaAllocData.geoColors, peaAllocData.geoGains);
+    makeLegendAlloc('peaGeoLegend', peaAllocData.geoLabels, peaAllocData.geoVals, peaAllocData.geoColors, peaAllocData.geoGains, true, geoContinent);
   } else {
     makeDonutAlloc('peaSectorChart',   peaAllocData.secLabels, peaAllocData.secVals, PALETTE_SECTOR);
     makeLegendAlloc('peaSectorLegend', peaAllocData.secLabels, peaAllocData.secVals, PALETTE_SECTOR, peaAllocData.secGains, false);
@@ -4162,8 +4202,9 @@ function renderAvTable(listEl, prices, isEstimate) {
 
 function renderAvRepartition(prices) {
   const usePrices = prices || AV_HOLDINGS.map(h => h.lastPrice);
-  const geoEnt    = buildAlloc(AV_HOLDINGS, usePrices, 'geo',    fundComposition);
+  const geoEntRaw = buildAlloc(AV_HOLDINGS, usePrices, 'geo',    fundComposition);
   const sectorEnt = buildAlloc(AV_HOLDINGS, usePrices, 'sector', fundComposition);
+  const geoEnt    = sortGeoEntries(geoEntRaw);
   const geoLabels = geoEnt.map(e=>e[0]), geoVals = geoEnt.map(e=>e[1]);
   avAllocData = {
     geoLabels, geoVals, geoColors: resolveAllocColors(geoLabels, PALETTE_GEO), geoGains: geoEnt.map(e=>e[1]-e[2]),
@@ -4176,7 +4217,7 @@ function _drawAvSubChart(sub) {
   if (!avAllocData) return;
   if (sub === 'geo') {
     makeDonutAlloc('avGeoChart',   avAllocData.geoLabels, avAllocData.geoVals, avAllocData.geoColors);
-    makeLegendAlloc('avGeoLegend', avAllocData.geoLabels, avAllocData.geoVals, avAllocData.geoColors, avAllocData.geoGains);
+    makeLegendAlloc('avGeoLegend', avAllocData.geoLabels, avAllocData.geoVals, avAllocData.geoColors, avAllocData.geoGains, true, geoContinent);
   } else {
     makeDonutAlloc('avSectorChart',   avAllocData.secLabels, avAllocData.secVals, PALETTE_SECTOR);
     makeLegendAlloc('avSectorLegend', avAllocData.secLabels, avAllocData.secVals, PALETTE_SECTOR, avAllocData.secGains, false);
