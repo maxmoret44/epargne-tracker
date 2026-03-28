@@ -37,6 +37,7 @@
       filter: drop-shadow(0 0 3px rgba(59,130,246,0.3));
       transition: opacity 0.1s, transform 0.1s, filter 0.1s;
     }
+    .alloc-cont-hdr:active { opacity: 1; transform: none; filter: none; }
 
     /* Custom scrollbar — modal boxes + any overflow-y:auto */
     .modal-box::-webkit-scrollbar,
@@ -4000,13 +4001,13 @@ function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons =
 function toggleAllocGroup(groupId) {
   const el = document.getElementById(groupId);
   if (!el) return;
-  const open = el.style.display !== 'none';
-  el.style.display = open ? 'none' : 'block';
+  const isOpen = el.style.maxHeight && el.style.maxHeight !== '0px';
+  el.style.maxHeight = isOpen ? '0px' : el.scrollHeight + 'px';
   const chevron = document.querySelector(`[data-gtoggle="${groupId}"] .alloc-chevron`);
-  if (chevron) chevron.textContent = open ? '▾' : '▴';
+  if (chevron) chevron.textContent = isOpen ? '▾' : '▴';
 }
 
-// Légende géographique avec accordion par continent
+// Légende géographique avec accordion par continent (subgrid pour alignement parfait)
 function makeLegendAllocGeo(containerId, labels, values, colors, gains) {
   const el = document.getElementById(containerId);
   if (!el) return;
@@ -4027,7 +4028,9 @@ function makeLegendAllocGeo(containerId, labels, values, colors, gains) {
     cur.items.push({ label: l, value: values[i], color: colors[i], gain: gains ? gains[i] : null });
   });
 
-  let html = '<div style="display:flex;flex-direction:column;">';
+  // Un seul grid englobant — subgrid pour aligner header et pays sur les mêmes colonnes
+  let html = `<div style="display:grid;grid-template-columns:${cols};">`;
+
   groups.forEach((grp, gi) => {
     const grpVal  = grp.items.reduce((s,x) => s + x.value, 0);
     const grpGain = gains ? grp.items.reduce((s,x) => s + x.gain, 0) : null;
@@ -4038,49 +4041,44 @@ function makeLegendAllocGeo(containerId, labels, values, colors, gains) {
     const gId     = `${containerId}_g${gi}`;
     const rb      = gi > 0 ? 'border-top:1px solid rgba(255,255,255,0.12);' : '';
 
-    // Header continent
-    let hCells = `<div style="display:flex;align-items:center;gap:7px;padding:10px 10px;min-width:0;border-left:3px solid ${bColor};background:linear-gradient(to right,${bColor}22 0%,transparent 80%);${rb}">
-      <span style="font-size:15px">${icon}</span>
+    // Cellules header continent (direct children du grid → alignement garanti)
+    html += `<div class="alloc-cont-hdr" data-gtoggle="${gId}" onclick="toggleAllocGroup('${gId}')"
+      style="display:flex;align-items:center;gap:7px;padding:10px 10px;min-width:0;border-left:3px solid ${bColor};background:linear-gradient(to right,${bColor}22 0%,transparent 80%);${rb}cursor:pointer;user-select:none;">
+      <span style="font-size:15px;flex-shrink:0">${icon}</span>
       <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.8)">${grp.name}</span>
-      <span class="alloc-chevron" style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:auto;padding-right:4px">▾</span>
+      <span class="alloc-chevron" style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:auto">▾</span>
     </div>`;
-    hCells += `<div style="${CELL}${rb}background:${bColor}0a;"><span style="font-size:11px;color:rgba(255,255,255,0.4)">${(grpVal/total*100).toFixed(1)}%</span></div>`;
-    hCells += `<div style="${CELL}${rb}background:${bColor}0a;"><span style="font-size:11px;color:rgba(255,255,255,0.6)">${fmtEur(grpVal)}</span></div>`;
+    html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;color:rgba(255,255,255,0.4)">${(grpVal/total*100).toFixed(1)}%</span></div>`;
+    html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;color:rgba(255,255,255,0.6)">${fmtEur(grpVal)}</span></div>`;
     if (gains) {
-      const gs = grpGain >= 0 ? '+' : '−';
-      const gc = grpGain >= 0 ? '#4ade80' : '#f87171';
-      hCells += `<div style="${CELL}${rb}background:${bColor}0a;"><span style="font-size:11px;font-weight:500;color:${gc}">${gs}${fmtEur(Math.abs(grpGain))}</span></div>`;
-      hCells += `<div style="${CELL}${rb}background:${bColor}0a;"><span style="font-size:11px;font-weight:600;color:${gc}">${gs}${Math.abs(grpGPct).toFixed(1)}%</span></div>`;
+      const gs = grpGain >= 0 ? '+' : '−'; const gc = grpGain >= 0 ? '#4ade80' : '#f87171';
+      html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;font-weight:500;color:${gc}">${gs}${fmtEur(Math.abs(grpGain))}</span></div>`;
+      html += `<div class="alloc-cont-hdr" onclick="toggleAllocGroup('${gId}')" style="${CELL}${rb}background:${bColor}0a;cursor:pointer;user-select:none;"><span style="font-size:11px;font-weight:600;color:${gc}">${gs}${Math.abs(grpGPct).toFixed(1)}%</span></div>`;
     }
 
-    // Lignes pays
-    let countryRows = '';
+    // Container pays : grid-column 1/-1, subgrid pour hériter des colonnes parentes
+    html += `<div id="${gId}" style="grid-column:1/-1;display:grid;grid-template-columns:subgrid;overflow:hidden;max-height:0;transition:max-height 0.28s ease;">`;
     grp.items.forEach(item => {
       const col   = item.color;
       const iIcon = ALLOC_ICONS[item.label] ? `<span style="font-size:15px;line-height:1;flex-shrink:0">${ALLOC_ICONS[item.label]}</span>` : '';
-      const tint  = `background:${col}0d;`;
-      const allocC = `<div style="${CELL}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.3)">${(item.value/total*100).toFixed(1)}%</span></div>`;
-      const valC   = `<div style="${CELL}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.5)">${fmtEur(item.value)}</span></div>`;
-      let gainCells = '';
+      const tint  = `background:${col}0d;border-top:1px solid rgba(255,255,255,0.04);`;
+      html += `<div style="display:flex;align-items:center;gap:7px;padding:7px 8px 7px 22px;min-width:0;border-left:3px solid ${col};background:linear-gradient(to right,${col}18 0%,transparent 80%);${tint}">
+        ${iIcon}<span style="font-size:12px;color:rgba(255,255,255,0.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.label}</span>
+      </div>`;
+      html += `<div style="${CELL}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.3)">${(item.value/total*100).toFixed(1)}%</span></div>`;
+      html += `<div style="${CELL}${tint}"><span style="font-size:11px;color:rgba(255,255,255,0.5)">${fmtEur(item.value)}</span></div>`;
       if (gains) {
         const g = item.gain; const cost = item.value - g;
         const pct = cost > 0.01 ? g / cost * 100 : 0;
         const sign = g >= 0 ? '+' : '−'; const gcolor = g >= 0 ? '#4ade80' : '#f87171';
-        gainCells  = `<div style="${CELL}${tint}"><span style="font-size:11px;font-weight:500;color:${gcolor}">${sign}${fmtEur(Math.abs(g))}</span></div>`;
-        gainCells += `<div style="${CELL}${tint}"><span style="font-size:11px;font-weight:600;color:${gcolor}">${sign}${Math.abs(pct).toFixed(1)}%</span></div>`;
+        html += `<div style="${CELL}${tint}"><span style="font-size:11px;font-weight:500;color:${gcolor}">${sign}${fmtEur(Math.abs(g))}</span></div>`;
+        html += `<div style="${CELL}${tint}"><span style="font-size:11px;font-weight:600;color:${gcolor}">${sign}${Math.abs(pct).toFixed(1)}%</span></div>`;
       }
-      const nameC = `<div style="display:flex;align-items:center;gap:7px;padding:7px 8px 7px 22px;min-width:0;border-left:3px solid ${col};background:linear-gradient(to right,${col}18 0%,transparent 80%);border-top:1px solid rgba(255,255,255,0.04);">
-        ${iIcon}<span style="font-size:12px;color:rgba(255,255,255,0.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.label}</span>
-      </div>`;
-      countryRows += nameC + allocC + valC + gainCells;
     });
-
-    html += `<div>
-      <div data-gtoggle="${gId}" onclick="toggleAllocGroup('${gId}')" style="display:grid;grid-template-columns:${cols};cursor:pointer;user-select:none;">${hCells}</div>
-      <div id="${gId}" style="display:none"><div style="display:grid;grid-template-columns:${cols};">${countryRows}</div></div>
-    </div>`;
+    html += `</div>`; // fin container pays
   });
-  html += '</div>';
+
+  html += '</div>'; // fin grid englobant
   el.innerHTML = html;
 }
 
