@@ -698,7 +698,31 @@
     .modal-subtab.active { color: var(--text); border-bottom-color: rgba(255,255,255,0.45); font-weight: 600; }
     .alloc-subpanel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
     .alloc-canvas-wrap { flex-shrink: 0; width: 260px; margin: 25px auto 0; }
-    .alloc-legend { flex-shrink: 0; width: 100%; padding: 0 12px 30px; margin-top: 64px; }
+    .alloc-legend { flex-shrink: 0; width: 100%; padding: 0 12px 30px; margin-top: 16px; }
+
+    /* KPI cards row */
+    .alloc-kpi-row {
+      display: flex; gap: 8px; padding: 4px 14px 0; width: 100%;
+      justify-content: center;
+    }
+    .alloc-kpi-card {
+      flex: 1; max-width: 112px;
+      background: linear-gradient(135deg, rgba(30,41,59,0.85), rgba(30,41,59,0.55));
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px; padding: 9px 8px 8px; text-align: center;
+      backdrop-filter: blur(4px);
+    }
+    .alloc-kpi-card .kpi-label {
+      font-size: 9.5px; color: rgba(255,255,255,0.38); text-transform: uppercase;
+      letter-spacing: .06em; margin-bottom: 3px; font-weight: 500;
+    }
+    .alloc-kpi-card .kpi-value {
+      font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.2;
+    }
+    .alloc-kpi-card .kpi-sub {
+      font-size: 10px; color: rgba(255,255,255,0.45); margin-top: 2px; font-weight: 500;
+    }
+
     .global-alloc-header { display:flex; align-items:center; gap:10px; padding:12px 16px 6px; }
     .back-btn { background:none; border:none; color:var(--text2); font-size:20px; cursor:pointer; padding:4px 8px 4px 0; line-height:1; }
     #globalAlloc { padding-bottom: 80px; }
@@ -1338,15 +1362,16 @@
       <button class="modal-subtab active" id="globalSubBtnGeo" onclick="switchGlobalSubTab('geo')">Géographie</button>
       <button class="modal-subtab" id="globalSubBtnSector" onclick="switchGlobalSubTab('sectorielle')">Sectorielle</button>
     </div>
-    <div id="globalDiversBadge" style="display:flex;align-items:center;justify-content:center;padding:8px 0 0;"></div>
     <div id="globalSubGeo" class="alloc-subpanel">
       <div class="alloc-wrap"><div class="alloc-block"><div class="alloc-chart-row">
+        <div id="globalGeoKpi" class="alloc-kpi-row"></div>
         <div class="alloc-canvas-wrap"><canvas id="globalGeoChart"></canvas></div>
         <div id="globalGeoLegend" class="alloc-legend"></div>
       </div></div></div>
     </div>
     <div id="globalSubSector" class="alloc-subpanel" style="display:none">
       <div class="alloc-wrap"><div class="alloc-block"><div class="alloc-chart-row">
+        <div id="globalSectorKpi" class="alloc-kpi-row"></div>
         <div class="alloc-canvas-wrap"><canvas id="globalSectorChart"></canvas></div>
         <div id="globalSectorLegend" class="alloc-legend"></div>
       </div></div></div>
@@ -1435,11 +1460,11 @@
           <button class="modal-subtab active" id="avSubBtnGeo" onclick="switchAvSubTab('geo')">Géographie</button>
           <button class="modal-subtab" id="avSubBtnSector" onclick="switchAvSubTab('sectorielle')">Sectorielle</button>
         </div>
-        <div id="avDiversBadge" style="display:flex;align-items:center;justify-content:center;padding:8px 0 0;"></div>
         <div id="avSubGeo" class="alloc-subpanel">
           <div class="alloc-wrap">
             <div class="alloc-block">
               <div class="alloc-chart-row">
+                <div id="avGeoKpi" class="alloc-kpi-row"></div>
                 <div class="alloc-canvas-wrap"><canvas id="avGeoChart"></canvas></div>
                 <div id="avGeoLegend" class="alloc-legend"></div>
               </div>
@@ -1450,6 +1475,7 @@
           <div class="alloc-wrap">
             <div class="alloc-block">
               <div class="alloc-chart-row">
+                <div id="avSectorKpi" class="alloc-kpi-row"></div>
                 <div class="alloc-canvas-wrap"><canvas id="avSectorChart"></canvas></div>
                 <div id="avSectorLegend" class="alloc-legend"></div>
               </div>
@@ -1506,11 +1532,11 @@
           <button class="modal-subtab active" id="peaSubBtnGeo" onclick="switchPeaSubTab('geo')">Géographie</button>
           <button class="modal-subtab" id="peaSubBtnSector" onclick="switchPeaSubTab('sectorielle')">Sectorielle</button>
         </div>
-        <div id="peaDiversBadge" style="display:flex;align-items:center;justify-content:center;padding:8px 0 0;"></div>
         <div id="peaSubGeo" class="alloc-subpanel">
           <div class="alloc-wrap">
             <div class="alloc-block">
               <div class="alloc-chart-row">
+                <div id="peaGeoKpi" class="alloc-kpi-row"></div>
                 <div class="alloc-canvas-wrap"><canvas id="peaGeoChart"></canvas></div>
                 <div id="peaGeoLegend" class="alloc-legend"></div>
               </div>
@@ -1521,6 +1547,7 @@
           <div class="alloc-wrap">
             <div class="alloc-block">
               <div class="alloc-chart-row">
+                <div id="peaSectorKpi" class="alloc-kpi-row"></div>
                 <div class="alloc-canvas-wrap"><canvas id="peaSectorChart"></canvas></div>
                 <div id="peaSectorLegend" class="alloc-legend"></div>
               </div>
@@ -4124,11 +4151,29 @@ const ALLOC_ICONS = {
   'Télécommunications':'📡',
 };
 
-function makeDonutAlloc(canvasId, labels, values, colors) {
+function makeDonutAlloc(canvasId, labels, values, colors, centerText) {
   if (_chartInst[canvasId]) { _chartInst[canvasId].destroy(); delete _chartInst[canvasId]; }
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;
   const total = values.reduce((a,b)=>a+b,0);
+  const plugins = [];
+  if (centerText) {
+    plugins.push({
+      id: 'centerTotal',
+      afterDraw(chart) {
+        const { ctx: c, width, height } = chart;
+        c.save();
+        c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.font = '700 17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        const grad = c.createLinearGradient(width * 0.25, height * 0.35, width * 0.75, height * 0.65);
+        grad.addColorStop(0, '#3b82f6');
+        grad.addColorStop(1, '#8b5cf6');
+        c.fillStyle = grad;
+        c.fillText(centerText, width / 2, height / 2);
+        c.restore();
+      }
+    });
+  }
   _chartInst[canvasId] = new Chart(ctx, {
     type: 'doughnut',
     data: {
@@ -4159,7 +4204,8 @@ function makeDonutAlloc(canvasId, labels, values, colors) {
           }
         }
       }
-    }
+    },
+    plugins
   });
 }
 
@@ -4297,7 +4343,7 @@ function _refreshGeoDonut(containerId, closing) {
     }
   });
   const chart = _chartInst[canvasId];
-  if (!chart) { makeDonutAlloc(canvasId, labels, values, colors); return; }
+  if (!chart) { makeDonutAlloc(canvasId, labels, values, colors, state.centerText); return; }
 
   // Couleur de base de chaque pays = couleur du premier item de son groupe (= couleur continent agrégé)
   const itemBaseColor = {};
@@ -4349,7 +4395,7 @@ function _refreshGeoDonut(containerId, closing) {
 }
 
 // Légende géographique avec accordion par continent (subgrid pour alignement parfait)
-function makeLegendAllocGeo(containerId, canvasId, labels, values, colors, gains) {
+function makeLegendAllocGeo(containerId, canvasId, labels, values, colors, gains, centerText) {
   const el = document.getElementById(containerId);
   if (!el) return;
   const total = values.reduce((a,b)=>a+b,0);
@@ -4370,7 +4416,7 @@ function makeLegendAllocGeo(containerId, canvasId, labels, values, colors, gains
   });
 
   // Initialiser l'état accordion + donut initial (continents agrégés)
-  geoAccordionState[containerId] = { canvasId, groups, openGroups: new Set() };
+  geoAccordionState[containerId] = { canvasId, groups, openGroups: new Set(), centerText };
   _refreshGeoDonut(containerId);
 
   // Un seul grid englobant — subgrid pour aligner header et pays sur les mêmes colonnes
@@ -4425,7 +4471,7 @@ function makeLegendAllocGeo(containerId, canvasId, labels, values, colors, gains
 }
 
 // Légende sectorielle avec accordion par classe d'actif (miroir de makeLegendAllocGeo)
-function makeLegendAllocSector(containerId, canvasId, labels, values, colors, gains) {
+function makeLegendAllocSector(containerId, canvasId, labels, values, colors, gains, centerText) {
   const el = document.getElementById(containerId);
   if (!el) return;
   const total = values.reduce((a,b)=>a+b,0);
@@ -4445,7 +4491,7 @@ function makeLegendAllocSector(containerId, canvasId, labels, values, colors, ga
     cur.items.push({ label: l, value: values[i], color: colors[i], gain: gains ? gains[i] : null });
   });
 
-  geoAccordionState[containerId] = { canvasId, groups, openGroups: new Set() };
+  geoAccordionState[containerId] = { canvasId, groups, openGroups: new Set(), centerText };
   _refreshGeoDonut(containerId);
 
   let html = `<div style="display:grid;grid-template-columns:${cols};">`;
@@ -4547,6 +4593,52 @@ function renderDiversBadge(id, geoVals, secVals) {
   el.innerHTML = `<span style="font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:.06em;text-transform:uppercase">Diversification</span><span style="font-size:13px;font-weight:700;color:${color};background:${color}22;border:1px solid ${color}55;border-radius:6px;padding:1px 9px;letter-spacing:.06em;margin-left:8px">${grade}</span>`;
 }
 
+function renderAllocKpis(kpiId, labels, values, colors, geoVals, secVals, mode) {
+  const kpiEl = document.getElementById(kpiId);
+  if (!kpiEl) return;
+  const total = values.reduce((a,b) => a+b, 0);
+  if (total <= 0) { kpiEl.innerHTML = ''; return; }
+
+  // Group by continent or sector class
+  const groupFn = mode === 'geo' ? geoContinent : sectorClass;
+  const iconMap = mode === 'geo' ? CONTINENT_ICONS : CLASS_ICONS;
+  const grpMap = {};
+  labels.forEach((l, i) => {
+    const g = groupFn(l);
+    if (!grpMap[g]) grpMap[g] = { val: 0, color: colors[i] };
+    grpMap[g].val += values[i];
+  });
+  const sorted = Object.entries(grpMap).sort((a,b) => b[1].val - a[1].val);
+
+  // KPI card 1: Top 1 position
+  const top1Name = sorted[0] ? sorted[0][0] : '—';
+  const top1Icon = sorted[0] ? (iconMap[top1Name] || '') : '';
+  const top1Pct  = sorted[0] ? (sorted[0][1].val / total * 100).toFixed(1) : '0';
+
+  // KPI card 2: Concentration
+  const concPct = top1Pct;
+
+  // KPI card 3: Diversification
+  const { grade, color: gradeColor } = calcDiversScore(geoVals, secVals);
+
+  kpiEl.innerHTML = `
+    <div class="alloc-kpi-card">
+      <div class="kpi-label">1ère position</div>
+      <div class="kpi-value">${top1Icon} ${top1Name}</div>
+      <div class="kpi-sub">${top1Pct}% du total</div>
+    </div>
+    <div class="alloc-kpi-card">
+      <div class="kpi-label">Concentration</div>
+      <div class="kpi-value">${concPct}%</div>
+      <div class="kpi-sub">top position</div>
+    </div>
+    <div class="alloc-kpi-card">
+      <div class="kpi-label">Diversification</div>
+      <div class="kpi-value"><span style="color:${gradeColor};background:${gradeColor}22;border:1px solid ${gradeColor}55;border-radius:6px;padding:1px 10px;letter-spacing:.06em;font-size:15px">${grade}</span></div>
+      <div class="kpi-sub">note</div>
+    </div>`;
+}
+
 // ============== PEA RÉPARTITION ==============
 function renderPeaRepartition(prices) {
   const holdings = getPeaHoldings();
@@ -4565,15 +4657,20 @@ function renderPeaRepartition(prices) {
     secLabels, secVals, secColors: resolveAllocColors(secLabels, PALETTE_SECTOR), secGains: sectorEnt.map(e=>e[1]-e[2])
   };
   _drawPeaSubChart('geo');
-  renderDiversBadge('peaDiversBadge', peaAllocData.geoVals, peaAllocData.secVals);
 }
 
 function _drawPeaSubChart(sub) {
   if (!peaAllocData) return;
+  const d = peaAllocData;
+  const vals = sub === 'geo' ? d.geoVals : d.secVals;
+  const total = vals.reduce((a,b) => a+b, 0);
+  const centerTxt = fmt(total);
   if (sub === 'geo') {
-    makeLegendAllocGeo('peaGeoLegend', 'peaGeoChart', peaAllocData.geoLabels, peaAllocData.geoVals, peaAllocData.geoColors, peaAllocData.geoGains);
+    makeLegendAllocGeo('peaGeoLegend', 'peaGeoChart', d.geoLabels, d.geoVals, d.geoColors, d.geoGains, centerTxt);
+    renderAllocKpis('peaGeoKpi', d.geoLabels, d.geoVals, d.geoColors, d.geoVals, d.secVals, 'geo');
   } else {
-    makeLegendAllocSector('peaSectorLegend', 'peaSectorChart', peaAllocData.secLabels, peaAllocData.secVals, peaAllocData.secColors, peaAllocData.secGains);
+    makeLegendAllocSector('peaSectorLegend', 'peaSectorChart', d.secLabels, d.secVals, d.secColors, d.secGains, centerTxt);
+    renderAllocKpis('peaSectorKpi', d.secLabels, d.secVals, d.secColors, d.geoVals, d.secVals, 'sector');
   }
 }
 
@@ -4733,15 +4830,20 @@ function renderAvRepartition(prices) {
     secLabels, secVals, secColors: resolveAllocColors(secLabels, PALETTE_SECTOR), secGains: sectorEnt.map(e=>e[1]-e[2])
   };
   _drawAvSubChart('geo');
-  renderDiversBadge('avDiversBadge', avAllocData.geoVals, avAllocData.secVals);
 }
 
 function _drawAvSubChart(sub) {
   if (!avAllocData) return;
+  const d = avAllocData;
+  const vals = sub === 'geo' ? d.geoVals : d.secVals;
+  const total = vals.reduce((a,b) => a+b, 0);
+  const centerTxt = fmt(total);
   if (sub === 'geo') {
-    makeLegendAllocGeo('avGeoLegend', 'avGeoChart', avAllocData.geoLabels, avAllocData.geoVals, avAllocData.geoColors, avAllocData.geoGains);
+    makeLegendAllocGeo('avGeoLegend', 'avGeoChart', d.geoLabels, d.geoVals, d.geoColors, d.geoGains, centerTxt);
+    renderAllocKpis('avGeoKpi', d.geoLabels, d.geoVals, d.geoColors, d.geoVals, d.secVals, 'geo');
   } else {
-    makeLegendAllocSector('avSectorLegend', 'avSectorChart', avAllocData.secLabels, avAllocData.secVals, avAllocData.secColors, avAllocData.secGains);
+    makeLegendAllocSector('avSectorLegend', 'avSectorChart', d.secLabels, d.secVals, d.secColors, d.secGains, centerTxt);
+    renderAllocKpis('avSectorKpi', d.secLabels, d.secVals, d.secColors, d.geoVals, d.secVals, 'sector');
   }
 }
 
@@ -5042,19 +5144,24 @@ function buildCombinedAlloc() {
 function renderGlobalRepartition() {
   globalAllocData = buildCombinedAlloc();
   switchGlobalSubTab('geo');
-  renderDiversBadge('globalDiversBadge', globalAllocData.geoVals, globalAllocData.secVals);
 }
 function switchGlobalSubTab(sub) {
   if (!globalAllocData) return;
+  const d = globalAllocData;
   const isGeo = sub === 'geo';
   document.getElementById('globalSubGeo').style.display    = isGeo ? 'flex' : 'none';
   document.getElementById('globalSubSector').style.display = isGeo ? 'none' : 'flex';
   document.getElementById('globalSubBtnGeo').classList.toggle('active', isGeo);
   document.getElementById('globalSubBtnSector').classList.toggle('active', !isGeo);
+  const vals = isGeo ? d.geoVals : d.secVals;
+  const total = vals.reduce((a,b) => a+b, 0);
+  const centerTxt = fmt(total);
   if (isGeo) {
-    makeLegendAllocGeo('globalGeoLegend', 'globalGeoChart', globalAllocData.geoLabels, globalAllocData.geoVals, globalAllocData.geoColors, globalAllocData.geoGains);
+    makeLegendAllocGeo('globalGeoLegend', 'globalGeoChart', d.geoLabels, d.geoVals, d.geoColors, d.geoGains, centerTxt);
+    renderAllocKpis('globalGeoKpi', d.geoLabels, d.geoVals, d.geoColors, d.geoVals, d.secVals, 'geo');
   } else {
-    makeLegendAllocSector('globalSectorLegend', 'globalSectorChart', globalAllocData.secLabels, globalAllocData.secVals, globalAllocData.secColors, globalAllocData.secGains);
+    makeLegendAllocSector('globalSectorLegend', 'globalSectorChart', d.secLabels, d.secVals, d.secColors, d.secGains, centerTxt);
+    renderAllocKpis('globalSectorKpi', d.secLabels, d.secVals, d.secColors, d.geoVals, d.secVals, 'sector');
   }
 }
 function _slidePages(from, to, dir, onInit) {
