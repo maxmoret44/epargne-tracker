@@ -1851,6 +1851,18 @@ async function loadData() {
 
     localStorage.setItem(DATA_KEY, JSON.stringify({ allData, cristinaData, investedAmounts, totalInjections, investedHistory, ts: Date.now() }));
 
+    // Chargement des compositions de fonds (onglet FundCompo)
+    try {
+      const compoRows = await sheetsRead(cfg.targetId, "'FundCompo'!A2:D");
+      fundComposition = {};
+      (compoRows || []).forEach(([isin, dim, cat, poids]) => {
+        if (!isin || !dim || !cat || !poids) return;
+        if (!fundComposition[isin]) fundComposition[isin] = {};
+        if (!fundComposition[isin][dim]) fundComposition[isin][dim] = {};
+        fundComposition[isin][dim][cat] = parseFloat(poids);
+      });
+    } catch (_) { /* onglet absent → dégradé gracieux */ }
+
     renderDashboard();
     renderHistory();
     prefillForm();
@@ -3842,6 +3854,19 @@ const PALETTE_SECTOR = ['#f97316','#ec4899','#84cc16','#14b8a6','#a855f7','#eab3
 const ALLOC_COLOR_OVERRIDES = {
   'USA': '#ef4444', 'États-Unis': '#ef4444',
   'Émergents': '#eab308',
+  'Japon':     '#f97316',
+  'Israël':    '#3b82f6',
+  'Canada':    '#dc2626',
+  'Australie': '#84cc16',
+  'Royaume-Uni': '#8b5cf6',
+  'Asie':      '#06b6d4',
+  'Amérique Latine': '#a855f7',
+  'Autres':    '#64748b',
+  'Communication': '#06b6d4',
+  'Immobilier':    '#a78bfa',
+  'Consommation':  '#fb923c',
+  'Industrie':     '#34d399',
+  'Finance':       '#60a5fa',
 };
 function resolveAllocColors(labels, palette) {
   return labels.map((l, i) => ALLOC_COLOR_OVERRIDES[l] || palette[i % palette.length]);
@@ -3849,10 +3874,13 @@ function resolveAllocColors(labels, palette) {
 const ALLOC_ICONS = {
   'France':'🇫🇷','Portugal':'🇵🇹','Émergents':'🌏','Europe':'🇪🇺',
   'États-Unis':'🇺🇸','USA':'🇺🇸','Monde':'🌍','Global':'🌐','Liquidités':'💶',
+  'Japon':'🇯🇵','Israël':'🇮🇱','Canada':'🇨🇦','Australie':'🇦🇺',
+  'Royaume-Uni':'🇬🇧','Asie':'🌏','Amérique Latine':'🌎','Autres':'🌐',
   'Industrie':'🏭','Finance':'🏦','Santé':'🏥','Énergie':'⚡',
   'Services':'🛠️','ETF Diversifié':'📊','Consommation':'🛍️',
   'Technologie':'💻','ETF Tech':'💡','ETF Actions':'📈',
-  'Actions':'📊','Matières premières':'🥇','Autre':'•'
+  'Actions':'📊','Matières premières':'🥇','Communication':'📡',
+  'Immobilier':'🏠','Autre':'•',
 };
 
 function makeDonutAlloc(canvasId, labels, values, colors) {
@@ -3927,16 +3955,24 @@ function makeLegendAlloc(containerId, labels, values, colors, gains, showIcons =
   el.innerHTML = `<div style="display:grid;grid-template-columns:${cols};">${rows}</div>`;
 }
 
-function buildAlloc(holdings, prices, key) {
+function buildAlloc(holdings, prices, key, compo) {
   const mapVal = {}, mapCost = {};
   holdings.forEach((h, i) => {
     const fallback = h.pxRevient || h.purchasePrice || 0;
     const price = (prices && prices[i] != null) ? prices[i] : fallback;
     const val  = price    * (h.qty || 0);
     const cost = fallback * (h.qty || 0);
-    const k = h[key] || 'Autre';
-    mapVal[k]  = (mapVal[k]  || 0) + val;
-    mapCost[k] = (mapCost[k] || 0) + cost;
+    const compKey = compo && h.isin && compo[h.isin] && compo[h.isin][key];
+    if (compKey) {
+      Object.entries(compKey).forEach(([subCat, weight]) => {
+        mapVal[subCat]  = (mapVal[subCat]  || 0) + val  * weight;
+        mapCost[subCat] = (mapCost[subCat] || 0) + cost * weight;
+      });
+    } else {
+      const k = h[key] || 'Autre';
+      mapVal[k]  = (mapVal[k]  || 0) + val;
+      mapCost[k] = (mapCost[k] || 0) + cost;
+    }
   });
   return Object.entries(mapVal).sort((a,b) => b[1]-a[1]).map(([k,v]) => [k, v, mapCost[k] || 0]);
 }
@@ -3949,8 +3985,8 @@ function renderPeaRepartition(prices) {
     ? [...holdings, { name: 'Liquidités', ticker: '', qty: 1, purchasePrice: cash, sector: 'Liquidités', geo: 'Liquidités' }]
     : holdings;
   const extPrices = cash > 0 ? [...(prices || []), null] : prices;
-  const geoEnt    = buildAlloc(holdingsWithCash, extPrices, 'geo');
-  const sectorEnt = buildAlloc(holdingsWithCash, extPrices, 'sector');
+  const geoEnt    = buildAlloc(holdingsWithCash, extPrices, 'geo',    fundComposition);
+  const sectorEnt = buildAlloc(holdingsWithCash, extPrices, 'sector', fundComposition);
   const geoLabels = geoEnt.map(e=>e[0]), geoVals = geoEnt.map(e=>e[1]);
   peaAllocData = {
     geoLabels, geoVals, geoColors: resolveAllocColors(geoLabels, PALETTE_GEO), geoGains: geoEnt.map(e=>e[1]-e[2]),
@@ -3982,9 +4018,10 @@ const AV_HOLDINGS = [
 ];
 const AV_CASH = 300;
 
-let avPricesCache = null;
-let avNewsLoaded  = false;
-let avAllocData   = null;
+let avPricesCache    = null;
+let avNewsLoaded     = false;
+let avAllocData      = null;
+let fundComposition  = {}; // chargé depuis l'onglet FundCompo du Sheet
 
 async function openAvModal() {
   avNewsLoaded = false;
@@ -4114,8 +4151,8 @@ function renderAvTable(listEl, prices, isEstimate) {
 
 function renderAvRepartition(prices) {
   const usePrices = prices || AV_HOLDINGS.map(h => h.lastPrice);
-  const geoEnt    = buildAlloc(AV_HOLDINGS, usePrices, 'geo');
-  const sectorEnt = buildAlloc(AV_HOLDINGS, usePrices, 'sector');
+  const geoEnt    = buildAlloc(AV_HOLDINGS, usePrices, 'geo',    fundComposition);
+  const sectorEnt = buildAlloc(AV_HOLDINGS, usePrices, 'sector', fundComposition);
   const geoLabels = geoEnt.map(e=>e[0]), geoVals = geoEnt.map(e=>e[1]);
   avAllocData = {
     geoLabels, geoVals, geoColors: resolveAllocColors(geoLabels, PALETTE_GEO), geoGains: geoEnt.map(e=>e[1]-e[2]),
