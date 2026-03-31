@@ -1987,11 +1987,14 @@ async function loadData() {
         liveValues.cto = BTC_QTY * liveBtcPrice;
 
         // BoursoVie live
+        const avFromSheet = await readAvHoldingsFromSheet();
+        if (avFromSheet) AV_HOLDINGS = avFromSheet;
         const avPrices = await fetchAvPrices();
         let avTotal = AV_CASH;
         AV_HOLDINGS.forEach((h, i) => { avTotal += (avPrices[i] ?? h.lastPrice) * h.qty; });
         liveValues.boursovie = avTotal;
         avPricesCache = AV_HOLDINGS.map((h, i) => avPrices[i] ?? h.lastPrice);
+        await writeAvCoursToSheet(avPrices);
 
         // PEA live
         if (accessToken) {
@@ -2035,11 +2038,14 @@ async function loadData() {
           liveBtcPrice = btcData.bitcoin.eur;
           liveValues.cto = BTC_QTY * liveBtcPrice;
 
+          const avFromSheet2 = await readAvHoldingsFromSheet();
+          if (avFromSheet2) AV_HOLDINGS = avFromSheet2;
           const avPrices = await fetchAvPrices();
           let avTotal = AV_CASH;
           AV_HOLDINGS.forEach((h, i) => { avTotal += (avPrices[i] ?? h.lastPrice) * h.qty; });
           liveValues.boursovie = avTotal;
           avPricesCache = AV_HOLDINGS.map((h, i) => avPrices[i] ?? h.lastPrice);
+          await writeAvCoursToSheet(avPrices);
 
           if (accessToken) {
             await preFetchPeaPrices();
@@ -3707,38 +3713,45 @@ async function ensurePeaCoursTab(sheetId) {
   }
 }
 
-// Seed sector compositions into FundCompo/FundCompoPEA if missing
+// Seed sector+geo compositions into FundCompo/FundCompoPEA if missing
 async function seedFundCompoSector(sheetId) {
   // Toujours appliquer FUND_SECTOR_SEED en JS (source de vérité)
   let needWrite = false;
-  Object.entries(FUND_SECTOR_SEED).forEach(([isin, { sector }]) => {
+  const DIMS = ['sector', 'geo'];
+  Object.entries(FUND_SECTOR_SEED).forEach(([isin, entry]) => {
     if (!fundComposition[isin]) fundComposition[isin] = {};
-    const cur = fundComposition[isin].sector;
-    const match = cur && Object.keys(sector).every(k => cur[k] === sector[k]) && Object.keys(cur).length === Object.keys(sector).length;
-    if (!match) needWrite = true;
-    fundComposition[isin].sector = { ...sector };
+    DIMS.forEach(dim => {
+      if (!entry[dim]) return;
+      const cur = fundComposition[isin][dim];
+      const match = cur && Object.keys(entry[dim]).every(k => cur[k] === entry[dim][k]) && Object.keys(cur).length === Object.keys(entry[dim]).length;
+      if (!match) needWrite = true;
+      fundComposition[isin][dim] = { ...entry[dim] };
+    });
   });
 
   if (!needWrite || !sheetId || !accessToken) return;
 
-  // Réécrire les lignes sector dans le Sheet
+  // Réécrire les lignes sector+geo dans le Sheet
   const byTab = {};
-  Object.entries(FUND_SECTOR_SEED).forEach(([isin, { tab, sector }]) => {
-    if (!byTab[tab]) byTab[tab] = [];
-    Object.entries(sector).forEach(([cat, poids]) => {
-      byTab[tab].push([isin, 'sector', cat, poids]);
+  Object.entries(FUND_SECTOR_SEED).forEach(([isin, entry]) => {
+    if (!byTab[entry.tab]) byTab[entry.tab] = [];
+    DIMS.forEach(dim => {
+      if (!entry[dim]) return;
+      Object.entries(entry[dim]).forEach(([cat, poids]) => {
+        byTab[entry.tab].push([isin, dim, cat, poids]);
+      });
     });
   });
 
   for (const [tab, rows] of Object.entries(byTab)) {
     try {
-      // Lire les lignes existantes, filtrer les anciennes sector de nos ISINs, puis réécrire tout
       const existing = (await sheetsRead(sheetId, `'${tab}'!A2:D`) || []);
       const seedIsins = new Set(Object.keys(FUND_SECTOR_SEED).filter(i => FUND_SECTOR_SEED[i].tab === tab));
-      const kept = existing.filter(r => !(seedIsins.has(r[0]) && r[1] === 'sector'));
+      const seedDims = new Set(DIMS);
+      const kept = existing.filter(r => !(seedIsins.has(r[0]) && seedDims.has(r[1])));
       const merged = [...kept, ...rows];
       await sheetsUpdate(sheetId, `'${tab}'!A2:D${merged.length + 1}`, merged);
-      console.log(`[FundCompo] ${tab} réécrit avec ${rows.length} lignes sector mises à jour`);
+      console.log(`[FundCompo] ${tab} réécrit avec ${rows.length} lignes mises à jour`);
     } catch (e) { console.warn(`[FundCompo] seed ${tab}:`, e.message); }
   }
 }
@@ -3771,6 +3784,43 @@ async function readPeaPricesFromSheet(count) {
     console.warn('readPeaPrices:', e.message);
     return null;
   }
+}
+
+const AV_HOLDINGS_TAB = 'AV_Holdings';
+const AV_COURS_TAB    = 'AV_Cours';
+
+async function readAvHoldingsFromSheet() {
+  const cfg = getConfig();
+  if (!cfg.targetId || !accessToken) return null;
+  try {
+    const rows = await sheetsRead(cfg.targetId, `'${AV_HOLDINGS_TAB}'!A2:G`);
+    if (!rows || !rows.length) return null;
+    // Lire les prix du cache AV_Cours pour lastPrice
+    const coursRows = await sheetsRead(cfg.targetId, `'${AV_COURS_TAB}'!A2:B`).catch(() => []);
+    const coursMap  = new Map((coursRows || []).map(r => [r[0], parseFloat(r[1]) || 0]));
+    return rows.map(r => ({
+      isin:      r[0] || '',
+      name:      r[1] || '',
+      qty:       parseFloat(r[2]) || 0,
+      pxRevient: parseFloat(r[3]) || 0,
+      lastPrice: coursMap.get(r[0]) || parseFloat(r[3]) || 0,
+      sector:    r[5] || '',
+      geo:       r[6] || '',
+    })).filter(h => h.isin && h.name);
+  } catch(e) {
+    console.warn('readAvHoldings:', e.message);
+    return null;
+  }
+}
+
+async function writeAvCoursToSheet(prices) {
+  const cfg = getConfig();
+  if (!cfg.targetId || !accessToken) return;
+  try {
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const values = AV_HOLDINGS.map((h, i) => [h.isin, prices[i] ?? '', prices[i] != null ? now : '']);
+    await sheetsUpdate(cfg.targetId, `'${AV_COURS_TAB}'!A2:C${1 + values.length}`, values);
+  } catch(e) { console.warn('writeAvCours:', e.message); }
 }
 
 const PEA_HOLDINGS_TAB = 'PEA_Holdings';
@@ -4675,15 +4725,7 @@ function _drawPeaSubChart(sub) {
 }
 
 // ============== BOURSOVIE / ASSURANCE VIE ==============
-const AV_HOLDINGS = [
-  { name: 'AXA Or et Matières Premières C', isin: 'FR0010011171', qty: 1.1134, pxRevient: 66.87,   lastPrice: 125.48,  sector: 'Matières premières', geo: 'Global'       },
-  { name: 'Lazard Actions Emergentes R',     isin: 'FR0010380675', qty: 0.0315, pxRevient: 2058.41, lastPrice: 2629.20, sector: 'Actions',            geo: 'Émergents'    },
-  { name: 'Amundi MSCI All Country World',   isin: 'LU1829220216', qty: 0.1187, pxRevient: 501.76,  lastPrice: 533.18,  sector: 'ETF Diversifié',     geo: 'Monde'        },
-  { name: 'Amundi EURO STOXX 50 II',         isin: 'FR0007054358', qty: 0.8256, pxRevient: 60.13,   lastPrice: 63.83,   sector: 'ETF Actions',        geo: 'Europe'       },
-  { name: 'Amundi Nasdaq-100 II',            isin: 'LU1829221024', qty: 0.6048, pxRevient: 82.07,   lastPrice: 86.83,   sector: 'Technologie',        geo: 'États-Unis'   },
-  { name: 'JPM Global Healthcare',           isin: 'LU0880062913', qty: 0.1354, pxRevient: 293.54,  lastPrice: 275.84,  sector: 'Santé',              geo: 'Global'       },
-  { name: 'iShares Digital Security ETF',    isin: 'IE00BG0J4C88', qty: 4.4182, pxRevient: 8.99,    lastPrice: 8.38,    sector: 'Technologie',        geo: 'Global'       },
-];
+let AV_HOLDINGS = []; // chargé depuis AV_Holdings Google Sheet
 const AV_CASH = 300;
 
 let avPricesCache    = null;
